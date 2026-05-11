@@ -2,6 +2,9 @@
 
 export type AnimalStatus = "activo" | "vendido" | "muerto" | "enfermo";
 
+/** Origen del movimiento de compra (alineado a factura / remate). */
+export type AcquisitionType = "subasta" | "particular" | "otro";
+
 export interface Animal {
   id: string;
   tagId: string;
@@ -13,12 +16,67 @@ export interface Animal {
   status: AnimalStatus;
   sex: "M" | "H";
   age: number; // months
+  /** Subasta, compra directa, etc. */
+  acquisitionType?: AcquisitionType;
+  /** Folio o número de factura (referencia al comprobante). */
+  invoiceFolio?: string;
+  /** Fecha del remate o de la factura de compra. */
+  invoiceOrAuctionDate?: string;
+  /** Número de lote en la subasta. */
+  auctionLotNumber?: string;
+  /** Precio de compra al remate ($/kg) — base para valor de inventario. */
+  purchasePricePerKg?: number;
 }
 
 export const animals: Animal[] = [
-  { id: "1", tagId: "BV-001", breed: "Angus", entryDate: "2024-10-01", initialWeight: 220, currentWeight: 385, moduleId: "M1", status: "activo", sex: "M", age: 18 },
-  { id: "2", tagId: "BV-002", breed: "Simmental", entryDate: "2024-10-01", initialWeight: 235, currentWeight: 402, moduleId: "M1", status: "activo", sex: "M", age: 20 },
-  { id: "3", tagId: "BV-003", breed: "Brahman", entryDate: "2024-10-05", initialWeight: 210, currentWeight: 358, moduleId: "M1", status: "activo", sex: "M", age: 17 },
+  {
+    id: "1",
+    tagId: "BV-001",
+    breed: "Angus",
+    entryDate: "2024-10-01",
+    initialWeight: 220,
+    currentWeight: 385,
+    moduleId: "M1",
+    status: "activo",
+    sex: "M",
+    age: 18,
+    acquisitionType: "subasta",
+    invoiceFolio: "410756",
+    invoiceOrAuctionDate: "2024-09-28",
+    auctionLotNumber: "L-12",
+    purchasePricePerKg: 52.5,
+  },
+  {
+    id: "2",
+    tagId: "BV-002",
+    breed: "Simmental",
+    entryDate: "2024-10-01",
+    initialWeight: 235,
+    currentWeight: 402,
+    moduleId: "M1",
+    status: "activo",
+    sex: "M",
+    age: 20,
+    acquisitionType: "subasta",
+    invoiceFolio: "410756",
+    invoiceOrAuctionDate: "2024-09-28",
+    auctionLotNumber: "L-12",
+    purchasePricePerKg: 52.5,
+  },
+  {
+    id: "3",
+    tagId: "BV-003",
+    breed: "Brahman",
+    entryDate: "2024-10-05",
+    initialWeight: 210,
+    currentWeight: 358,
+    moduleId: "M1",
+    status: "activo",
+    sex: "M",
+    age: 17,
+    acquisitionType: "particular",
+    purchasePricePerKg: 48.0,
+  },
   { id: "4", tagId: "BV-004", breed: "Charolais", entryDate: "2024-10-05", initialWeight: 245, currentWeight: 420, moduleId: "M2", status: "activo", sex: "M", age: 22 },
   { id: "5", tagId: "BV-005", breed: "Hereford", entryDate: "2024-10-10", initialWeight: 228, currentWeight: 375, moduleId: "M2", status: "activo", sex: "M", age: 19 },
   { id: "6", tagId: "BV-006", breed: "Angus", entryDate: "2024-10-10", initialWeight: 218, currentWeight: 340, moduleId: "M2", status: "enfermo", sex: "M", age: 16 },

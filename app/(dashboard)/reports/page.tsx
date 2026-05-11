@@ -3,8 +3,9 @@
 import { useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import {
-  ComposedChart,
+  BarChart,
   Bar,
+  LineChart,
   Line,
   XAxis,
   YAxis,
@@ -12,6 +13,7 @@ import {
   Tooltip,
   Legend,
   ResponsiveContainer,
+  ReferenceLine,
 } from "recharts";
 import { monthlyFinancials, kpiSummary, animals, costs, feedTypes } from "@/lib/mockData";
 import { formatCurrency, formatNumber } from "@/lib/utils";
@@ -29,13 +31,22 @@ export default function ReportsPage() {
   const feedEfficiency = feedTypes.reduce((s, f) => s + f.dailyConsumption, 0);
   const costPerAnimal = totalCost / animals.length;
 
-  /** El eje Y debe cruzar siempre 0; si no, Recharts usa el mínimo del dominio como base y las barras “flotan”. */
-  const financialYDomain = useMemo((): [number, number] => {
-    const values = monthlyFinancials.flatMap((d) => [d.costs, d.revenue, d.profit]);
-    const rawMin = Math.min(...values, 0);
-    const rawMax = Math.max(...values, 0);
+  /** Eje solo para barras (montos positivos): las barras arrancan desde 0 y no comparten escala con la utilidad. */
+  const barYMax = useMemo(() => {
+    const peak = Math.max(
+      ...monthlyFinancials.flatMap((d) => [d.costs, d.revenue]),
+      1
+    );
+    return peak * 1.08;
+  }, []);
+
+  /** Eje dedicado a utilidad (puede ser negativa); incluye 0 y línea de referencia. */
+  const profitYDomain = useMemo((): [number, number] => {
+    const profits = monthlyFinancials.map((d) => d.profit);
+    const rawMin = Math.min(...profits, 0);
+    const rawMax = Math.max(...profits, 0);
     const span = Math.max(rawMax - rawMin, 1);
-    const pad = span * 0.06;
+    const pad = span * 0.1;
     return [rawMin - pad, rawMax + pad];
   }, []);
 
@@ -81,35 +92,80 @@ export default function ReportsPage() {
           <CardTitle>Flujo Financiero Mensual</CardTitle>
           <CardDescription>Costos, ingresos y utilidad por mes</CardDescription>
         </CardHeader>
-        <CardContent>
-          <ResponsiveContainer width="100%" height={320}>
-            <ComposedChart data={monthlyFinancials} margin={{ top: 5, right: 10, left: 4, bottom: 5 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false} />
-              <XAxis dataKey="month" tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
-              <YAxis
-                domain={financialYDomain}
-                tick={{ fontSize: 11 }}
-                axisLine={false}
-                tickLine={false}
-                tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`}
-              />
-              <Tooltip
-                contentStyle={{ borderRadius: "12px", border: "1px solid #e5e7eb", fontSize: 12 }}
-                formatter={(value, name) => [formatCurrency(Number(value ?? 0)), name as string]}
-              />
-              <Legend formatter={(v) => <span style={{ fontSize: 12 }}>{v}</span>} />
-              <Bar dataKey="costs" name="Costos" fill="#ef4444" radius={[4, 4, 0, 0]} opacity={0.85} />
-              <Bar dataKey="revenue" name="Ingresos" fill="#16a34a" radius={[4, 4, 0, 0]} opacity={0.85} />
-              <Line
-                type="monotone"
-                dataKey="profit"
-                name="Utilidad"
-                stroke="#2563eb"
-                strokeWidth={2.5}
-                dot={{ r: 4, fill: "#2563eb", strokeWidth: 0 }}
-              />
-            </ComposedChart>
-          </ResponsiveContainer>
+        <CardContent className="space-y-4">
+          <p className="text-xs text-muted-foreground">
+            Costos e ingresos (arriba) y utilidad neta (abajo) usan escalas distintas para que la línea no cruce las barras.
+          </p>
+          <div className="rounded-xl border bg-card/50 overflow-hidden">
+            <div className="border-b bg-muted/30 px-3 py-2">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                Costos vs ingresos
+              </p>
+            </div>
+            <ResponsiveContainer width="100%" height={200}>
+              <BarChart
+                data={monthlyFinancials}
+                margin={{ top: 12, right: 12, left: 0, bottom: 4 }}
+                syncId="flujoFinanciero"
+              >
+                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false} />
+                <XAxis dataKey="month" tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
+                <YAxis
+                  domain={[0, barYMax]}
+                  tick={{ fontSize: 11 }}
+                  axisLine={false}
+                  tickLine={false}
+                  tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`}
+                  width={44}
+                />
+                <Tooltip
+                  contentStyle={{ borderRadius: "12px", border: "1px solid #e5e7eb", fontSize: 12 }}
+                  formatter={(value, name) => [formatCurrency(Number(value ?? 0)), name as string]}
+                />
+                <Legend formatter={(v) => <span style={{ fontSize: 12 }}>{v}</span>} />
+                <Bar dataKey="costs" name="Costos" fill="#ef4444" radius={[4, 4, 0, 0]} maxBarSize={40} />
+                <Bar dataKey="revenue" name="Ingresos" fill="#16a34a" radius={[4, 4, 0, 0]} maxBarSize={40} />
+              </BarChart>
+            </ResponsiveContainer>
+            <div className="border-t bg-muted/30 px-3 py-2">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                Utilidad neta por mes
+              </p>
+            </div>
+            <ResponsiveContainer width="100%" height={180}>
+              <LineChart
+                data={monthlyFinancials}
+                margin={{ top: 12, right: 12, left: 0, bottom: 8 }}
+                syncId="flujoFinanciero"
+              >
+                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false} />
+                <XAxis dataKey="month" tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
+                <YAxis
+                  domain={profitYDomain}
+                  tick={{ fontSize: 11 }}
+                  axisLine={false}
+                  tickLine={false}
+                  tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`}
+                  width={44}
+                />
+                <ReferenceLine y={0} stroke="#94a3b8" strokeDasharray="4 4" />
+                <Tooltip
+                  contentStyle={{ borderRadius: "12px", border: "1px solid #e5e7eb", fontSize: 12 }}
+                  formatter={(value, name) => [formatCurrency(Number(value ?? 0)), name as string]}
+                />
+                <Legend formatter={(v) => <span style={{ fontSize: 12 }}>{v}</span>} />
+                <Line
+                  type="monotone"
+                  dataKey="profit"
+                  name="Utilidad"
+                  stroke="#2563eb"
+                  strokeWidth={2.5}
+                  dot={{ r: 4, fill: "#2563eb", strokeWidth: 0 }}
+                  activeDot={{ r: 6 }}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
         </CardContent>
       </Card>
 

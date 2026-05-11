@@ -23,9 +23,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { useStore } from "@/store/useStore";
-import { formatDate } from "@/lib/utils";
-import { Plus, Search, Filter, Beef } from "lucide-react";
-import { Animal, AnimalStatus } from "@/lib/mockData";
+import { formatCurrency, formatDate } from "@/lib/utils";
+import { Plus, Search, Filter, Beef, Gavel } from "lucide-react";
+import { AnimalStatus, AcquisitionType } from "@/lib/mockData";
 
 const statusConfig = {
   activo: { label: "Activo", variant: "success" as const },
@@ -47,6 +47,17 @@ const defaultForm = {
   status: "activo" as AnimalStatus,
   sex: "M" as "M" | "H",
   age: "",
+  acquisitionType: "subasta" as AcquisitionType,
+  invoiceFolio: "",
+  invoiceOrAuctionDate: "",
+  auctionLotNumber: "",
+  purchasePricePerKg: "",
+};
+
+const acquisitionLabel: Record<AcquisitionType, string> = {
+  subasta: "Subasta",
+  particular: "Particular",
+  otro: "Otro",
 };
 
 export default function AnimalsPage() {
@@ -66,17 +77,42 @@ export default function AnimalsPage() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    const purchasePk = form.purchasePricePerKg.trim();
     addAnimal({
-      ...form,
+      tagId: form.tagId,
+      breed: form.breed,
+      entryDate: form.entryDate,
       initialWeight: Number(form.initialWeight),
       currentWeight: Number(form.currentWeight),
-      age: Number(form.age),
+      moduleId: form.moduleId,
+      status: form.status,
+      sex: form.sex,
+      age: Number(form.age) || 0,
+      acquisitionType: form.acquisitionType,
+      invoiceFolio: form.invoiceFolio.trim() || undefined,
+      invoiceOrAuctionDate: form.invoiceOrAuctionDate.trim() || undefined,
+      auctionLotNumber: form.auctionLotNumber.trim() || undefined,
+      purchasePricePerKg: purchasePk ? Number(purchasePk) : undefined,
     });
     setForm(defaultForm);
     setOpen(false);
   };
 
   const countByStatus = (status: AnimalStatus) => animals.filter((a) => a.status === status).length;
+
+  const countSubasta = animals.filter((a) => a.acquisitionType === "subasta").length;
+  const countWithInvoiceFolio = animals.filter((a) => (a.invoiceFolio ?? "").trim().length > 0).length;
+  const countWithLot = animals.filter((a) => (a.auctionLotNumber ?? "").trim().length > 0).length;
+  const purchaseInventoryValue = animals.reduce((sum, a) => {
+    const p = a.purchasePricePerKg;
+    if (p == null || Number.isNaN(p)) return sum;
+    return sum + p * a.initialWeight;
+  }, 0);
+  const avgPurchasePricePerKg = (() => {
+    const priced = animals.filter((a) => a.purchasePricePerKg != null && !Number.isNaN(a.purchasePricePerKg!));
+    if (priced.length === 0) return 0;
+    return priced.reduce((s, a) => s + (a.purchasePricePerKg as number), 0) / priced.length;
+  })();
 
   return (
     <div className="space-y-6">
@@ -95,7 +131,7 @@ export default function AnimalsPage() {
               Agregar Animal
             </button>
           </DialogTrigger>
-          <DialogContent className="max-w-md">
+          <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
                 <Beef className="h-5 w-5 text-emerald-600" />
@@ -186,30 +222,98 @@ export default function AnimalsPage() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="moduleId">Módulo</Label>
+                    <Select
+                      id="moduleId"
+                      value={form.moduleId}
+                      onChange={(e) => setForm({ ...form, moduleId: e.target.value })}
+                    >
+                      {moduleIds.map((m) => <option key={m} value={m}>{m}</option>)}
+                    </Select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="status">Estado</Label>
+                    <Select
+                      id="status"
+                      value={form.status}
+                      onChange={(e) => setForm({ ...form, status: e.target.value as AnimalStatus })}
+                    >
+                      <option value="activo">Activo</option>
+                      <option value="enfermo">Enfermo</option>
+                      <option value="vendido">Vendido</option>
+                      <option value="muerto">Muerto</option>
+                    </Select>
+                  </div>
+                </div>
+
+              <div className="rounded-xl border bg-muted/20 p-3 space-y-3">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
+                  <Gavel className="h-3.5 w-3.5" />
+                  Compra / subasta (como en factura o boleto de remate)
+                </p>
                 <div className="space-y-1.5">
-                  <Label htmlFor="moduleId">Módulo</Label>
+                  <Label htmlFor="acquisitionType">Origen de compra</Label>
                   <Select
-                    id="moduleId"
-                    value={form.moduleId}
-                    onChange={(e) => setForm({ ...form, moduleId: e.target.value })}
+                    id="acquisitionType"
+                    value={form.acquisitionType}
+                    onChange={(e) =>
+                      setForm({ ...form, acquisitionType: e.target.value as AcquisitionType })
+                    }
                   >
-                    {moduleIds.map((m) => <option key={m} value={m}>{m}</option>)}
+                    <option value="subasta">Subasta ganadera</option>
+                    <option value="particular">Particular</option>
+                    <option value="otro">Otro</option>
                   </Select>
                 </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="status">Estado</Label>
-                  <Select
-                    id="status"
-                    value={form.status}
-                    onChange={(e) => setForm({ ...form, status: e.target.value as AnimalStatus })}
-                  >
-                    <option value="activo">Activo</option>
-                    <option value="enfermo">Enfermo</option>
-                    <option value="vendido">Vendido</option>
-                    <option value="muerto">Muerto</option>
-                  </Select>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="invoiceFolio">Folio de factura</Label>
+                    <Input
+                      id="invoiceFolio"
+                      placeholder="p. ej. 410756"
+                      value={form.invoiceFolio}
+                      onChange={(e) => setForm({ ...form, invoiceFolio: e.target.value })}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="invoiceOrAuctionDate">Fecha factura / remate</Label>
+                    <Input
+                      id="invoiceOrAuctionDate"
+                      type="date"
+                      value={form.invoiceOrAuctionDate}
+                      onChange={(e) => setForm({ ...form, invoiceOrAuctionDate: e.target.value })}
+                    />
+                  </div>
                 </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="auctionLotNumber">No. de lote (subasta)</Label>
+                    <Input
+                      id="auctionLotNumber"
+                      placeholder="L-12"
+                      value={form.auctionLotNumber}
+                      onChange={(e) => setForm({ ...form, auctionLotNumber: e.target.value })}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="purchasePricePerKg">Precio compra ($/kg)</Label>
+                    <Input
+                      id="purchasePricePerKg"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      placeholder="52.50"
+                      value={form.purchasePricePerKg}
+                      onChange={(e) => setForm({ ...form, purchasePricePerKg: e.target.value })}
+                    />
+                  </div>
+                </div>
+                <p className="text-[11px] text-muted-foreground leading-snug">
+                  En subasta suelen registrarse lote, folio de factura, fecha del remate y precio por kg
+                  (báscula). Sirve para trazabilidad y valor de inventario al ingreso.
+                </p>
               </div>
 
               <DialogFooter className="mt-4">
@@ -245,6 +349,32 @@ export default function AnimalsPage() {
             <p className="text-sm font-medium mt-0.5">{label}</p>
           </div>
         ))}
+      </div>
+
+      {/* Compra / subasta — estadísticas */}
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+        <div className="rounded-xl border p-4 bg-slate-50 text-slate-800 border-slate-200">
+          <p className="text-2xl font-bold">{countSubasta}</p>
+          <p className="text-sm font-medium mt-0.5">Ingreso vía subasta</p>
+        </div>
+        <div className="rounded-xl border p-4 bg-slate-50 text-slate-800 border-slate-200">
+          <p className="text-2xl font-bold">{countWithLot}</p>
+          <p className="text-sm font-medium mt-0.5">Con no. de lote</p>
+        </div>
+        <div className="rounded-xl border p-4 bg-slate-50 text-slate-800 border-slate-200">
+          <p className="text-2xl font-bold">{countWithInvoiceFolio}</p>
+          <p className="text-sm font-medium mt-0.5">Con folio factura</p>
+        </div>
+        <div className="rounded-xl border p-4 bg-slate-50 text-slate-800 border-slate-200 lg:col-span-1">
+          <p className="text-lg font-bold tabular-nums">{formatCurrency(purchaseInventoryValue)}</p>
+          <p className="text-sm font-medium mt-0.5">Valor compra (peso inicial × $/kg)</p>
+        </div>
+        <div className="rounded-xl border p-4 bg-slate-50 text-slate-800 border-slate-200 col-span-2 lg:col-span-1">
+          <p className="text-lg font-bold tabular-nums">
+            {avgPurchasePricePerKg > 0 ? formatCurrency(avgPurchasePricePerKg) + "/kg" : "—"}
+          </p>
+          <p className="text-sm font-medium mt-0.5">Precio compra prom. ($/kg)</p>
+        </div>
       </div>
 
       {/* Filters */}
@@ -289,13 +419,17 @@ export default function AnimalsPage() {
                 <TableHead>Peso Act.</TableHead>
                 <TableHead className="hidden sm:table-cell">Ganancia</TableHead>
                 <TableHead className="hidden md:table-cell">Módulo</TableHead>
+                <TableHead className="hidden xl:table-cell">Origen</TableHead>
+                <TableHead className="hidden xl:table-cell">Lote</TableHead>
+                <TableHead className="hidden xl:table-cell">Factura</TableHead>
+                <TableHead className="hidden 2xl:table-cell text-right">$/kg compra</TableHead>
                 <TableHead>Estado</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {filtered.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={13} className="text-center py-8 text-muted-foreground">
                     No se encontraron animales con los filtros aplicados.
                   </TableCell>
                 </TableRow>
@@ -320,6 +454,22 @@ export default function AnimalsPage() {
                       </TableCell>
                       <TableCell className="hidden md:table-cell">
                         <span className="text-xs bg-muted px-2 py-0.5 rounded-lg font-medium">{animal.moduleId}</span>
+                      </TableCell>
+                      <TableCell className="hidden xl:table-cell text-xs text-muted-foreground">
+                        {animal.acquisitionType
+                          ? acquisitionLabel[animal.acquisitionType]
+                          : "—"}
+                      </TableCell>
+                      <TableCell className="hidden xl:table-cell font-mono text-xs">
+                        {animal.auctionLotNumber ?? "—"}
+                      </TableCell>
+                      <TableCell className="hidden xl:table-cell font-mono text-xs">
+                        {animal.invoiceFolio ?? "—"}
+                      </TableCell>
+                      <TableCell className="hidden 2xl:table-cell text-right text-xs tabular-nums">
+                        {animal.purchasePricePerKg != null
+                          ? formatCurrency(animal.purchasePricePerKg)
+                          : "—"}
                       </TableCell>
                       <TableCell>
                         <Badge variant={status.variant}>{status.label}</Badge>

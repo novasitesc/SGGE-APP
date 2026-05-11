@@ -14,6 +14,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Tractor,
+  Settings2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useStore } from "@/store/useStore";
@@ -27,6 +28,10 @@ const navItems = [
   { label: "Salud", href: "/health", icon: HeartPulse },
   { label: "Ventas", href: "/sales", icon: ShoppingCart },
   { label: "Reportes", href: "/reports", icon: BarChart3 },
+];
+
+const adminItems = [
+  { label: "Gestión de Datos", href: "/gestion", icon: Settings2 },
 ];
 
 export default function Sidebar() {
@@ -61,6 +66,37 @@ export default function Sidebar() {
       {/* Navigation */}
       <nav className="flex-1 overflow-y-auto py-4 px-2 space-y-1">
         {navItems.map((item) => {
+          const active = pathname === item.href || pathname.startsWith(item.href + "/");
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              title={!sidebarOpen ? item.label : undefined}
+              className={cn(
+                "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors",
+                active
+                  ? "bg-sidebar-primary text-white"
+                  : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground",
+                !sidebarOpen && "justify-center px-2"
+              )}
+            >
+              <item.icon className={cn("shrink-0", sidebarOpen ? "h-4 w-4" : "h-5 w-5")} />
+              {sidebarOpen && <span className="truncate">{item.label}</span>}
+            </Link>
+          );
+        })}
+
+        {/* Separator */}
+        <div className={cn("pt-2 pb-1", sidebarOpen ? "px-3" : "px-1")}>
+          <div className="border-t border-sidebar-border" />
+          {sidebarOpen && (
+            <p className="text-[10px] font-semibold uppercase tracking-widest text-sidebar-foreground/40 mt-2 px-0">
+              Administración
+            </p>
+          )}
+        </div>
+
+        {adminItems.map((item) => {
           const active = pathname === item.href || pathname.startsWith(item.href + "/");
           return (
             <Link
