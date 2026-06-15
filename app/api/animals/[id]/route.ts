@@ -1,14 +1,53 @@
 import { createSupabaseAdmin } from "@/lib/supabase/admin";
-import { resolveFarmId, isUuid } from "@/lib/api/farm";
+import { resolveGranjaId, isUuid, getSystemUserId } from "@/lib/api/granja";
 import { jsonError, jsonOk } from "@/lib/api/http";
-import { mapAnimalToApi, type AnimalRow } from "@/lib/api/mappers";
+import { mapAnimalToApi } from "@/lib/api/mappers";
 import {
-  countActiveAnimalsInModule,
-  getModuleCapacity,
-  getModuleIdByCode,
-} from "@/lib/api/modules-helpers";
+  ANIMAL_SELECT,
+  findRazaId,
+  normalizeAnimalRow,
+} from "@/lib/api/animales-query";
+import {
+  countActiveAnimalsInCorral,
+  getCorralCapacity,
+  getCorralIdByCodigo,
+  getEstadoIdByCodigo,
+  adjustCorralOcupacion,
+} from "@/lib/api/corrales-helpers";
+import { registrarVentaAnimal } from "@/lib/api/venta-animal";
+import {
+  buildCambiosResumen,
+  registrarHistorialAnimal,
+  snapshotFromAnimalRow,
+  snapshotFromApiBody,
+} from "@/lib/api/historial-animal";
+import { fetchCompraForAnimal } from "@/lib/api/compra-animal";
+import { fetchActasForAnimal } from "@/lib/api/actas-animal";
+import { normalizeWeightKg } from "@/lib/api/weight-utils";
+import { upsertPesajeAnimal } from "@/lib/api/pesaje-utils";
 
 export const dynamic = "force-dynamic";
+
+function computeMetrics(
+  fechaIngreso: string,
+  pesoInicial: number,
+  pesoActual: number
+) {
+  const start = new Date(fechaIngreso + "T12:00:00Z").getTime();
+  const days = Math.max(1, Math.round((Date.now() - start) / 86400000));
+  const gainKg = Math.round((pesoActual - pesoInicial) * 10) / 10;
+  const adg = Math.round((gainKg / days) * 1000) / 1000;
+  return { gainKg, daysInFeedlot: days, adg };
+}
+
+function permissionsForStatus(statusCodigo: string, hasVenta: boolean) {
+  const isFinal = statusCodigo === "vendido" || statusCodigo === "muerto";
+  return {
+    canEdit: !isFinal,
+    canDelete: !isFinal && !hasVenta,
+    canChangeArete: !hasVenta && statusCodigo !== "vendido",
+  };
+}
 
 type PatchBody = Partial<{
   tagId: string;
@@ -20,12 +59,118 @@ type PatchBody = Partial<{
   status: string;
   sex: string;
   age: number;
-  acquisitionType: string | null;
-  invoiceFolio: string | null;
-  invoiceOrAuctionDate: string | null;
-  auctionLotNumber: string | null;
-  purchasePricePerKg: number | null;
+  observaciones: string;
+  saleDate: string;
+  salePricePerKg: number;
+  saleBuyer: string;
 }>;
+
+export async function GET(
+  req: Request,
+  ctx: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await ctx.params;
+    if (!isUuid(id)) return jsonError("id de animal inválido.");
+
+    const admin = createSupabaseAdmin();
+    const url = new URL(req.url);
+    const granjaId = await resolveGranjaId(
+      admin,
+      url.searchParams.get("farmId") ?? url.searchParams.get("granjaId")
+    );
+
+    const { data: row, error } = await admin
+      .from("animales")
+      .select(ANIMAL_SELECT)
+      .eq("granja_id", granjaId)
+      .eq("id", id)
+      .is("deleted_at", null)
+      .maybeSingle();
+    if (error) throw new Error(error.message);
+    if (!row) return jsonError("Animal no encontrado.", 404);
+
+    const normalized = normalizeAnimalRow(row as Record<string, unknown>);
+    const raw = row as Record<string, unknown>;
+
+    const [{ data: pesajes }, { data: ventaDetalle }, actas] = await Promise.all([
+      admin
+        .from("pesajes")
+        .select("id, fecha_pesaje, peso_kg, tipo_pesaje")
+        .eq("animal_id", id)
+        .is("deleted_at", null)
+        .order("fecha_pesaje", { ascending: false }),
+      admin
+        .from("detalle_ventas")
+        .select(
+          "id, peso_salida_kg, precio_kg, subtotal, ventas ( fecha_venta, clientes ( razon_social ) )"
+        )
+        .eq("animal_id", id)
+        .maybeSingle(),
+      fetchActasForAnimal(admin, id).catch(() => []),
+    ]);
+
+    const statusCodigo = normalized.estados_animales?.codigo ?? "activo";
+    const hasVenta = !!ventaDetalle;
+
+    const ventaRaw = ventaDetalle as Record<string, unknown> | null;
+    const ventaJoin = ventaRaw?.ventas as
+      | { fecha_venta: string; clientes: { razon_social: string } | null }
+      | { fecha_venta: string; clientes: { razon_social: string } | null }[]
+      | null;
+    const ventaInfo = Array.isArray(ventaJoin) ? ventaJoin[0] : ventaJoin;
+
+    const sale = ventaDetalle
+      ? {
+          saleDate: ventaInfo?.fecha_venta ?? "",
+          buyer: ventaInfo?.clientes?.razon_social ?? "",
+          pricePerKg: Number(ventaDetalle.precio_kg),
+          totalRevenue: Number(ventaDetalle.subtotal),
+          pesoSalidaKg: Number(ventaDetalle.peso_salida_kg),
+        }
+      : undefined;
+
+    const purchase = await fetchCompraForAnimal(admin, normalized.compra_detalle_id);
+
+    const margin =
+      purchase && sale
+        ? {
+            perKg: Math.round((sale.pricePerKg - purchase.pricePerKg) * 100) / 100,
+            total: Math.round((sale.totalRevenue - purchase.totalCost) * 100) / 100,
+            pct:
+              purchase.totalCost > 0
+                ? Math.round(
+                    ((sale.totalRevenue - purchase.totalCost) / purchase.totalCost) * 10000
+                  ) / 100
+                : null,
+          }
+        : undefined;
+
+    return jsonOk({
+      ...mapAnimalToApi(normalized, purchase),
+      observaciones: (raw.observaciones as string | null) ?? undefined,
+      purchase: purchase ?? undefined,
+      margin,
+      metrics: computeMetrics(
+        normalized.fecha_ingreso,
+        Number(normalized.peso_inicial_kg),
+        Number(normalized.peso_actual_kg)
+      ),
+      pesajes: (pesajes ?? []).map((p) => ({
+        id: p.id,
+        fecha: p.fecha_pesaje,
+        pesoKg: Number(p.peso_kg),
+        tipo: p.tipo_pesaje,
+      })),
+      actas,
+      sale,
+      permissions: permissionsForStatus(statusCodigo, hasVenta),
+    });
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "Error desconocido";
+    return jsonError(msg, 500);
+  }
+}
 
 export async function PATCH(
   req: Request,
@@ -37,105 +182,196 @@ export async function PATCH(
 
     const admin = createSupabaseAdmin();
     const url = new URL(req.url);
-    const farmId = await resolveFarmId(admin, url.searchParams.get("farmId"));
+    const granjaId = await resolveGranjaId(
+      admin,
+      url.searchParams.get("farmId") ?? url.searchParams.get("granjaId")
+    );
     const body = (await req.json()) as PatchBody;
 
     const { data: current, error: e0 } = await admin
-      .from("animals")
-      .select("*")
-      .eq("farm_id", farmId)
+      .from("animales")
+      .select(`${ANIMAL_SELECT}, estado_id, corral_id, observaciones`)
+      .eq("granja_id", granjaId)
       .eq("id", id)
+      .is("deleted_at", null)
       .maybeSingle();
     if (e0) throw new Error(e0.message);
     if (!current) return jsonError("Animal no encontrado.", 404);
 
-    let moduleUuid: string | null = current.module_id;
+    const normalized = normalizeAnimalRow(current as Record<string, unknown>);
+    const cur = {
+      ...normalized,
+      estado_id: (current as { estado_id: string }).estado_id,
+      corral_id: (current as { corral_id: string | null }).corral_id,
+    };
 
-    if (body.moduleId != null) {
-      const code = body.moduleId.trim();
-      const found = await getModuleIdByCode(admin, farmId, code);
-      if (!found) return jsonError(`Módulo '${code}' no existe.`);
-      moduleUuid = found;
-    }
-
-    const nextStatus = (body.status ?? current.status) as string;
-    const nextModuleId =
-      body.moduleId != null ? moduleUuid : (current.module_id as string | null);
-
-    if (nextStatus === "activo" && nextModuleId) {
-      const cap = await getModuleCapacity(admin, farmId, nextModuleId);
-      const others = await countActiveAnimalsInModule(
-        admin,
-        farmId,
-        nextModuleId,
-        id
+    const statusActual = cur.estados_animales?.codigo ?? "activo";
+    if (statusActual === "vendido" || statusActual === "muerto") {
+      return jsonError(
+        `No se puede modificar un animal en estado '${statusActual}'.`,
+        409
       );
+    }
+
+    if (body.status === "vendido") {
+      if (!body.saleDate) {
+        return jsonError("La fecha de venta es obligatoria.", 400);
+      }
+      if (body.salePricePerKg == null || body.salePricePerKg < 0) {
+        return jsonError("El precio por kg es obligatorio.", 400);
+      }
+      if (!body.saleBuyer?.trim()) {
+        return jsonError("El comprador es obligatorio.", 400);
+      }
+
+      const finalWeight = normalizeWeightKg(body.currentWeight ?? Number(cur.peso_actual_kg));
+      const saleResult = await registrarVentaAnimal(admin, granjaId, {
+        animalId: id,
+        arete: cur.arete,
+        finalWeight,
+        pricePerKg: body.salePricePerKg,
+        saleDate: body.saleDate,
+        buyer: body.saleBuyer.trim(),
+        wasActivo: statusActual === "activo",
+        corralId: cur.corral_id,
+      });
+      if (!saleResult.ok) {
+        return jsonError(saleResult.message, saleResult.status);
+      }
+
+      if (body.observaciones !== undefined) {
+        await admin
+          .from("animales")
+          .update({
+            observaciones: body.observaciones?.trim() || null,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", id);
+      }
+
+      const { data: sold, error: eSold } = await admin
+        .from("animales")
+        .select(ANIMAL_SELECT)
+        .eq("granja_id", granjaId)
+        .eq("id", id)
+        .single();
+      if (eSold) return jsonError(eSold.message, 500);
+
+      return jsonOk(mapAnimalToApi(normalizeAnimalRow(sold as Record<string, unknown>)));
+    }
+
+    const { data: venta } = await admin
+      .from("detalle_ventas")
+      .select("id")
+      .eq("animal_id", id)
+      .maybeSingle();
+
+    if (venta && body.tagId != null && body.tagId.trim() !== cur.arete) {
+      return jsonError("No se puede cambiar el arete de un animal vendido.", 409);
+    }
+
+    let corralId: string | null = cur.corral_id;
+    if (body.moduleId != null) {
+      const found = await getCorralIdByCodigo(admin, granjaId, body.moduleId.trim());
+      if (!found) return jsonError(`Corral '${body.moduleId}' no existe.`);
+      corralId = found;
+    }
+
+    let estadoId = cur.estado_id;
+    if (body.status != null) {
+      const found = await getEstadoIdByCodigo(admin, body.status);
+      if (!found) return jsonError(`Estado '${body.status}' no existe.`);
+      estadoId = found;
+    }
+
+    const nextStatus = body.status ?? statusActual;
+    if (nextStatus === "activo" && corralId) {
+      const cap = await getCorralCapacity(admin, granjaId, corralId);
+      const others = await countActiveAnimalsInCorral(admin, granjaId, corralId, id);
       if (others + 1 > cap) {
-        const { data: mod } = await admin
-          .from("modules")
-          .select("code")
-          .eq("id", nextModuleId)
-          .maybeSingle();
-        return jsonError(
-          `Capacidad del módulo ${mod?.code ?? ""} agotada (${others + 1}/${cap}).`
-        );
+        return jsonError(`Capacidad del corral agotada (${others + 1}/${cap}).`);
       }
     }
 
-    const patch: Record<string, unknown> = {};
-    if (body.tagId != null) patch.tag_id = body.tagId.trim();
-    if (body.breed != null) patch.breed = body.breed.trim();
-    if (body.entryDate != null) patch.entry_date = body.entryDate;
-    if (body.initialWeight != null) patch.initial_weight = body.initialWeight;
-    if (body.currentWeight != null) patch.current_weight = body.currentWeight;
-    if (body.moduleId != null) patch.module_id = moduleUuid;
-    if (body.status != null) patch.status = body.status;
-    if (body.sex != null) patch.sex = body.sex === "H" ? "H" : "M";
-    if (body.age != null) patch.age_months = body.age;
-    if (body.acquisitionType != null) {
-      const a = body.acquisitionType;
-      if (a === "subasta" || a === "particular" || a === "otro") {
-        patch.acquisition_type = a;
-      }
+    const patch: Record<string, unknown> = { updated_at: new Date().toISOString() };
+    if (body.tagId != null) patch.arete = body.tagId.trim();
+    if (body.breed != null) {
+      const razaId = await findRazaId(admin, granjaId, body.breed);
+      if (!razaId) return jsonError(`Raza '${body.breed}' no encontrada.`);
+      patch.raza_id = razaId;
     }
-    if (body.invoiceFolio !== undefined) {
-      patch.invoice_folio = body.invoiceFolio?.trim() || null;
+    if (body.entryDate != null) patch.fecha_ingreso = body.entryDate;
+    if (body.initialWeight != null) patch.peso_inicial_kg = normalizeWeightKg(body.initialWeight);
+    if (body.currentWeight != null) patch.peso_actual_kg = normalizeWeightKg(body.currentWeight);
+    if (body.moduleId != null) patch.corral_id = corralId;
+    if (body.status != null) patch.estado_id = estadoId;
+    if (body.sex != null) patch.sexo = body.sex === "H" ? "H" : "M";
+    if (body.observaciones !== undefined) {
+      patch.observaciones = body.observaciones?.trim() || null;
     }
-    if (body.invoiceOrAuctionDate !== undefined) {
-      patch.invoice_or_auction_date = body.invoiceOrAuctionDate?.trim() || null;
+    if (body.age != null && body.age > 0 && body.entryDate) {
+      const d = new Date((body.entryDate ?? cur.fecha_ingreso) + "T12:00:00Z");
+      d.setMonth(d.getMonth() - body.age);
+      patch.fecha_nacimiento = d.toISOString().slice(0, 10);
     }
-    if (body.auctionLotNumber !== undefined) {
-      patch.auction_lot_number = body.auctionLotNumber?.trim() || null;
-    }
-    if (body.purchasePricePerKg !== undefined) {
-      patch.purchase_price_per_kg =
-        body.purchasePricePerKg != null && !Number.isNaN(Number(body.purchasePricePerKg))
-          ? Number(body.purchasePricePerKg)
-          : null;
-    }
+
+    const oldCorral = cur.corral_id;
+    const oldActivo = statusActual === "activo";
+    const newActivo = nextStatus === "activo";
+    const pesoAnterior = Number(cur.peso_actual_kg);
+    const pesoNuevo =
+      body.currentWeight != null ? normalizeWeightKg(body.currentWeight) : pesoAnterior;
+    const snapAnterior = snapshotFromAnimalRow(cur);
 
     const { data, error } = await admin
-      .from("animals")
+      .from("animales")
       .update(patch)
-      .eq("farm_id", farmId)
+      .eq("granja_id", granjaId)
       .eq("id", id)
-      .select("*")
+      .select(ANIMAL_SELECT)
       .single();
     if (error) {
       if (error.code === "23505") {
-        return jsonError("Ya existe un animal con ese arete en la finca.");
+        return jsonError("Ya existe un animal con ese arete en la granja.");
       }
       return jsonError(error.message, 400);
     }
 
-    const { data: modules } = await admin
-      .from("modules")
-      .select("id, code")
-      .eq("farm_id", farmId);
-    const codeById = new Map(
-      (modules ?? []).map((m: { id: string; code: string }) => [m.id, m.code])
-    );
-    return jsonOk(mapAnimalToApi(data as AnimalRow, codeById));
+    if (oldCorral !== corralId || oldActivo !== newActivo) {
+      if (oldCorral && oldActivo) await adjustCorralOcupacion(admin, oldCorral, -1);
+      if (corralId && newActivo) await adjustCorralOcupacion(admin, corralId, 1);
+    }
+
+    if (body.currentWeight != null && pesoNuevo !== pesoAnterior) {
+      const pesajeResult = await upsertPesajeAnimal(admin, {
+        animalId: id,
+        fechaPesaje: new Date().toISOString().slice(0, 10),
+        pesoKg: pesoNuevo,
+        tipoPesaje: "rutina",
+        registradoPorId: getSystemUserId(),
+      });
+      if (!pesajeResult.ok) return jsonError(pesajeResult.message, 400);
+    }
+
+    const updated = normalizeAnimalRow(data as Record<string, unknown>);
+    const snapNuevo = snapshotFromAnimalRow(updated);
+    const cambiosParcial = snapshotFromApiBody(body);
+    const resumen = buildCambiosResumen(snapAnterior, {
+      ...cambiosParcial,
+      pesoActualKg: body.currentWeight ?? snapAnterior.pesoActualKg,
+    });
+
+    await registrarHistorialAnimal(admin, {
+      granjaId,
+      animalId: id,
+      arete: updated.arete,
+      accion: "modificar",
+      resumen: `Arete ${updated.arete}: ${resumen}`,
+      datosAnteriores: snapAnterior,
+      datosNuevos: snapNuevo,
+    });
+
+    return jsonOk(mapAnimalToApi(updated));
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Error desconocido";
     return jsonError(msg, 500);
@@ -143,34 +379,13 @@ export async function PATCH(
 }
 
 export async function DELETE(
-  req: Request,
+  _req: Request,
   ctx: { params: Promise<{ id: string }> }
 ) {
-  try {
-    const { id } = await ctx.params;
-    if (!isUuid(id)) return jsonError("id de animal inválido.");
-
-    const admin = createSupabaseAdmin();
-    const url = new URL(req.url);
-    const farmId = await resolveFarmId(admin, url.searchParams.get("farmId"));
-
-    const { error } = await admin
-      .from("animals")
-      .delete()
-      .eq("farm_id", farmId)
-      .eq("id", id);
-    if (error) {
-      if (error.code === "23503") {
-        return jsonError(
-          "No se puede eliminar: el animal tiene ventas u otras referencias.",
-          409
-        );
-      }
-      return jsonError(error.message, 400);
-    }
-    return new Response(null, { status: 204 });
-  } catch (e) {
-    const msg = e instanceof Error ? e.message : "Error desconocido";
-    return jsonError(msg, 500);
-  }
+  const { id } = await ctx.params;
+  if (!isUuid(id)) return jsonError("id de animal inválido.");
+  return jsonError(
+    "La baja requiere solicitud con justificación. Use POST /api/animals/{id}/solicitud-baja y la aprobación del gerente en Mensajería.",
+    405
+  );
 }

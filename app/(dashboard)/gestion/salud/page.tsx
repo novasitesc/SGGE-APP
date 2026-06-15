@@ -397,11 +397,11 @@ export default function GestionSaludPage() {
                 <Input id="t-count" type="number" min="1" placeholder="18" value={tForm.animalCount} onChange={(e) => setTForm({ ...tForm, animalCount: e.target.value })} />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="t-cpa">$/animal</Label>
+                <Label htmlFor="t-cpa">₡/animal</Label>
                 <Input id="t-cpa" type="number" min="0" step="0.01" placeholder="200" value={tForm.costPerAnimal} onChange={(e) => setTForm({ ...tForm, costPerAnimal: e.target.value })} />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="t-total">Total ($)</Label>
+                <Label htmlFor="t-total">Total (₡)</Label>
                 <Input id="t-total" type="number" min="0" step="0.01" placeholder="3600" value={tForm.totalCost} onChange={(e) => setTForm({ ...tForm, totalCost: e.target.value })} />
               </div>
             </div>

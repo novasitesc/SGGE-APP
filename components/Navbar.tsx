@@ -1,10 +1,13 @@
 "use client";
 
+import Link from "next/link";
+import { SYSTEM_LOCALE } from "@/lib/utils";
 import { Bell, Calendar, User, ChevronDown, Search } from "lucide-react";
 import { useState } from "react";
+import { usePendingSolicitudesCount } from "@/components/mensajeria/MensajeriaGerente";
 
 export default function Navbar() {
-  const today = new Date().toLocaleDateString("es-MX", {
+  const today = new Date().toLocaleDateString(SYSTEM_LOCALE, {
     weekday: "long",
     year: "numeric",
     month: "long",
@@ -12,16 +15,29 @@ export default function Navbar() {
   });
 
   const [showNotif, setShowNotif] = useState(false);
+  const { count: pendingCount } = usePendingSolicitudesCount();
 
   const notifications = [
-    { id: 1, text: "BV-006 requiere atención veterinaria urgente", time: "Hace 30 min", type: "urgente" },
-    { id: 2, text: "Implante Revalor-G vence en 14 días", time: "Hace 2 h", type: "programado" },
-    { id: 3, text: "Pesaje mensual programado para mañana", time: "Hace 4 h", type: "revisión" },
+    ...(pendingCount > 0
+      ? [
+          {
+            id: "pending-approvals",
+            text: `${pendingCount} solicitud${pendingCount !== 1 ? "es" : ""} pendiente${pendingCount !== 1 ? "s" : ""} de aprobación del gerente`,
+            time: "Requiere acción",
+            type: "aprobacion" as const,
+            href: "/gestion/mensajeria",
+          },
+        ]
+      : []),
+    { id: 1, text: "BV-006 requiere atención veterinaria urgente", time: "Hace 30 min", type: "urgente" as const },
+    { id: 2, text: "Implante Revalor-G vence en 14 días", time: "Hace 2 h", type: "programado" as const },
+    { id: 3, text: "Pesaje mensual programado para mañana", time: "Hace 4 h", type: "revisión" as const },
   ];
+
+  const alertCount = notifications.length;
 
   return (
     <header className="h-16 border-b bg-card flex items-center justify-between px-6 shrink-0">
-      {/* Search */}
       <div className="relative hidden md:block">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
         <input
@@ -31,50 +47,65 @@ export default function Navbar() {
         />
       </div>
 
-      {/* Right side */}
       <div className="flex items-center gap-4 ml-auto">
-        {/* Date */}
         <div className="hidden lg:flex items-center gap-2 text-sm text-muted-foreground">
           <Calendar className="h-4 w-4" />
           <span className="capitalize">{today}</span>
         </div>
 
-        {/* Notifications */}
         <div className="relative">
           <button
             onClick={() => setShowNotif(!showNotif)}
             className="relative flex items-center justify-center w-9 h-9 rounded-xl border bg-muted/50 hover:bg-muted transition-colors"
           >
             <Bell className="h-4 w-4" />
-            <span className="absolute -top-1 -right-1 flex items-center justify-center w-4 h-4 rounded-full bg-red-500 text-white text-[10px] font-bold">
-              {notifications.length}
-            </span>
+            {alertCount > 0 && (
+              <span className="absolute -top-1 -right-1 flex items-center justify-center min-w-4 h-4 px-0.5 rounded-full bg-red-500 text-white text-[10px] font-bold">
+                {alertCount}
+              </span>
+            )}
           </button>
 
           {showNotif && (
             <div className="absolute right-0 top-12 w-80 rounded-2xl border bg-card shadow-xl z-50 overflow-hidden">
               <div className="px-4 py-3 border-b">
                 <p className="text-sm font-semibold">Notificaciones</p>
-                <p className="text-xs text-muted-foreground">{notifications.length} alertas activas</p>
+                <p className="text-xs text-muted-foreground">{alertCount} alertas activas</p>
               </div>
               <div className="divide-y max-h-72 overflow-y-auto">
-                {notifications.map((n) => (
-                  <div key={n.id} className="px-4 py-3 hover:bg-muted/50 transition-colors">
-                    <p className="text-sm leading-snug">{n.text}</p>
-                    <p className="text-xs text-muted-foreground mt-1">{n.time}</p>
-                  </div>
-                ))}
+                {notifications.map((n) => {
+                  const inner = (
+                    <>
+                      <p className="text-sm leading-snug">{n.text}</p>
+                      <p className="text-xs text-muted-foreground mt-1">{n.time}</p>
+                    </>
+                  );
+                  return (
+                    <div key={n.id} className="hover:bg-muted/50 transition-colors">
+                      {"href" in n && n.href ? (
+                        <Link href={n.href} className="block px-4 py-3" onClick={() => setShowNotif(false)}>
+                          {inner}
+                        </Link>
+                      ) : (
+                        <div className="px-4 py-3">{inner}</div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
               <div className="px-4 py-2 border-t text-center">
-                <button className="text-xs text-primary hover:underline font-medium">
-                  Ver todas las alertas
-                </button>
+                <Link
+                  href="/gestion/mensajeria"
+                  className="text-xs text-primary hover:underline font-medium"
+                  onClick={() => setShowNotif(false)}
+                >
+                  Ir a mensajería del gerente
+                </Link>
               </div>
             </div>
           )}
         </div>
 
-        {/* User */}
         <button className="flex items-center gap-2.5 rounded-xl border px-3 py-1.5 hover:bg-muted transition-colors">
           <div className="flex items-center justify-center w-7 h-7 rounded-full bg-primary text-primary-foreground">
             <User className="h-3.5 w-3.5" />

@@ -274,7 +274,7 @@ export default function GestionAlimentacionPage() {
                 />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="feed-price">Precio por unidad ($)</Label>
+                <Label htmlFor="feed-price">Precio por unidad (₡)</Label>
                 <Input
                   id="feed-price"
                   type="number"
@@ -297,7 +297,7 @@ export default function GestionAlimentacionPage() {
                 />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="feed-monthly-cost">Costo mensual ($)</Label>
+                <Label htmlFor="feed-monthly-cost">Costo mensual (₡)</Label>
                 <Input
                   id="feed-monthly-cost"
                   type="number"

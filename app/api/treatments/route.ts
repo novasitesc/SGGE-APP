@@ -1,89 +1,58 @@
 import { createSupabaseAdmin } from "@/lib/supabase/admin";
-import { resolveFarmId } from "@/lib/api/farm";
+import { resolveGranjaId } from "@/lib/api/granja";
 import { jsonError, jsonOk } from "@/lib/api/http";
-import { mapTreatmentRow } from "@/lib/api/mappers";
 
 export const dynamic = "force-dynamic";
 
+/** Tratamientos por lote: pendiente adaptación completa al módulo salud SRRG. */
 export async function GET(req: Request) {
   try {
     const admin = createSupabaseAdmin();
-    const url = new URL(req.url);
-    const farmId = await resolveFarmId(admin, url.searchParams.get("farmId"));
+    const granjaId = await resolveGranjaId(
+      admin,
+      new URL(req.url).searchParams.get("farmId")
+    );
+
+    const { data: animales } = await admin
+      .from("animales")
+      .select("id")
+      .eq("granja_id", granjaId)
+      .is("deleted_at", null);
+    const ids = (animales ?? []).map((a: { id: string }) => a.id);
+    if (ids.length === 0) return jsonOk([]);
 
     const { data, error } = await admin
-      .from("treatments")
-      .select("*")
-      .eq("farm_id", farmId)
-      .order("date", { ascending: false });
+      .from("tratamientos")
+      .select(
+        "id, fecha_inicio, costo_total, estado, observaciones, medicamentos(nombre)"
+      )
+      .in("animal_id", ids)
+      .is("deleted_at", null)
+      .order("fecha_inicio", { ascending: false });
     if (error) throw new Error(error.message);
-    return jsonOk((data ?? []).map(mapTreatmentRow));
+
+    const mapped = (data ?? []).map((row: Record<string, unknown>) => ({
+      id: row.id as string,
+      type: "tratamiento",
+      name: (row.medicamentos as { nombre: string } | null)?.nombre ?? "Tratamiento",
+      date: row.fecha_inicio as string,
+      animalCount: 1,
+      costPerAnimal: Number(row.costo_total),
+      totalCost: Number(row.costo_total),
+      appliedBy: "",
+      notes: (row.observaciones as string) ?? "",
+    }));
+
+    return jsonOk(mapped);
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Error desconocido";
     return jsonError(msg, 500);
   }
 }
 
-type PostBody = {
-  type?: string;
-  name?: string;
-  date?: string;
-  animalCount?: number;
-  costPerAnimal?: number;
-  totalCost?: number;
-  appliedBy?: string;
-  notes?: string;
-  nextDue?: string | null;
-};
-
-export async function POST(req: Request) {
-  try {
-    const admin = createSupabaseAdmin();
-    const url = new URL(req.url);
-    const farmId = await resolveFarmId(admin, url.searchParams.get("farmId"));
-    const body = (await req.json()) as PostBody;
-
-    if (!body.type) return jsonError("type es obligatorio.");
-    if (!body.name?.trim()) return jsonError("name es obligatorio.");
-    if (!body.date) return jsonError("date es obligatorio.");
-    if (body.animalCount == null || body.animalCount <= 0) {
-      return jsonError("animalCount debe ser > 0.");
-    }
-    if (body.costPerAnimal == null || body.costPerAnimal < 0) {
-      return jsonError("costPerAnimal inválido.");
-    }
-
-    const expected = Math.round(body.animalCount * body.costPerAnimal * 100) / 100;
-    const totalCost =
-      body.totalCost != null ? body.totalCost : expected;
-    if (Math.abs(totalCost - expected) > 0.02) {
-      return jsonError(
-        `totalCost (${totalCost}) no coincide con animalCount × costPerAnimal (${expected}).`
-      );
-    }
-
-    const insert = {
-      farm_id: farmId,
-      type: body.type,
-      name: body.name.trim(),
-      date: body.date,
-      animal_count: body.animalCount,
-      cost_per_animal: body.costPerAnimal,
-      total_cost: totalCost,
-      applied_by: body.appliedBy?.trim() ?? "",
-      notes: body.notes?.trim() ?? "",
-      next_due: body.nextDue ?? null,
-    };
-
-    const { data, error } = await admin
-      .from("treatments")
-      .insert(insert)
-      .select("*")
-      .single();
-    if (error) return jsonError(error.message, 400);
-    return jsonOk(mapTreatmentRow(data), { status: 201 });
-  } catch (e) {
-    const msg = e instanceof Error ? e.message : "Error desconocido";
-    return jsonError(msg, 500);
-  }
+export async function POST() {
+  return jsonError(
+    "Registro de tratamientos disponible en la Fase 4 (módulo salud).",
+    501
+  );
 }

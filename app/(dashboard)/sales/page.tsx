@@ -10,7 +10,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { sales } from "@/lib/mockData";
-import { formatCurrency, formatDate } from "@/lib/utils";
+import { formatCurrency, formatCurrencyCompact, formatDate } from "@/lib/utils";
 import { ShoppingCart, Scale, TrendingUp, Banknote } from "lucide-react";
 import {
   LineChart,
@@ -116,7 +116,7 @@ export default function SalesPage() {
                   tick={{ fontSize: 11 }}
                   axisLine={false}
                   tickLine={false}
-                  tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`}
+                  tickFormatter={(v) => formatCurrencyCompact(Number(v))}
                 />
                 <Tooltip
                   contentStyle={{ borderRadius: "12px", border: "1px solid #e5e7eb", fontSize: 12 }}

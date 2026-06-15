@@ -128,7 +128,7 @@ export default function DashboardPage() {
                   </div>
                   <div className="text-right">
                     <p className="text-sm font-bold text-green-700">{formatCurrency(sale.totalRevenue)}</p>
-                    <p className="text-xs text-muted-foreground">{sale.finalWeight} kg @ ${sale.pricePerKg}/kg</p>
+                    <p className="text-xs text-muted-foreground">{sale.finalWeight} kg @ {formatCurrency(sale.pricePerKg)}/kg</p>
                   </div>
                 </div>
               ))}

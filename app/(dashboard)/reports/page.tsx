@@ -16,7 +16,7 @@ import {
   ReferenceLine,
 } from "recharts";
 import { monthlyFinancials, kpiSummary, animals, costs, feedTypes } from "@/lib/mockData";
-import { formatCurrency, formatNumber } from "@/lib/utils";
+import { formatCurrency, formatCurrencyCompact, formatNumber } from "@/lib/utils";
 import { BarChart3, TrendingUp, TrendingDown, Target, Beef, DollarSign } from "lucide-react";
 
 export default function ReportsPage() {
@@ -115,7 +115,7 @@ export default function ReportsPage() {
                   tick={{ fontSize: 11 }}
                   axisLine={false}
                   tickLine={false}
-                  tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`}
+                  tickFormatter={(v) => formatCurrencyCompact(Number(v))}
                   width={44}
                 />
                 <Tooltip
@@ -145,7 +145,7 @@ export default function ReportsPage() {
                   tick={{ fontSize: 11 }}
                   axisLine={false}
                   tickLine={false}
-                  tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`}
+                  tickFormatter={(v) => formatCurrencyCompact(Number(v))}
                   width={44}
                 />
                 <ReferenceLine y={0} stroke="#94a3b8" strokeDasharray="4 4" />

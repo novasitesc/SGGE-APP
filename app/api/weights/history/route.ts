@@ -1,6 +1,7 @@
 import { createSupabaseAdmin } from "@/lib/supabase/admin";
-import { resolveFarmId } from "@/lib/api/farm";
+import { resolveGranjaId } from "@/lib/api/granja";
 import { jsonError, jsonOk } from "@/lib/api/http";
+import { getEstadoIdByCodigo } from "@/lib/api/corrales-helpers";
 
 export const dynamic = "force-dynamic";
 
@@ -12,18 +13,8 @@ function monthKey(d: Date): string {
 
 function monthLabel(d: Date): string {
   const months = [
-    "Ene",
-    "Feb",
-    "Mar",
-    "Abr",
-    "May",
-    "Jun",
-    "Jul",
-    "Ago",
-    "Sep",
-    "Oct",
-    "Nov",
-    "Dic",
+    "Ene", "Feb", "Mar", "Abr", "May", "Jun",
+    "Jul", "Ago", "Sep", "Oct", "Nov", "Dic",
   ];
   return `${months[d.getUTCMonth()]} ${d.getUTCFullYear()}`;
 }
@@ -32,28 +23,37 @@ export async function GET(req: Request) {
   try {
     const admin = createSupabaseAdmin();
     const url = new URL(req.url);
-    const farmId = await resolveFarmId(admin, url.searchParams.get("farmId"));
+    const granjaId = await resolveGranjaId(
+      admin,
+      url.searchParams.get("farmId") ?? url.searchParams.get("granjaId")
+    );
 
     const { data: animals } = await admin
-      .from("animals")
+      .from("animales")
       .select("id")
-      .eq("farm_id", farmId);
+      .eq("granja_id", granjaId)
+      .is("deleted_at", null);
     const ids = (animals ?? []).map((a: { id: string }) => a.id);
-    if (ids.length === 0) return jsonOk({ weightHistory: [] as { month: string; avgWeight: number; totalWeight: number }[] });
+    if (ids.length === 0) {
+      return jsonOk({
+        weightHistory: [] as { month: string; avgWeight: number; totalWeight: number }[],
+      });
+    }
 
     const { data: measurements, error } = await admin
-      .from("weight_measurements")
-      .select("animal_id, measured_at, weight_kg")
+      .from("pesajes")
+      .select("animal_id, fecha_pesaje, peso_kg")
       .in("animal_id", ids)
-      .order("measured_at", { ascending: true });
+      .is("deleted_at", null)
+      .order("fecha_pesaje", { ascending: true });
     if (error) throw new Error(error.message);
 
     const buckets = new Map<string, MonthBucket>();
     for (const m of measurements ?? []) {
-      const d = new Date((m as { measured_at: string }).measured_at);
+      const d = new Date((m as { fecha_pesaje: string }).fecha_pesaje + "T12:00:00Z");
       const key = monthKey(d);
       const label = monthLabel(d);
-      const w = Number((m as { weight_kg: number }).weight_kg);
+      const w = Number((m as { peso_kg: number }).peso_kg);
       const cur = buckets.get(key) ?? { key, label, sum: 0, n: 0 };
       cur.sum += w;
       cur.n += 1;
@@ -70,24 +70,25 @@ export async function GET(req: Request) {
           totalWeight: Math.round(v.sum * 10) / 10,
         }));
     } else {
+      const estadoActivo = await getEstadoIdByCodigo(admin, "activo");
       const { data: act } = await admin
-        .from("animals")
-        .select("current_weight")
-        .eq("farm_id", farmId)
-        .eq("status", "activo");
+        .from("animales")
+        .select("peso_actual_kg")
+        .eq("granja_id", granjaId)
+        .eq("estado_id", estadoActivo)
+        .is("deleted_at", null);
       const list = act ?? [];
       const n = list.length;
       if (n > 0) {
         const total = list.reduce(
-          (s: number, a: { current_weight: number }) =>
-            s + Number(a.current_weight),
+          (s: number, a: { peso_actual_kg: number }) =>
+            s + Number(a.peso_actual_kg),
           0
         );
-        const avg = Math.round((total / n) * 10) / 10;
         series = [
           {
             month: monthLabel(new Date()),
-            avgWeight: avg,
+            avgWeight: Math.round((total / n) * 10) / 10,
             totalWeight: Math.round(total * 10) / 10,
           },
         ];

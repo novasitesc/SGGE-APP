@@ -15,6 +15,7 @@ import {
   ChevronRight,
   Tractor,
   Settings2,
+  MessageSquare,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useStore } from "@/store/useStore";
@@ -32,6 +33,7 @@ const navItems = [
 
 const adminItems = [
   { label: "Gestión de Datos", href: "/gestion", icon: Settings2 },
+  { label: "Mensajería", href: "/gestion/mensajeria", icon: MessageSquare },
 ];
 
 export default function Sidebar() {
