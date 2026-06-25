@@ -11,7 +11,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { AlertTriangle, CheckCircle2, Loader2, User } from "lucide-react";
-import type { Animal } from "@/lib/mockData";
+import type { Animal } from "@/lib/types/domain";
 import {
   validarDatosSolicitante,
   validarJustificacionEliminacion,

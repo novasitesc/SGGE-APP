@@ -59,8 +59,6 @@ export async function GET(req: Request) {
         type: m.tipo ?? "engorda",
         capacity: m.capacidad_maxima,
         animalCount: active.length,
-        location: m.codigo as string,
-        supervisor: "",
         avgWeightActive: avgWeight,
       };
     });

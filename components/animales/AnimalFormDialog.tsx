@@ -13,8 +13,10 @@ import { Select } from "@/components/ui/select";
 import { Beef, Loader2 } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import type { AnimalFormValues } from "@/components/animales/types";
-import { ACQUISITION_OPTIONS, BREEDS } from "@/components/animales/types";
-import type { AnimalStatus } from "@/lib/mockData";
+import { ACQUISITION_OPTIONS } from "@/components/animales/types";
+import type { AnimalStatus } from "@/lib/types/domain";
+import { fetchRazas } from "@/lib/api/data-client";
+import { useApiQuery } from "@/lib/hooks/useApiQuery";
 
 type Props = {
   open: boolean;
@@ -41,6 +43,8 @@ export function AnimalFormDialog({
   corralIds,
   lockArete = false,
 }: Props) {
+  const { data: breeds } = useApiQuery(fetchRazas);
+  const breedList = breeds ?? [];
   const set = (partial: Partial<AnimalFormValues>) =>
     onChange({ ...form, ...partial });
 
@@ -73,7 +77,7 @@ export function AnimalFormDialog({
                 value={form.breed}
                 onChange={(e) => set({ breed: e.target.value })}
               >
-                {BREEDS.map((b) => (
+                {breedList.map((b) => (
                   <option key={b} value={b}>
                     {b}
                   </option>

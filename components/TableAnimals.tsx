@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { fetchAnimals } from "@/lib/api/animals-client";
-import type { Animal } from "@/lib/mockData";
+import type { Animal } from "@/lib/types/domain";
 import { Loader2 } from "lucide-react";
 
 interface TableAnimalsProps {

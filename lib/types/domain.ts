@@ -1,0 +1,177 @@
+// ─── ANIMALS ────────────────────────────────────────────────────────────────
+
+export type AnimalStatus = "activo" | "vendido" | "muerto" | "enfermo";
+
+/** Origen del movimiento de compra (alineado a factura / remate). */
+export type AcquisitionType = "subasta" | "particular" | "otro";
+
+export interface Animal {
+  id: string;
+  tagId: string;
+  breed: string;
+  entryDate: string;
+  initialWeight: number;
+  currentWeight: number;
+  moduleId: string;
+  status: AnimalStatus;
+  sex: "M" | "H";
+  age: number;
+  acquisitionType?: AcquisitionType;
+  invoiceFolio?: string;
+  invoiceOrAuctionDate?: string;
+  auctionLotNumber?: string;
+  purchasePricePerKg?: number;
+  purchaseTotalCost?: number;
+}
+
+// ─── MODULES ────────────────────────────────────────────────────────────────
+
+export type ModuleType = "engorda" | "leche" | "cría" | "recría" | "cuarentena" | "enfermeria" | string;
+
+export interface Module {
+  id: string;
+  uuid?: string;
+  name: string;
+  type: ModuleType;
+  capacity: number;
+  animalCount: number;
+}
+
+// ─── WEIGHT TRACKING ─────────────────────────────────────────────────────────
+
+export interface WeightRecord {
+  month: string;
+  avgWeight: number;
+  totalWeight: number;
+}
+
+// ─── COSTS ───────────────────────────────────────────────────────────────────
+
+export type CostCategory =
+  | "transporte"
+  | "alimentación"
+  | "vacunas"
+  | "mano_de_obra"
+  | "servicios"
+  | "medicamentos"
+  | "otros";
+
+export interface Cost {
+  id: string;
+  category: CostCategory | string;
+  description: string;
+  amount: number;
+  date: string;
+  animalCount?: number;
+}
+
+export interface CostByCategory {
+  category: string;
+  amount: number;
+  color: string;
+}
+
+// ─── FEEDING ─────────────────────────────────────────────────────────────────
+
+export interface FeedType {
+  id: string;
+  name: string;
+  unit: string;
+  dailyConsumption: number;
+  pricePerUnit: number;
+  monthlyAmount: number;
+  monthlyCost: number;
+  percentage: number;
+}
+
+// ─── HEALTH TREATMENTS ───────────────────────────────────────────────────────
+
+export type TreatmentType =
+  | "vacuna"
+  | "desparasitante"
+  | "implante"
+  | "anabólico"
+  | "vitamina"
+  | "antibiótico";
+
+export interface Treatment {
+  id: string;
+  type: TreatmentType | string;
+  name: string;
+  date: string;
+  animalCount: number;
+  costPerAnimal: number;
+  totalCost: number;
+  appliedBy: string;
+  notes: string;
+  nextDue?: string;
+}
+
+// ─── HEALTH ALERTS ───────────────────────────────────────────────────────────
+
+export interface HealthAlert {
+  id: string;
+  animalId?: string;
+  tagId?: string;
+  type: "tratamiento" | "revisión" | "urgente" | "programado";
+  message: string;
+  dueDate: string;
+  priority: "alta" | "media" | "baja";
+}
+
+// ─── SALES ───────────────────────────────────────────────────────────────────
+
+export interface Sale {
+  id: string;
+  tagId: string;
+  breed: string;
+  finalWeight: number;
+  pricePerKg: number;
+  totalRevenue: number;
+  saleDate: string;
+  buyer: string;
+  moduleId: string;
+}
+
+// ─── KPI / FINANCIAL SUMMARY ─────────────────────────────────────────────────
+
+export interface KpiSummary {
+  totalAnimals: number;
+  activeAnimals: number;
+  avgCurrentWeight: number;
+  avgDailyGain: number;
+  feedConversionRatio: number;
+  costPerKg: number;
+  totalCost: number;
+  totalRevenue: number;
+  netProfit: number;
+  profitability: number;
+  feedCostApproxPerDay?: number;
+}
+
+// ─── WEIGHT DISTRIBUTION ─────────────────────────────────────────────────────
+
+export interface WeightDistributionBucket {
+  range: string;
+  count: number;
+  color: string;
+}
+
+// ─── MONTHLY FINANCIAL ───────────────────────────────────────────────────────
+
+export interface MonthlyFinancial {
+  month: string;
+  costs: number;
+  revenue: number;
+  profit: number;
+}
+
+// ─── DASHBOARD ───────────────────────────────────────────────────────────────
+
+export interface DashboardData {
+  kpiSummary: KpiSummary;
+  recentAnimals: Animal[];
+  recentSales: Sale[];
+  healthAlerts: HealthAlert[];
+  costsByCategory: CostByCategory[];
+}

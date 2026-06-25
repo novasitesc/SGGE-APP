@@ -27,7 +27,7 @@ import { registrarCompraAnimal, fetchComprasForAnimals } from "@/lib/api/compra-
 import { createActaAnimal } from "@/lib/api/actas-animal";
 import { normalizeWeightKg } from "@/lib/api/weight-utils";
 import { upsertPesajeAnimal } from "@/lib/api/pesaje-utils";
-import type { AcquisitionType } from "@/lib/mockData";
+import type { AcquisitionType } from "@/lib/types/domain";
 
 export const dynamic = "force-dynamic";
 

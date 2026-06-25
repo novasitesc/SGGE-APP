@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useStore } from "@/store/useStore";
-import { CostCategory } from "@/lib/mockData";
+import { useCosts } from "@/lib/hooks/useCosts";
+import type { CostCategory } from "@/lib/types/domain";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -55,7 +55,7 @@ const emptyForm = {
 };
 
 export default function GestionCostosPage() {
-  const { costs, addCost, updateCost, removeCost } = useStore();
+  const { costs, loading, addCost, updateCost, removeCost } = useCosts();
 
   const [search, setSearch] = useState("");
   const [filterCategory, setFilterCategory] = useState<string>("todas");
@@ -83,7 +83,7 @@ export default function GestionCostosPage() {
     if (!cost) return;
     setEditingId(id);
     setForm({
-      category: cost.category,
+      category: cost.category as CostCategory,
       description: cost.description,
       amount: String(cost.amount),
       date: cost.date,
@@ -92,7 +92,7 @@ export default function GestionCostosPage() {
     setDialogOpen(true);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const ac = form.animalCount.trim();
     const payload = {
@@ -102,17 +102,26 @@ export default function GestionCostosPage() {
       date: form.date,
       animalCount: ac ? Number(ac) : undefined,
     };
-    if (editingId) {
-      updateCost(editingId, payload);
-    } else {
-      addCost(payload);
+    try {
+      if (editingId) {
+        await updateCost(editingId, payload);
+      } else {
+        await addCost(payload);
+      }
+      setDialogOpen(false);
+    } catch {
+      // el hook propaga el error vía estado si se necesita mostrar
     }
-    setDialogOpen(false);
   };
 
-  const doDelete = () => {
-    if (deleteId) removeCost(deleteId);
-    setDeleteId(null);
+  const doDelete = async () => {
+    if (deleteId) {
+      try {
+        await removeCost(deleteId);
+      } finally {
+        setDeleteId(null);
+      }
+    }
   };
 
   return (
@@ -197,7 +206,13 @@ export default function GestionCostosPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filtered.length === 0 ? (
+              {loading ? (
+                <TableRow>
+                  <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                    Cargando costos…
+                  </TableCell>
+                </TableRow>
+              ) : filtered.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
                     No se encontraron costos con los filtros aplicados.
@@ -208,8 +223,8 @@ export default function GestionCostosPage() {
                   <TableRow key={cost.id}>
                     <TableCell className="font-medium text-sm">{cost.description}</TableCell>
                     <TableCell>
-                      <span className={`text-xs px-2 py-0.5 rounded-lg font-medium ${categoryColor[cost.category]}`}>
-                        {categoryLabel[cost.category]}
+                      <span className={`text-xs px-2 py-0.5 rounded-lg font-medium ${categoryColor[cost.category as CostCategory] ?? categoryColor.otros}`}>
+                        {categoryLabel[cost.category as CostCategory] ?? cost.category}
                       </span>
                     </TableCell>
                     <TableCell className="text-muted-foreground text-sm">{formatDate(cost.date)}</TableCell>

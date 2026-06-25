@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useStore } from "@/store/useStore";
+import { fetchFeeding } from "@/lib/api/data-client";
+import { useApiQuery } from "@/lib/hooks/useApiQuery";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -35,7 +36,8 @@ const emptyForm = {
 };
 
 export default function GestionAlimentacionPage() {
-  const { feedTypes, addFeedType, updateFeedType, removeFeedType } = useStore();
+  const { data: feeding, loading, reload } = useApiQuery(fetchFeeding);
+  const feedTypes = feeding?.feedTypes ?? [];
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -68,26 +70,13 @@ export default function GestionAlimentacionPage() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const payload = {
-      name: form.name,
-      unit: form.unit,
-      dailyConsumption: Number(form.dailyConsumption),
-      pricePerUnit: Number(form.pricePerUnit),
-      monthlyAmount: Number(form.monthlyAmount),
-      monthlyCost: Number(form.monthlyCost),
-      percentage: Number(form.percentage),
-    };
-    if (editingId) {
-      updateFeedType(editingId, payload);
-    } else {
-      addFeedType(payload);
-    }
     setDialogOpen(false);
+    void reload();
   };
 
   const doDelete = () => {
-    if (deleteId) removeFeedType(deleteId);
     setDeleteId(null);
+    void reload();
   };
 
   return (

@@ -1,5 +1,7 @@
+"use client";
+
 import { Card, CardContent } from "@/components/ui/card";
-import { kpiSummary } from "@/lib/mockData";
+import type { KpiSummary } from "@/lib/types/domain";
 import { formatCurrency, formatNumber } from "@/lib/utils";
 import {
   Scale,
@@ -20,10 +22,9 @@ interface KpiCardProps {
   icon: React.ElementType;
   color: string;
   bgColor: string;
-  trend?: "up" | "down" | "neutral";
 }
 
-function KpiCard({ title, value, subtitle, icon: Icon, color, bgColor, trend }: KpiCardProps) {
+function KpiCard({ title, value, subtitle, icon: Icon, color, bgColor }: KpiCardProps) {
   return (
     <Card className="hover:shadow-md transition-shadow">
       <CardContent className="p-5">
@@ -46,13 +47,43 @@ function KpiCard({ title, value, subtitle, icon: Icon, color, bgColor, trend }: 
   );
 }
 
-export default function DashboardCards() {
-  const kpi = kpiSummary;
+const EMPTY_KPI: KpiSummary = {
+  totalAnimals: 0,
+  activeAnimals: 0,
+  avgCurrentWeight: 0,
+  avgDailyGain: 0,
+  feedConversionRatio: 0,
+  costPerKg: 0,
+  totalCost: 0,
+  totalRevenue: 0,
+  netProfit: 0,
+  profitability: 0,
+};
+
+interface DashboardCardsProps {
+  kpi?: KpiSummary | null;
+  loading?: boolean;
+}
+
+export default function DashboardCards({ kpi, loading }: DashboardCardsProps) {
+  const data = kpi ?? EMPTY_KPI;
+
+  if (loading) {
+    return (
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        {Array.from({ length: 8 }).map((_, i) => (
+          <Card key={i} className="animate-pulse">
+            <CardContent className="p-5 h-24 bg-muted/30" />
+          </Card>
+        ))}
+      </div>
+    );
+  }
 
   const cards: KpiCardProps[] = [
     {
       title: "Peso Promedio",
-      value: `${formatNumber(kpi.avgCurrentWeight, 1)} kg`,
+      value: `${formatNumber(data.avgCurrentWeight, 1)} kg`,
       subtitle: "Peso actual promedio / animal",
       icon: Scale,
       color: "text-emerald-700",
@@ -60,7 +91,7 @@ export default function DashboardCards() {
     },
     {
       title: "Ganancia Diaria (GDP)",
-      value: `${formatNumber(kpi.avgDailyGain, 2)} kg/día`,
+      value: `${formatNumber(data.avgDailyGain, 2)} kg/día`,
       subtitle: "Promedio del hato",
       icon: TrendingUp,
       color: "text-blue-700",
@@ -68,7 +99,7 @@ export default function DashboardCards() {
     },
     {
       title: "Conversión Alimenticia",
-      value: `${formatNumber(kpi.feedConversionRatio, 1)}:1`,
+      value: `${formatNumber(data.feedConversionRatio, 1)}:1`,
       subtitle: "kg alimento / kg ganado",
       icon: BarChart2,
       color: "text-violet-700",
@@ -76,7 +107,7 @@ export default function DashboardCards() {
     },
     {
       title: "Costo por kg",
-      value: formatCurrency(kpi.costPerKg),
+      value: formatCurrency(data.costPerKg),
       subtitle: "Costo de producción",
       icon: DollarSign,
       color: "text-amber-700",
@@ -84,7 +115,7 @@ export default function DashboardCards() {
     },
     {
       title: "Costo Total",
-      value: formatCurrency(kpi.totalCost),
+      value: formatCurrency(data.totalCost),
       subtitle: "Acumulado del ciclo",
       icon: Receipt,
       color: "text-red-700",
@@ -92,7 +123,7 @@ export default function DashboardCards() {
     },
     {
       title: "Ingresos Totales",
-      value: formatCurrency(kpi.totalRevenue),
+      value: formatCurrency(data.totalRevenue),
       subtitle: "Por ventas realizadas",
       icon: Banknote,
       color: "text-green-700",
@@ -100,19 +131,19 @@ export default function DashboardCards() {
     },
     {
       title: "Utilidad Neta",
-      value: formatCurrency(kpi.netProfit),
+      value: formatCurrency(data.netProfit),
       subtitle: "Ingresos – Costos",
       icon: PiggyBank,
-      color: kpi.netProfit >= 0 ? "text-green-700" : "text-red-600",
-      bgColor: kpi.netProfit >= 0 ? "bg-green-50" : "bg-red-50",
+      color: data.netProfit >= 0 ? "text-green-700" : "text-red-600",
+      bgColor: data.netProfit >= 0 ? "bg-green-50" : "bg-red-50",
     },
     {
       title: "Rentabilidad",
-      value: `${formatNumber(kpi.profitability, 1)}%`,
+      value: `${formatNumber(data.profitability, 1)}%`,
       subtitle: "Sobre el costo total",
       icon: Percent,
-      color: kpi.profitability >= 0 ? "text-green-700" : "text-red-600",
-      bgColor: kpi.profitability >= 0 ? "bg-green-50" : "bg-red-50",
+      color: data.profitability >= 0 ? "text-green-700" : "text-red-600",
+      bgColor: data.profitability >= 0 ? "bg-green-50" : "bg-red-50",
     },
   ];
 

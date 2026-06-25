@@ -15,51 +15,69 @@ import {
   ResponsiveContainer,
   ReferenceLine,
 } from "recharts";
-import { monthlyFinancials, kpiSummary, animals, costs, feedTypes } from "@/lib/mockData";
+import { fetchAnimals } from "@/lib/api/animals-client";
+import { fetchCosts, fetchDashboard, fetchFeeding, fetchFinancialReports } from "@/lib/api/data-client";
+import { useApiQuery } from "@/lib/hooks/useApiQuery";
 import { formatCurrency, formatCurrencyCompact, formatNumber } from "@/lib/utils";
 import { BarChart3, TrendingUp, TrendingDown, Target, Beef, DollarSign } from "lucide-react";
 
 export default function ReportsPage() {
-  const kpi = kpiSummary;
-  const totalCost = costs.reduce((s, c) => s + c.amount, 0);
-  const activeAnimals = animals.filter((a) => a.status === "activo").length;
-  const soldAnimals = animals.filter((a) => a.status === "vendido").length;
-  const avgGain = animals
-    .filter((a) => a.status === "activo")
-    .reduce((s, a) => s + (a.currentWeight - a.initialWeight), 0) / activeAnimals;
+  const { data: dashboard, loading: loadingDash } = useApiQuery(fetchDashboard);
+  const { data: monthlyFinancials, loading: loadingFin } = useApiQuery(fetchFinancialReports);
+  const { data: animals, loading: loadingAnimals } = useApiQuery(fetchAnimals);
+  const { data: costs, loading: loadingCosts } = useApiQuery(fetchCosts);
+  const { data: feeding, loading: loadingFeed } = useApiQuery(fetchFeeding);
+
+  const kpi = dashboard?.kpiSummary;
+  const list = costs ?? [];
+  const animalList = animals ?? [];
+  const feedTypes = feeding?.feedTypes ?? [];
+  const financials = monthlyFinancials ?? [];
+
+  const totalCost = list.reduce((s, c) => s + c.amount, 0);
+  const activeAnimals = animalList.filter((a) => a.status === "activo").length;
+  const soldAnimals = animalList.filter((a) => a.status === "vendido").length;
+  const avgGain = activeAnimals > 0
+    ? animalList
+        .filter((a) => a.status === "activo")
+        .reduce((s, a) => s + (a.currentWeight - a.initialWeight), 0) / activeAnimals
+    : 0;
 
   const feedEfficiency = feedTypes.reduce((s, f) => s + f.dailyConsumption, 0);
-  const costPerAnimal = totalCost / animals.length;
+  const costPerAnimal = animalList.length > 0 ? totalCost / animalList.length : 0;
+  const avgSalePrice = (dashboard?.recentSales ?? []).length > 0
+    ? (dashboard?.recentSales ?? []).reduce((s, v) => s + v.pricePerKg, 0) / (dashboard?.recentSales ?? []).length
+    : 0;
 
-  /** Eje solo para barras (montos positivos): las barras arrancan desde 0 y no comparten escala con la utilidad. */
   const barYMax = useMemo(() => {
     const peak = Math.max(
-      ...monthlyFinancials.flatMap((d) => [d.costs, d.revenue]),
+      ...financials.flatMap((d) => [d.costs, d.revenue]),
       1
     );
     return peak * 1.08;
-  }, []);
+  }, [financials]);
 
-  /** Eje dedicado a utilidad (puede ser negativa); incluye 0 y línea de referencia. */
   const profitYDomain = useMemo((): [number, number] => {
-    const profits = monthlyFinancials.map((d) => d.profit);
+    if (financials.length === 0) return [-1000, 1000];
+    const profits = financials.map((d) => d.profit);
     const rawMin = Math.min(...profits, 0);
     const rawMax = Math.max(...profits, 0);
     const span = Math.max(rawMax - rawMin, 1);
     const pad = span * 0.1;
     return [rawMin - pad, rawMax + pad];
-  }, []);
+  }, [financials]);
+
+  const loading = loadingDash || loadingFin || loadingAnimals || loadingCosts || loadingFeed;
 
   const metricsData = [
     { label: "Animales Activos", value: activeAnimals, icon: Beef, color: "text-emerald-700", bg: "bg-emerald-50" },
     { label: "Animales Vendidos", value: soldAnimals, icon: TrendingUp, color: "text-blue-700", bg: "bg-blue-50" },
-    { label: "GDP Promedio", value: `${formatNumber(kpi.avgDailyGain, 2)} kg/día`, icon: Target, color: "text-violet-700", bg: "bg-violet-50" },
-    { label: "C.A. Promedio", value: `${formatNumber(kpi.feedConversionRatio, 1)}:1`, icon: BarChart3, color: "text-amber-700", bg: "bg-amber-50" },
+    { label: "GDP Promedio", value: `${formatNumber(kpi?.avgDailyGain ?? 0, 2)} kg/día`, icon: Target, color: "text-violet-700", bg: "bg-violet-50" },
+    { label: "C.A. Promedio", value: `${formatNumber(kpi?.feedConversionRatio ?? 0, 1)}:1`, icon: BarChart3, color: "text-amber-700", bg: "bg-amber-50" },
   ];
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Reportes</h1>
         <p className="text-sm text-muted-foreground mt-0.5">
@@ -67,7 +85,6 @@ export default function ReportsPage() {
         </p>
       </div>
 
-      {/* Key metrics */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {metricsData.map(({ label, value, icon: Icon, color, bg }) => (
           <Card key={label}>
@@ -78,7 +95,7 @@ export default function ReportsPage() {
                 </div>
                 <div>
                   <p className="text-xs text-muted-foreground">{label}</p>
-                  <p className={`text-lg font-bold ${color}`}>{value}</p>
+                  <p className={`text-lg font-bold ${color}`}>{loading ? "…" : value}</p>
                 </div>
               </div>
             </CardContent>
@@ -86,91 +103,89 @@ export default function ReportsPage() {
         ))}
       </div>
 
-      {/* Financial chart */}
       <Card>
         <CardHeader>
           <CardTitle>Flujo Financiero Mensual</CardTitle>
           <CardDescription>Costos, ingresos y utilidad por mes</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <p className="text-xs text-muted-foreground">
-            Costos e ingresos (arriba) y utilidad neta (abajo) usan escalas distintas para que la línea no cruce las barras.
-          </p>
-          <div className="rounded-xl border bg-card/50 overflow-hidden">
-            <div className="border-b bg-muted/30 px-3 py-2">
-              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                Costos vs ingresos
+          {loadingFin ? (
+            <div className="h-[400px] animate-pulse bg-muted/30 rounded-xl" />
+          ) : financials.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-16">Sin datos financieros registrados.</p>
+          ) : (
+            <>
+              <p className="text-xs text-muted-foreground">
+                Costos e ingresos (arriba) y utilidad neta (abajo) usan escalas distintas.
               </p>
-            </div>
-            <ResponsiveContainer width="100%" height={200}>
-              <BarChart
-                data={monthlyFinancials}
-                margin={{ top: 12, right: 12, left: 0, bottom: 4 }}
-                syncId="flujoFinanciero"
-              >
-                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false} />
-                <XAxis dataKey="month" tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
-                <YAxis
-                  domain={[0, barYMax]}
-                  tick={{ fontSize: 11 }}
-                  axisLine={false}
-                  tickLine={false}
-                  tickFormatter={(v) => formatCurrencyCompact(Number(v))}
-                  width={44}
-                />
-                <Tooltip
-                  contentStyle={{ borderRadius: "12px", border: "1px solid #e5e7eb", fontSize: 12 }}
-                  formatter={(value, name) => [formatCurrency(Number(value ?? 0)), name as string]}
-                />
-                <Legend formatter={(v) => <span style={{ fontSize: 12 }}>{v}</span>} />
-                <Bar dataKey="costs" name="Costos" fill="#ef4444" radius={[4, 4, 0, 0]} maxBarSize={40} />
-                <Bar dataKey="revenue" name="Ingresos" fill="#16a34a" radius={[4, 4, 0, 0]} maxBarSize={40} />
-              </BarChart>
-            </ResponsiveContainer>
-            <div className="border-t bg-muted/30 px-3 py-2">
-              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                Utilidad neta por mes
-              </p>
-            </div>
-            <ResponsiveContainer width="100%" height={180}>
-              <LineChart
-                data={monthlyFinancials}
-                margin={{ top: 12, right: 12, left: 0, bottom: 8 }}
-                syncId="flujoFinanciero"
-              >
-                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false} />
-                <XAxis dataKey="month" tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
-                <YAxis
-                  domain={profitYDomain}
-                  tick={{ fontSize: 11 }}
-                  axisLine={false}
-                  tickLine={false}
-                  tickFormatter={(v) => formatCurrencyCompact(Number(v))}
-                  width={44}
-                />
-                <ReferenceLine y={0} stroke="#94a3b8" strokeDasharray="4 4" />
-                <Tooltip
-                  contentStyle={{ borderRadius: "12px", border: "1px solid #e5e7eb", fontSize: 12 }}
-                  formatter={(value, name) => [formatCurrency(Number(value ?? 0)), name as string]}
-                />
-                <Legend formatter={(v) => <span style={{ fontSize: 12 }}>{v}</span>} />
-                <Line
-                  type="monotone"
-                  dataKey="profit"
-                  name="Utilidad"
-                  stroke="#2563eb"
-                  strokeWidth={2.5}
-                  dot={{ r: 4, fill: "#2563eb", strokeWidth: 0 }}
-                  activeDot={{ r: 6 }}
-                />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
+              <div className="rounded-xl border bg-card/50 overflow-hidden">
+                <div className="border-b bg-muted/30 px-3 py-2">
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                    Costos vs ingresos
+                  </p>
+                </div>
+                <ResponsiveContainer width="100%" height={200}>
+                  <BarChart data={financials} margin={{ top: 12, right: 12, left: 0, bottom: 4 }} syncId="flujoFinanciero">
+                    <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false} />
+                    <XAxis dataKey="month" tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
+                    <YAxis
+                      domain={[0, barYMax]}
+                      tick={{ fontSize: 11 }}
+                      axisLine={false}
+                      tickLine={false}
+                      tickFormatter={(v) => formatCurrencyCompact(Number(v))}
+                      width={44}
+                    />
+                    <Tooltip
+                      contentStyle={{ borderRadius: "12px", border: "1px solid #e5e7eb", fontSize: 12 }}
+                      formatter={(value, name) => [formatCurrency(Number(value ?? 0)), name as string]}
+                    />
+                    <Legend formatter={(v) => <span style={{ fontSize: 12 }}>{v}</span>} />
+                    <Bar dataKey="costs" name="Costos" fill="#ef4444" radius={[4, 4, 0, 0]} maxBarSize={40} />
+                    <Bar dataKey="revenue" name="Ingresos" fill="#16a34a" radius={[4, 4, 0, 0]} maxBarSize={40} />
+                  </BarChart>
+                </ResponsiveContainer>
+                <div className="border-t bg-muted/30 px-3 py-2">
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                    Utilidad neta por mes
+                  </p>
+                </div>
+                <ResponsiveContainer width="100%" height={180}>
+                  <LineChart data={financials} margin={{ top: 12, right: 12, left: 0, bottom: 8 }} syncId="flujoFinanciero">
+                    <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false} />
+                    <XAxis dataKey="month" tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
+                    <YAxis
+                      domain={profitYDomain}
+                      tick={{ fontSize: 11 }}
+                      axisLine={false}
+                      tickLine={false}
+                      tickFormatter={(v) => formatCurrencyCompact(Number(v))}
+                      width={44}
+                    />
+                    <ReferenceLine y={0} stroke="#94a3b8" strokeDasharray="4 4" />
+                    <Tooltip
+                      contentStyle={{ borderRadius: "12px", border: "1px solid #e5e7eb", fontSize: 12 }}
+                      formatter={(value, name) => [formatCurrency(Number(value ?? 0)), name as string]}
+                    />
+                    <Legend formatter={(v) => <span style={{ fontSize: 12 }}>{v}</span>} />
+                    <Line
+                      type="monotone"
+                      dataKey="profit"
+                      name="Utilidad"
+                      stroke="#2563eb"
+                      strokeWidth={2.5}
+                      dot={{ r: 4, fill: "#2563eb", strokeWidth: 0 }}
+                      activeDot={{ r: 6 }}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            </>
+          )}
         </CardContent>
       </Card>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Profitability */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base">
@@ -180,20 +195,19 @@ export default function ReportsPage() {
           </CardHeader>
           <CardContent className="space-y-4">
             {[
-              { label: "Inversión Total", value: formatCurrency(kpi.totalCost), color: "text-red-700" },
-              { label: "Ingresos por Ventas", value: formatCurrency(kpi.totalRevenue), color: "text-green-700" },
-              { label: "Utilidad Neta", value: formatCurrency(kpi.netProfit), color: kpi.netProfit >= 0 ? "text-green-700" : "text-red-600" },
-              { label: "Rentabilidad", value: `${formatNumber(kpi.profitability, 1)}%`, color: kpi.profitability >= 0 ? "text-green-700" : "text-red-600" },
+              { label: "Inversión Total", value: formatCurrency(kpi?.totalCost ?? 0), color: "text-red-700" },
+              { label: "Ingresos por Ventas", value: formatCurrency(kpi?.totalRevenue ?? 0), color: "text-green-700" },
+              { label: "Utilidad Neta", value: formatCurrency(kpi?.netProfit ?? 0), color: (kpi?.netProfit ?? 0) >= 0 ? "text-green-700" : "text-red-600" },
+              { label: "Rentabilidad", value: `${formatNumber(kpi?.profitability ?? 0, 1)}%`, color: (kpi?.profitability ?? 0) >= 0 ? "text-green-700" : "text-red-600" },
             ].map(({ label, value, color }) => (
               <div key={label} className="flex justify-between items-center py-2 border-b last:border-0">
                 <span className="text-sm text-muted-foreground">{label}</span>
-                <span className={`text-sm font-bold ${color}`}>{value}</span>
+                <span className={`text-sm font-bold ${color}`}>{loadingDash ? "…" : value}</span>
               </div>
             ))}
           </CardContent>
         </Card>
 
-        {/* Cost per animal */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base">
@@ -204,20 +218,27 @@ export default function ReportsPage() {
           <CardContent className="space-y-4">
             {[
               { label: "Costo total / animal", value: formatCurrency(costPerAnimal) },
-              { label: "Costo / kg producido", value: formatCurrency(kpi.costPerKg) },
-              { label: "Costo alimentación/día", value: formatCurrency(feedTypes.reduce((s, f) => s + f.monthlyCost, 0) / animals.length / 30) },
-              { label: "Precio de venta prom.", value: `${formatCurrency(47.5)}/kg` },
-              { label: "Margen bruto estimado", value: `${formatCurrency(47.5 - kpi.costPerKg)}/kg` },
+              { label: "Costo / kg producido", value: formatCurrency(kpi?.costPerKg ?? 0) },
+              {
+                label: "Costo alimentación/día",
+                value: animalList.length > 0
+                  ? formatCurrency(feedTypes.reduce((s, f) => s + f.monthlyCost, 0) / animalList.length / 30)
+                  : formatCurrency(0),
+              },
+              { label: "Precio de venta prom.", value: `${formatCurrency(avgSalePrice)}/kg` },
+              {
+                label: "Margen bruto estimado",
+                value: `${formatCurrency(avgSalePrice - (kpi?.costPerKg ?? 0))}/kg`,
+              },
             ].map(({ label, value }) => (
               <div key={label} className="flex justify-between items-center py-2 border-b last:border-0">
                 <span className="text-sm text-muted-foreground">{label}</span>
-                <span className="text-sm font-bold">{value}</span>
+                <span className="text-sm font-bold">{loading ? "…" : value}</span>
               </div>
             ))}
           </CardContent>
         </Card>
 
-        {/* Feed efficiency */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base">
@@ -227,15 +248,15 @@ export default function ReportsPage() {
           </CardHeader>
           <CardContent className="space-y-4">
             {[
-              { label: "GDP promedio", value: `${formatNumber(kpi.avgDailyGain, 2)} kg/día`, progress: (kpi.avgDailyGain / 2) * 100 },
-              { label: "Conversión alimenticia", value: `${kpi.feedConversionRatio}:1`, progress: Math.max(0, 100 - ((kpi.feedConversionRatio - 5) / 10) * 100) },
+              { label: "GDP promedio", value: `${formatNumber(kpi?.avgDailyGain ?? 0, 2)} kg/día`, progress: ((kpi?.avgDailyGain ?? 0) / 2) * 100 },
+              { label: "Conversión alimenticia", value: `${kpi?.feedConversionRatio ?? 0}:1`, progress: Math.max(0, 100 - (((kpi?.feedConversionRatio ?? 0) - 5) / 10) * 100) },
               { label: "Consumo diario/animal", value: `${feedEfficiency.toFixed(1)} kg`, progress: 70 },
               { label: "Ganancia promedio total", value: `${formatNumber(avgGain, 0)} kg/animal`, progress: (avgGain / 200) * 100 },
             ].map(({ label, value, progress }) => (
               <div key={label} className="space-y-1.5">
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">{label}</span>
-                  <span className="font-semibold">{value}</span>
+                  <span className="font-semibold">{loading ? "…" : value}</span>
                 </div>
                 <div className="h-1.5 rounded-full bg-muted overflow-hidden">
                   <div
@@ -249,67 +270,70 @@ export default function ReportsPage() {
         </Card>
       </div>
 
-      {/* Monthly financial table */}
       <Card>
         <CardHeader>
           <CardTitle>Resumen Financiero por Mes</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b bg-muted/30">
-                  <th className="px-4 py-3 text-left font-semibold text-muted-foreground">Mes</th>
-                  <th className="px-4 py-3 text-right font-semibold text-muted-foreground">Costos</th>
-                  <th className="px-4 py-3 text-right font-semibold text-muted-foreground">Ingresos</th>
-                  <th className="px-4 py-3 text-right font-semibold text-muted-foreground">Utilidad</th>
-                  <th className="px-4 py-3 text-right font-semibold text-muted-foreground">Rentabilidad</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y">
-                {monthlyFinancials.map((row) => {
-                  const profitability = row.costs > 0 ? (row.profit / row.costs) * 100 : 0;
-                  return (
-                    <tr key={row.month} className="hover:bg-muted/30 transition-colors">
-                      <td className="px-4 py-3 font-medium">{row.month}</td>
-                      <td className="px-4 py-3 text-right text-red-700">{formatCurrency(row.costs)}</td>
-                      <td className="px-4 py-3 text-right text-green-700">
-                        {row.revenue > 0 ? formatCurrency(row.revenue) : "—"}
-                      </td>
-                      <td className={`px-4 py-3 text-right font-semibold ${row.profit >= 0 ? "text-green-700" : "text-red-600"}`}>
-                        {formatCurrency(row.profit)}
-                      </td>
-                      <td className={`px-4 py-3 text-right font-semibold ${profitability >= 0 ? "text-green-700" : "text-red-600"}`}>
-                        {formatNumber(profitability, 1)}%
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-              <tfoot>
-                <tr className="border-t font-semibold bg-muted/20">
-                  <td className="px-4 py-3">Total</td>
-                  <td className="px-4 py-3 text-right text-red-700">
-                    {formatCurrency(monthlyFinancials.reduce((s, r) => s + r.costs, 0))}
-                  </td>
-                  <td className="px-4 py-3 text-right text-green-700">
-                    {formatCurrency(monthlyFinancials.reduce((s, r) => s + r.revenue, 0))}
-                  </td>
-                  <td className="px-4 py-3 text-right">
-                    {formatCurrency(monthlyFinancials.reduce((s, r) => s + r.profit, 0))}
-                  </td>
-                  <td className="px-4 py-3 text-right">
-                    {formatNumber(
-                      (monthlyFinancials.reduce((s, r) => s + r.profit, 0) /
-                        monthlyFinancials.reduce((s, r) => s + r.costs, 0)) *
-                        100,
-                      1
-                    )}%
-                  </td>
-                </tr>
-              </tfoot>
-            </table>
-          </div>
+          {financials.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-8">Sin datos financieros.</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b bg-muted/30">
+                    <th className="px-4 py-3 text-left font-semibold text-muted-foreground">Mes</th>
+                    <th className="px-4 py-3 text-right font-semibold text-muted-foreground">Costos</th>
+                    <th className="px-4 py-3 text-right font-semibold text-muted-foreground">Ingresos</th>
+                    <th className="px-4 py-3 text-right font-semibold text-muted-foreground">Utilidad</th>
+                    <th className="px-4 py-3 text-right font-semibold text-muted-foreground">Rentabilidad</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y">
+                  {financials.map((row) => {
+                    const profitability = row.costs > 0 ? (row.profit / row.costs) * 100 : 0;
+                    return (
+                      <tr key={row.month} className="hover:bg-muted/30 transition-colors">
+                        <td className="px-4 py-3 font-medium">{row.month}</td>
+                        <td className="px-4 py-3 text-right text-red-700">{formatCurrency(row.costs)}</td>
+                        <td className="px-4 py-3 text-right text-green-700">
+                          {row.revenue > 0 ? formatCurrency(row.revenue) : "—"}
+                        </td>
+                        <td className={`px-4 py-3 text-right font-semibold ${row.profit >= 0 ? "text-green-700" : "text-red-600"}`}>
+                          {formatCurrency(row.profit)}
+                        </td>
+                        <td className={`px-4 py-3 text-right font-semibold ${profitability >= 0 ? "text-green-700" : "text-red-600"}`}>
+                          {formatNumber(profitability, 1)}%
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+                <tfoot>
+                  <tr className="border-t font-semibold bg-muted/20">
+                    <td className="px-4 py-3">Total</td>
+                    <td className="px-4 py-3 text-right text-red-700">
+                      {formatCurrency(financials.reduce((s, r) => s + r.costs, 0))}
+                    </td>
+                    <td className="px-4 py-3 text-right text-green-700">
+                      {formatCurrency(financials.reduce((s, r) => s + r.revenue, 0))}
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      {formatCurrency(financials.reduce((s, r) => s + r.profit, 0))}
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      {formatNumber(
+                        (financials.reduce((s, r) => s + r.profit, 0) /
+                          Math.max(financials.reduce((s, r) => s + r.costs, 0), 1)) *
+                          100,
+                        1
+                      )}%
+                    </td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

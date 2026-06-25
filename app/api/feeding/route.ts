@@ -5,6 +5,20 @@ import { getEstadoIdByCodigo } from "@/lib/api/corrales-helpers";
 
 export const dynamic = "force-dynamic";
 
+const PERIOD_DAYS = 30;
+
+function periodStartIso(): string {
+  const d = new Date();
+  d.setUTCDate(d.getUTCDate() - PERIOD_DAYS);
+  return d.toISOString().slice(0, 10);
+}
+
+type ConsumoRow = {
+  alimento_id: string;
+  total_cantidad: number;
+  total_costo: number;
+};
+
 export async function GET(req: Request) {
   try {
     const admin = createSupabaseAdmin();
@@ -13,52 +27,127 @@ export async function GET(req: Request) {
       admin,
       url.searchParams.get("farmId") ?? url.searchParams.get("granjaId")
     );
+    const desde = periodStartIso();
 
     const estadoActivo = await getEstadoIdByCodigo(admin, "activo");
 
-    const [{ count: activeHead }, { data: alimentos, error: e2 }] =
-      await Promise.all([
-        admin
-          .from("animales")
-          .select("id", { count: "exact", head: true })
-          .eq("granja_id", granjaId)
-          .eq("estado_id", estadoActivo)
-          .is("deleted_at", null),
-        admin
-          .from("alimentos")
-          .select("*")
-          .eq("granja_id", granjaId)
-          .eq("activo", true)
-          .is("deleted_at", null)
-          .order("nombre", { ascending: true }),
-      ]);
-    if (e2) throw new Error(e2.message);
+    const [
+      { count: activeHead },
+      { data: alimentos, error: eAlimentos },
+      { data: detalle, error: eDetalle },
+      { data: fechas, error: eFechas },
+    ] = await Promise.all([
+      admin
+        .from("animales")
+        .select("id", { count: "exact", head: true })
+        .eq("granja_id", granjaId)
+        .eq("estado_id", estadoActivo)
+        .is("deleted_at", null),
+      admin
+        .from("alimentos")
+        .select("id, nombre, unidad_medida, costo_unitario")
+        .eq("granja_id", granjaId)
+        .eq("activo", true)
+        .is("deleted_at", null)
+        .order("nombre", { ascending: true }),
+      admin
+        .from("detalle_alimentaciones")
+        .select(
+          `
+          alimento_id,
+          cantidad,
+          subtotal,
+          alimentaciones!inner ( granja_id, fecha, deleted_at )
+        `
+        )
+        .eq("alimentaciones.granja_id", granjaId)
+        .is("alimentaciones.deleted_at", null)
+        .gte("alimentaciones.fecha", desde),
+      admin
+        .from("alimentaciones")
+        .select("fecha")
+        .eq("granja_id", granjaId)
+        .is("deleted_at", null)
+        .gte("fecha", desde),
+    ]);
+
+    if (eAlimentos) throw new Error(eAlimentos.message);
+    if (eDetalle) throw new Error(eDetalle.message);
+    if (eFechas) throw new Error(eFechas.message);
 
     const heads = activeHead ?? 0;
     const rows = alimentos ?? [];
-    const defaultDailyPerHead = rows.length > 0 ? 12 / rows.length : 0;
-    const sumDaily = defaultDailyPerHead * rows.length;
+
+    const consumoMap = new Map<string, ConsumoRow>();
+    for (const row of detalle ?? []) {
+      const r = row as Record<string, unknown>;
+      const aid = r.alimento_id as string;
+      const cur = consumoMap.get(aid) ?? {
+        alimento_id: aid,
+        total_cantidad: 0,
+        total_costo: 0,
+      };
+      cur.total_cantidad += Number(r.cantidad);
+      cur.total_costo += Number(r.subtotal);
+      consumoMap.set(aid, cur);
+    }
+
+    const distinctDays = new Set(
+      (fechas ?? []).map((f: { fecha: string }) => f.fecha)
+    ).size;
+    const daysInPeriod = distinctDays > 0 ? distinctDays : PERIOD_DAYS;
+    const animalDays = heads > 0 ? heads * daysInPeriod : 0;
+
+    let totalDailyKg = 0;
 
     const feedTypes = rows.map((r: Record<string, unknown>) => {
-      const daily = defaultDailyPerHead;
+      const id = r.id as string;
+      const consumo = consumoMap.get(id);
       const price = Number(r.costo_unitario);
-      const monthlyAmount = daily * 30 * heads;
-      const monthlyCost = monthlyAmount * price;
-      const pct =
-        sumDaily > 0 ? Math.round((daily / sumDaily) * 1000) / 10 : 0;
+      const unit = r.unidad_medida as string;
+
+      const totalQty = consumo?.total_cantidad ?? 0;
+      const totalCost = consumo?.total_costo ?? 0;
+
+      const dailyConsumption =
+        animalDays > 0
+          ? Math.round((totalQty / animalDays) * 100) / 100
+          : 0;
+      const monthlyAmount =
+        heads > 0
+          ? Math.round(dailyConsumption * PERIOD_DAYS * heads * 100) / 100
+          : 0;
+      const monthlyCost = Math.round(totalCost * 100) / 100;
+
+      totalDailyKg += dailyConsumption;
+
       return {
-        id: r.id as string,
+        id,
         name: r.nombre as string,
-        unit: r.unidad_medida as string,
-        dailyConsumption: Math.round(daily * 100) / 100,
+        unit,
+        dailyConsumption,
         pricePerUnit: price,
-        monthlyAmount: Math.round(monthlyAmount * 100) / 100,
-        monthlyCost: Math.round(monthlyCost * 100) / 100,
-        percentage: pct,
+        monthlyAmount,
+        monthlyCost,
+        percentage: 0,
+        hasConsumption: totalQty > 0,
       };
     });
 
-    return jsonOk({ activeHeadCount: heads, feedTypes });
+    const sumDaily = feedTypes.reduce((s, f) => s + f.dailyConsumption, 0);
+    for (const f of feedTypes) {
+      f.percentage =
+        sumDaily > 0 ? Math.round((f.dailyConsumption / sumDaily) * 1000) / 10 : 0;
+    }
+
+    return jsonOk({
+      activeHeadCount: heads,
+      periodDays: PERIOD_DAYS,
+      daysWithRecords: distinctDays,
+      hasConsumptionRecords: (detalle ?? []).length > 0,
+      feedTypes: feedTypes.map(({ hasConsumption: _, ...rest }) => rest),
+      totalDailyConsumption: Math.round(totalDailyKg * 100) / 100,
+    });
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Error desconocido";
     return jsonError(msg, 500);

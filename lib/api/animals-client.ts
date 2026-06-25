@@ -1,13 +1,6 @@
-import type { Animal } from "@/lib/mockData";
+import type { Animal } from "@/lib/types/domain";
 import type { AnimalDetail, ActaRecord, PesajeRecord } from "@/components/animales/types";
-
-async function parseJson<T>(res: Response): Promise<T> {
-  const body = await res.json();
-  if (!res.ok) {
-    throw new Error((body as { error?: string }).error ?? "Error en la solicitud");
-  }
-  return body as T;
-}
+import { parseJson } from "@/lib/api/parse-json";
 
 export async function fetchAnimals(): Promise<Animal[]> {
   const res = await fetch("/api/animals", { cache: "no-store" });

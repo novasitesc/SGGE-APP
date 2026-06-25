@@ -1,6 +1,7 @@
 import { createSupabaseAdmin } from "@/lib/supabase/admin";
 import { resolveGranjaId, isUuid } from "@/lib/api/granja";
 import { jsonError, jsonOk } from "@/lib/api/http";
+import { getEstadoIdByCodigo } from "@/lib/api/corrales-helpers";
 import {
   registrarHistorial,
   snapshotCorral,
@@ -12,7 +13,6 @@ type PatchBody = Partial<{
   name: string;
   type: string;
   capacity: number;
-  location: string;
 }>;
 
 export async function PATCH(
@@ -105,6 +105,21 @@ export async function DELETE(
 
     if (Number(current.ocupacion_actual) > 0) {
       return jsonError("No se puede eliminar un corral con animales activos.", 409);
+    }
+
+    const estadoActivo = await getEstadoIdByCodigo(admin, "activo");
+    const { count: activeAnimals } = await admin
+      .from("animales")
+      .select("id", { count: "exact", head: true })
+      .eq("granja_id", granjaId)
+      .eq("corral_id", id)
+      .eq("estado_id", estadoActivo)
+      .is("deleted_at", null);
+    if ((activeAnimals ?? 0) > 0) {
+      return jsonError(
+        "No se puede eliminar un módulo con animales activos asignados.",
+        409
+      );
     }
 
     const { error } = await admin

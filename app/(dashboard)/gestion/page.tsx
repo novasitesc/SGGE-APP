@@ -1,7 +1,16 @@
 "use client";
 
 import Link from "next/link";
-import { useStore, type AppState } from "@/store/useStore";
+import { useEffect, useState } from "react";
+import { fetchAnimals } from "@/lib/api/animals-client";
+import {
+  fetchCosts,
+  fetchFeeding,
+  fetchHealthAlerts,
+  fetchModules,
+  fetchSales,
+  fetchTreatments,
+} from "@/lib/api/data-client";
 import {
   Beef,
   Grid3X3,
@@ -17,18 +26,17 @@ import {
 } from "lucide-react";
 import { usePendingSolicitudesCount } from "@/components/mensajeria/MensajeriaGerente";
 
-interface GestionSection {
-  href: string;
-  icon: React.ElementType;
-  label: string;
-  description: string;
-  color: string;
-  iconBg: string;
-  countFn: (store: AppState) => number;
-  badge?: string;
+interface SectionCounts {
+  animals: number;
+  modules: number;
+  costs: number;
+  treatments: number;
+  healthAlerts: number;
+  sales: number;
+  feedTypes: number;
 }
 
-const sections: GestionSection[] = [
+const sections = [
   {
     href: "/gestion/animales",
     icon: Beef,
@@ -36,7 +44,7 @@ const sections: GestionSection[] = [
     description: "Registrar, editar y eliminar animales del inventario ganadero.",
     color: "border-emerald-200 hover:border-emerald-400 hover:bg-emerald-50/50",
     iconBg: "bg-emerald-100 text-emerald-700",
-    countFn: (s) => s.animals.length,
+    countKey: "animals" as const,
   },
   {
     href: "/gestion/historial",
@@ -45,7 +53,7 @@ const sections: GestionSection[] = [
     description: "Libro de actas transversal: animales, ventas, costos, módulos y más.",
     color: "border-indigo-200 hover:border-indigo-400 hover:bg-indigo-50/50",
     iconBg: "bg-indigo-100 text-indigo-700",
-    countFn: () => 0,
+    countKey: null,
     badge: "Auditoría",
   },
   {
@@ -55,7 +63,7 @@ const sections: GestionSection[] = [
     description: "Libro de actas del inventario: altas, cambios, bajas y ventas.",
     color: "border-indigo-200 hover:border-indigo-300 hover:bg-indigo-50/30",
     iconBg: "bg-indigo-50 text-indigo-600",
-    countFn: () => 0,
+    countKey: null,
   },
   {
     href: "/gestion/mensajeria",
@@ -64,7 +72,7 @@ const sections: GestionSection[] = [
     description: "Bandeja del gerente: aprobar o rechazar solicitudes de baja y otras acciones.",
     color: "border-amber-200 hover:border-amber-400 hover:bg-amber-50/50",
     iconBg: "bg-amber-100 text-amber-800",
-    countFn: () => 0,
+    countKey: null,
     badge: "Gerente",
   },
   {
@@ -74,7 +82,7 @@ const sections: GestionSection[] = [
     description: "Administrar los corrales y módulos de la finca.",
     color: "border-violet-200 hover:border-violet-400 hover:bg-violet-50/50",
     iconBg: "bg-violet-100 text-violet-700",
-    countFn: (s) => s.modules.length,
+    countKey: "modules" as const,
   },
   {
     href: "/gestion/costos",
@@ -83,7 +91,7 @@ const sections: GestionSection[] = [
     description: "Gestionar gastos: alimentación, mano de obra, transporte y más.",
     color: "border-orange-200 hover:border-orange-400 hover:bg-orange-50/50",
     iconBg: "bg-orange-100 text-orange-700",
-    countFn: (s) => s.costs.length,
+    countKey: "costs" as const,
   },
   {
     href: "/gestion/salud",
@@ -92,7 +100,7 @@ const sections: GestionSection[] = [
     description: "Controlar tratamientos veterinarios y alertas sanitarias.",
     color: "border-red-200 hover:border-red-400 hover:bg-red-50/50",
     iconBg: "bg-red-100 text-red-700",
-    countFn: (s) => s.treatments.length + s.healthAlerts.length,
+    countKey: "health" as const,
   },
   {
     href: "/gestion/ventas",
@@ -101,7 +109,7 @@ const sections: GestionSection[] = [
     description: "Registrar y editar ventas de ganado, compradores y precios.",
     color: "border-blue-200 hover:border-blue-400 hover:bg-blue-50/50",
     iconBg: "bg-blue-100 text-blue-700",
-    countFn: (s) => s.sales.length,
+    countKey: "sales" as const,
   },
   {
     href: "/gestion/alimentacion",
@@ -110,26 +118,70 @@ const sections: GestionSection[] = [
     description: "Gestionar catálogo de insumos: consumo diario, precio y porcentaje.",
     color: "border-lime-200 hover:border-lime-400 hover:bg-lime-50/50",
     iconBg: "bg-lime-100 text-lime-700",
-    countFn: (s) => s.feedTypes.length,
+    countKey: "feedTypes" as const,
   },
 ];
 
 export default function GestionPage() {
-  const store = useStore();
   const { count: pendingMensajes } = usePendingSolicitudesCount();
+  const [counts, setCounts] = useState<SectionCounts | null>(null);
 
-  const totalRecords =
-    store.animals.length +
-    store.modules.length +
-    store.costs.length +
-    store.treatments.length +
-    store.healthAlerts.length +
-    store.sales.length +
-    store.feedTypes.length;
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const [animals, modules, costs, treatments, healthAlerts, sales, feeding] =
+          await Promise.all([
+            fetchAnimals(),
+            fetchModules(),
+            fetchCosts(),
+            fetchTreatments(),
+            fetchHealthAlerts(),
+            fetchSales(),
+            fetchFeeding(),
+          ]);
+        if (!cancelled) {
+          setCounts({
+            animals: animals.length,
+            modules: modules.length,
+            costs: costs.length,
+            treatments: treatments.length,
+            healthAlerts: healthAlerts.length,
+            sales: sales.length,
+            feedTypes: feeding.feedTypes.length,
+          });
+        }
+      } catch {
+        if (!cancelled) {
+          setCounts({
+            animals: 0,
+            modules: 0,
+            costs: 0,
+            treatments: 0,
+            healthAlerts: 0,
+            sales: 0,
+            feedTypes: 0,
+          });
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const totalRecords = counts
+    ? counts.animals +
+      counts.modules +
+      counts.costs +
+      counts.treatments +
+      counts.healthAlerts +
+      counts.sales +
+      counts.feedTypes
+    : 0;
 
   return (
     <div className="space-y-8">
-      {/* Header */}
       <div className="flex items-start justify-between">
         <div>
           <div className="flex items-center gap-2 mb-1">
@@ -144,29 +196,32 @@ export default function GestionPage() {
         </div>
         <div className="flex items-center gap-2 text-sm text-muted-foreground bg-card border rounded-xl px-3 py-2">
           <Database className="h-4 w-4 text-primary" />
-          <span className="font-semibold text-foreground">{totalRecords}</span>
+          <span className="font-semibold text-foreground">{counts ? totalRecords : "…"}</span>
           <span>registros totales</span>
         </div>
       </div>
 
-      {/* Intro banner */}
       <div className="rounded-2xl border border-primary/20 bg-primary/5 p-5">
         <p className="text-sm text-foreground/80 leading-relaxed">
           Desde este centro puedes <strong>agregar</strong>, <strong>editar</strong> y{" "}
           <strong>eliminar</strong> datos de cada sección del sistema. Los cambios se
-          reflejan automáticamente en los dashboards y reportes. Selecciona la sección
-          que deseas administrar.
+          reflejan automáticamente en los dashboards y reportes.
         </p>
       </div>
 
-      {/* Grid de secciones */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {sections.map((section) => {
           const Icon = section.icon;
-          const count =
-            section.href === "/gestion/mensajeria"
-              ? pendingMensajes
-              : section.countFn(store);
+          let count = 0;
+          if (section.href === "/gestion/mensajeria") {
+            count = pendingMensajes;
+          } else if (section.countKey && counts) {
+            if (section.countKey === "health") {
+              count = counts.treatments + counts.healthAlerts;
+            } else {
+              count = counts[section.countKey];
+            }
+          }
 
           return (
             <Link
@@ -174,17 +229,15 @@ export default function GestionPage() {
               href={section.href}
               className={`group relative flex flex-col gap-4 rounded-2xl border bg-card p-5 transition-all duration-200 ${section.color}`}
             >
-              {/* Icon + count */}
               <div className="flex items-start justify-between">
                 <div className={`flex items-center justify-center w-11 h-11 rounded-xl ${section.iconBg}`}>
                   <Icon className="h-5 w-5" />
                 </div>
                 <span className="text-3xl font-bold tabular-nums text-foreground/70">
-                  {count}
+                  {counts || section.href === "/gestion/mensajeria" ? count : "…"}
                 </span>
               </div>
 
-              {/* Label + description */}
               <div>
                 <h3 className="font-semibold text-base text-foreground group-hover:text-primary transition-colors">
                   {section.label}
@@ -194,7 +247,6 @@ export default function GestionPage() {
                 </p>
               </div>
 
-              {/* CTA */}
               <div className="flex items-center gap-1 text-xs font-medium text-primary mt-auto">
                 Administrar
                 <ChevronRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
@@ -203,11 +255,6 @@ export default function GestionPage() {
           );
         })}
       </div>
-
-      {/* Nota informativa */}
-      <p className="text-xs text-muted-foreground text-center pb-2">
-        Los datos se almacenan en memoria durante la sesión. Para persistencia real, conecta con Supabase desde los endpoints de <code className="bg-muted px-1 rounded">/api/*</code>.
-      </p>
     </div>
   );
 }

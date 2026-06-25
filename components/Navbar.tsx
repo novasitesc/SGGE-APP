@@ -5,6 +5,8 @@ import { SYSTEM_LOCALE } from "@/lib/utils";
 import { Bell, Calendar, User, ChevronDown, Search } from "lucide-react";
 import { useState } from "react";
 import { usePendingSolicitudesCount } from "@/components/mensajeria/MensajeriaGerente";
+import { fetchGranjaInfo } from "@/lib/api/data-client";
+import { useApiQuery } from "@/lib/hooks/useApiQuery";
 
 export default function Navbar() {
   const today = new Date().toLocaleDateString(SYSTEM_LOCALE, {
@@ -16,23 +18,19 @@ export default function Navbar() {
 
   const [showNotif, setShowNotif] = useState(false);
   const { count: pendingCount } = usePendingSolicitudesCount();
+  const { data: granja } = useApiQuery(fetchGranjaInfo);
 
-  const notifications = [
-    ...(pendingCount > 0
+  const notifications =
+    pendingCount > 0
       ? [
           {
             id: "pending-approvals",
             text: `${pendingCount} solicitud${pendingCount !== 1 ? "es" : ""} pendiente${pendingCount !== 1 ? "s" : ""} de aprobación del gerente`,
             time: "Requiere acción",
-            type: "aprobacion" as const,
             href: "/gestion/mensajeria",
           },
         ]
-      : []),
-    { id: 1, text: "BV-006 requiere atención veterinaria urgente", time: "Hace 30 min", type: "urgente" as const },
-    { id: 2, text: "Implante Revalor-G vence en 14 días", time: "Hace 2 h", type: "programado" as const },
-    { id: 3, text: "Pesaje mensual programado para mañana", time: "Hace 4 h", type: "revisión" as const },
-  ];
+      : [];
 
   const alertCount = notifications.length;
 
@@ -70,28 +68,25 @@ export default function Navbar() {
             <div className="absolute right-0 top-12 w-80 rounded-2xl border bg-card shadow-xl z-50 overflow-hidden">
               <div className="px-4 py-3 border-b">
                 <p className="text-sm font-semibold">Notificaciones</p>
-                <p className="text-xs text-muted-foreground">{alertCount} alertas activas</p>
+                <p className="text-xs text-muted-foreground">
+                  {alertCount > 0 ? `${alertCount} alertas activas` : "Sin notificaciones pendientes"}
+                </p>
               </div>
               <div className="divide-y max-h-72 overflow-y-auto">
-                {notifications.map((n) => {
-                  const inner = (
-                    <>
-                      <p className="text-sm leading-snug">{n.text}</p>
-                      <p className="text-xs text-muted-foreground mt-1">{n.time}</p>
-                    </>
-                  );
-                  return (
+                {notifications.length === 0 ? (
+                  <p className="px-4 py-6 text-sm text-muted-foreground text-center">
+                    No hay notificaciones nuevas.
+                  </p>
+                ) : (
+                  notifications.map((n) => (
                     <div key={n.id} className="hover:bg-muted/50 transition-colors">
-                      {"href" in n && n.href ? (
-                        <Link href={n.href} className="block px-4 py-3" onClick={() => setShowNotif(false)}>
-                          {inner}
-                        </Link>
-                      ) : (
-                        <div className="px-4 py-3">{inner}</div>
-                      )}
+                      <Link href={n.href} className="block px-4 py-3" onClick={() => setShowNotif(false)}>
+                        <p className="text-sm leading-snug">{n.text}</p>
+                        <p className="text-xs text-muted-foreground mt-1">{n.time}</p>
+                      </Link>
                     </div>
-                  );
-                })}
+                  ))
+                )}
               </div>
               <div className="px-4 py-2 border-t text-center">
                 <Link
@@ -111,8 +106,10 @@ export default function Navbar() {
             <User className="h-3.5 w-3.5" />
           </div>
           <div className="hidden sm:block text-left">
-            <p className="text-xs font-semibold leading-tight">Admin</p>
-            <p className="text-[10px] text-muted-foreground leading-tight">Rancho El Encino</p>
+            <p className="text-xs font-semibold leading-tight">Usuario</p>
+            <p className="text-[10px] text-muted-foreground leading-tight">
+              {granja?.name ?? "Cargando…"}
+            </p>
           </div>
           <ChevronDown className="h-3.5 w-3.5 text-muted-foreground hidden sm:block" />
         </button>
