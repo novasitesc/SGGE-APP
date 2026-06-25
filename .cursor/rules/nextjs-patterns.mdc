@@ -1,0 +1,88 @@
+---
+description: Patrones Next.js App Router, Server/Client Components y errores
+globs: "app/**,**/*.tsx"
+alwaysApply: false
+---
+
+# Next.js App Router — Patrones
+
+## Server Components por defecto
+
+```typescript
+// app/(dashboard)/[module]/page.tsx — Sin "use client"
+import { getUserEntities } from '@/modules/[module]/queries'
+import { EntityList } from '@/modules/[module]/components'
+import { createClient } from '@/lib/supabase/server'
+import { redirect } from 'next/navigation'
+
+export default async function ModulePage() {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) redirect('/login')
+
+  const entities = await getUserEntities(user.id)
+  return <EntityList entities={entities} />
+}
+```
+
+## Client Components — solo interactividad
+
+```typescript
+'use client'
+// Solo para: useState, useEffect, event handlers, browser APIs
+import { useState } from 'react'
+import { createEntity } from '@/modules/[module]/actions'
+
+export function CreateEntityForm() {
+  const [pending, setPending] = useState(false)
+  // ...
+}
+```
+
+## Metadata dinámica
+
+```typescript
+export async function generateMetadata({ params }: { params: { id: string } }) {
+  const entity = await getEntityById(params.id)
+  return {
+    title: entity?.name ?? 'Not Found',
+    description: entity?.description,
+  }
+}
+```
+
+## Error Boundaries por módulo
+
+```typescript
+// modules/[module]/error.tsx
+'use client'
+
+export default function ModuleError({
+  error,
+  reset,
+}: {
+  error: Error & { digest?: string }
+  reset: () => void
+}) {
+  return (
+    <div>
+      <h2>Error en el módulo</h2>
+      <button onClick={reset}>Reintentar</button>
+    </div>
+  )
+}
+```
+
+## Estructura de módulo — ejemplo
+
+```
+modules/invoices/
+├── index.ts
+├── components/
+│   ├── InvoiceList.tsx       # Server Component
+│   ├── InvoiceForm.tsx       # Client Component
+├── hooks/useInvoiceFilters.ts
+├── actions/create-invoice.ts # "use server"
+├── queries/get-invoices.ts
+└── types/invoice.types.ts
+```

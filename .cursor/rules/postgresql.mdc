@@ -1,0 +1,97 @@
+---
+description: Estándares PostgreSQL, RLS, índices y migraciones Supabase
+globs: "**/*.sql,supabase/**"
+alwaysApply: false
+---
+
+# PostgreSQL — Estándares y patrones
+
+## Nomenclatura
+
+```sql
+-- Tablas: snake_case, plural
+CREATE TABLE public.user_profiles (...);
+
+-- Columnas estándar en TODA tabla
+id          uuid        DEFAULT gen_random_uuid() PRIMARY KEY,
+created_at  timestamptz DEFAULT now() NOT NULL,
+updated_at  timestamptz DEFAULT now() NOT NULL,
+
+-- FKs: [tabla_referenciada]_id
+user_id     uuid REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+```
+
+## Triggers obligatorios
+
+```sql
+CREATE OR REPLACE FUNCTION public.handle_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = now();
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER set_updated_at
+  BEFORE UPDATE ON public.[table_name]
+  FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
+```
+
+## Row Level Security — NO NEGOCIABLE
+
+```sql
+ALTER TABLE public.[table_name] ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "users_own_data" ON public.[table_name]
+  FOR ALL
+  USING (auth.uid() = user_id)
+  WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "module_access" ON public.[table_name]
+  FOR SELECT
+  USING (
+    EXISTS (
+      SELECT 1 FROM public.user_module_permissions
+      WHERE user_id = auth.uid()
+        AND module_name = '[module]'
+        AND can_read = true
+    )
+  );
+```
+
+## Índices estratégicos
+
+```sql
+CREATE INDEX idx_[table]_user_id ON public.[table](user_id);
+CREATE INDEX idx_[table]_created_at ON public.[table](created_at DESC);
+
+CREATE INDEX idx_[table]_[col]_trgm ON public.[table]
+  USING GIN ([column] gin_trgm_ops);
+
+CREATE INDEX idx_[table]_active ON public.[table](user_id)
+  WHERE status = 'active';
+```
+
+## Migraciones
+
+- Archivo: `supabase/migrations/YYYYMMDDHHMMSS_descripcion.sql`
+- Incluir comentario de qué hace la migración
+- Nunca `DROP` sin `IF EXISTS`
+- Preferir migraciones idempotentes
+
+```sql
+-- Migration: Add module_permissions table
+CREATE TABLE IF NOT EXISTS public.module_permissions (
+  id          uuid        DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id     uuid        REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+  module_name text        NOT NULL,
+  can_read    boolean     DEFAULT false NOT NULL,
+  can_write   boolean     DEFAULT false NOT NULL,
+  can_delete  boolean     DEFAULT false NOT NULL,
+  created_at  timestamptz DEFAULT now() NOT NULL,
+  updated_at  timestamptz DEFAULT now() NOT NULL,
+  UNIQUE(user_id, module_name)
+);
+
+ALTER TABLE public.module_permissions ENABLE ROW LEVEL SECURITY;
+```

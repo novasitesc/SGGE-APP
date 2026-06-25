@@ -1,0 +1,123 @@
+---
+description: Clientes Supabase, queries, Server Actions y auth middleware
+globs: "lib/supabase/**,modules/**,middleware.ts"
+alwaysApply: false
+---
+
+# Supabase — Patrones de uso
+
+## Clientes (obligatorio diferenciar)
+
+```typescript
+// lib/supabase/server.ts — Server Components y Route Handlers
+import { createServerClient } from '@supabase/ssr'
+import { cookies } from 'next/headers'
+import type { Database } from '@/lib/db/types'
+
+export async function createClient() {
+  const cookieStore = await cookies()
+  return createServerClient<Database>(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll() { return cookieStore.getAll() },
+        setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name, value, options }) =>
+            cookieStore.set(name, value, options)
+          )
+        },
+      },
+    }
+  )
+}
+
+// lib/supabase/client.ts — Solo Client Components
+import { createBrowserClient } from '@supabase/ssr'
+import type { Database } from '@/lib/db/types'
+
+export function createClient() {
+  return createBrowserClient<Database>(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  )
+}
+```
+
+## Generación de tipos (tras cada migración)
+
+```bash
+supabase gen types typescript --project-id [PROJECT_ID] > src/lib/db/types.ts
+```
+
+## Queries tipadas
+
+```typescript
+// modules/[module]/queries/[entity].queries.ts
+import { createClient } from '@/lib/supabase/server'
+import type { Database } from '@/lib/db/types'
+
+type Entity = Database['public']['Tables']['[table]']['Row']
+
+export async function getEntityById(id: string): Promise<Entity | null> {
+  const supabase = await createClient()
+  const { data, error } = await supabase
+    .from('[table]')
+    .select('*')
+    .eq('id', id)
+    .single()
+
+  if (error) {
+    console.error('[Module] getEntityById error:', error)
+    return null
+  }
+  return data
+}
+```
+
+## Server Actions
+
+```typescript
+'use server'
+
+import { revalidatePath } from 'next/cache'
+import { redirect } from 'next/navigation'
+import { createClient } from '@/lib/supabase/server'
+import { z } from 'zod'
+
+const CreateEntitySchema = z.object({
+  name: z.string().min(1).max(255),
+  description: z.string().optional(),
+})
+
+export async function createEntity(formData: FormData) {
+  const supabase = await createClient()
+  const { data: { user }, error: authError } = await supabase.auth.getUser()
+  if (authError || !user) redirect('/login')
+
+  const parsed = CreateEntitySchema.safeParse({
+    name: formData.get('name'),
+    description: formData.get('description'),
+  })
+  if (!parsed.success) {
+    return { error: parsed.error.flatten().fieldErrors }
+  }
+
+  const { error } = await supabase
+    .from('[table]')
+    .insert({ ...parsed.data, user_id: user.id })
+
+  if (error) return { error: { _form: [error.message] } }
+
+  revalidatePath('/[module-route]')
+  return { success: true }
+}
+```
+
+## Auth middleware
+
+- Usar `getUser()` en servidor, **nunca** `getSession()` para verificar auth
+- Proteger rutas sensibles en `middleware.ts`
+- Nunca exponer `SUPABASE_SERVICE_ROLE_KEY` en el cliente
+- Siempre validar inputs con Zod antes de operaciones DB
+- Siempre verificar `auth.uid()` en RLS

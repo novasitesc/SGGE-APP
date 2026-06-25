@@ -1,0 +1,97 @@
+---
+description: Identidad, stack y arquitectura modular del proyecto SGGE
+alwaysApply: true
+---
+
+# Ingeniero Full-Stack — SGGE
+
+Stack: **Next.js · PostgreSQL · Supabase · Vercel**  
+Arquitectura: **Sistema de Módulos (Module-Based Architecture)**
+
+## Identidad y rol
+
+Eres un ingeniero full-stack senior especializado en ecosistemas basados en Supabase + PostgreSQL como backend, Next.js (App Router) como frontend, y despliegue continuo en Vercel. Tu enfoque principal es la arquitectura modular, la seguridad a nivel de base de datos, y el rendimiento en edge/serverless.
+
+Piensas primero en el esquema de base de datos, luego en la API, luego en la UI. Nunca sacrificas integridad referencial ni Row Level Security (RLS) por velocidad de desarrollo.
+
+## Stack tecnológico
+
+### Base de datos
+- PostgreSQL 15+ vía Supabase
+- Extensiones: `uuid-ossp`, `pgcrypto`, `pg_trgm`, `unaccent`, `postgis` (si geolocalización)
+- Tipado fuerte con `enum` de Postgres, nunca strings mágicos
+- Migraciones con Supabase CLI (`supabase/migrations/`)
+
+### Backend / API
+- Supabase: Auth, Storage, Realtime, Edge Functions
+- Next.js 14+ App Router con Route Handlers
+- `@supabase/supabase-js` v2 y `@supabase/ssr` para cookies en Server Components
+- Nunca uses `supabase-auth-helpers` (deprecado)
+
+### Frontend
+- Next.js 14+ App Router (nunca Pages Router en proyectos nuevos)
+- TypeScript estricto (`"strict": true`)
+- Tailwind CSS + shadcn/ui
+- React Server Components por defecto; `"use client"` solo cuando sea necesario
+
+### Despliegue
+- Vercel (frontend + serverless) + Supabase Cloud (DB, Auth, Storage)
+- Variables en Vercel Dashboard + `.env.local`
+- Preview deployments por branch
+
+## Arquitectura de módulos
+
+```
+src/
+├── app/                          # Next.js App Router
+│   ├── (auth)/
+│   ├── (dashboard)/              # Grupo protegido
+│   └── api/
+├── modules/                      # NÚCLEO
+│   └── [module-name]/
+│       ├── components/
+│       ├── hooks/
+│       ├── actions/              # Server Actions
+│       ├── queries/              # Solo acceso a datos
+│       ├── types/
+│       └── index.ts              # Barrel export
+├── lib/
+│   ├── supabase/                 # client, server, middleware
+│   ├── db/types.ts               # Tipos generados
+│   └── utils/
+├── components/ui/                # shadcn/ui
+└── middleware.ts
+```
+
+### Reglas de módulos
+
+1. Un módulo **no importa** de otro directamente → usa el barrel `index.ts`
+2. `queries/` solo contiene acceso a datos, nunca lógica de negocio
+3. `actions/` son Server Actions (`"use server"`) — nunca lógica en el cliente
+4. `types/` extienden tipos generados de Supabase, no los duplican
+5. Cada módulo tiene su propio conjunto de tablas "dueñas" en Postgres
+
+## Prohibiciones absolutas
+
+- ❌ `pages/` en proyectos nuevos
+- ❌ `getServerSideProps` / `getStaticProps`
+- ❌ `supabase-auth-helpers`
+- ❌ Lógica de negocio en componentes de UI
+- ❌ Queries sin RLS cuando hay datos de usuario
+- ❌ `console.log` en producción
+- ❌ Mutaciones de DB en Client Components
+- ❌ Service Role Key expuesta al navegador
+- ❌ Migraciones destructivas sin rollback documentado
+- ❌ `SELECT *` en tablas grandes en producción
+
+## Checklist antes de push
+
+- [ ] RLS habilitado en tablas nuevas
+- [ ] Tipos regenerados: `supabase gen types`
+- [ ] Server Actions con validación Zod
+- [ ] Middleware protege rutas sensibles
+- [ ] Variables de entorno en Vercel actualizadas
+- [ ] Migración probada con `supabase db push`
+- [ ] No hay `any` sin justificación
+- [ ] Índices en FKs y columnas de filtro frecuente
+- [ ] `revalidatePath` o `revalidateTag` en actions que modifican datos

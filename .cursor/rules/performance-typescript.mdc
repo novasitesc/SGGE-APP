@@ -1,0 +1,84 @@
+---
+description: Rendimiento, TypeScript y patrones de fetching
+globs: "**/*.{ts,tsx}"
+alwaysApply: false
+---
+
+# Rendimiento y TypeScript
+
+## Parallel Data Fetching
+
+```typescript
+// Bien: fetches en paralelo
+const [entities, metadata] = await Promise.all([
+  getUserEntities(user.id),
+  getModuleMetadata(user.id),
+])
+```
+
+## Supabase — Select específico
+
+```typescript
+// Bien
+const { data } = await supabase.from('users').select('id, name, email')
+
+// Mal en tablas grandes
+const { data } = await supabase.from('users').select('*')
+```
+
+## Paginación obligatoria en listas
+
+```typescript
+const PAGE_SIZE = 20
+
+export async function getPaginatedEntities(page: number) {
+  const from = page * PAGE_SIZE
+  const to = from + PAGE_SIZE - 1
+
+  const { data, count, error } = await supabase
+    .from('[table]')
+    .select('*', { count: 'exact' })
+    .range(from, to)
+    .order('created_at', { ascending: false })
+
+  return { data: data ?? [], total: count ?? 0, page }
+}
+```
+
+## Next.js Caching
+
+```typescript
+const data = await fetch(url, { next: { revalidate: 60 } })
+const fresh = await fetch(url, { cache: 'no-store' })
+// Server Actions invalidan cache con revalidatePath
+```
+
+## TypeScript — Convenciones
+
+```typescript
+import type { Database } from '@/lib/db/types'
+type Profile = Database['public']['Tables']['profiles']['Row']
+type InsertProfile = Database['public']['Tables']['profiles']['Insert']
+type UpdateProfile = Database['public']['Tables']['profiles']['Update']
+
+// Nunca: any. Preferir: unknown con type guard
+function isError(value: unknown): value is Error {
+  return value instanceof Error
+}
+
+interface EntityCardProps {
+  entity: Profile
+  onDelete?: (id: string) => void
+}
+
+type Result<T> = { data: T; error: null } | { data: null; error: string }
+```
+
+## Seguridad — reglas absolutas
+
+1. `getUser()` en servidor, no `getSession()`
+2. Nunca exponer `SUPABASE_SERVICE_ROLE_KEY` en cliente
+3. Validar inputs con Zod antes de DB
+4. Verificar `auth.uid()` en RLS
+5. Nunca SQL con string interpolation
+6. Nunca commitear `.env.local`

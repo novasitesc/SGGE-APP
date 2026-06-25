@@ -1,0 +1,85 @@
+---
+description: Configuración Vercel, variables de entorno y next.config
+globs: "next.config.ts,vercel.json,.env*"
+alwaysApply: false
+---
+
+# Vercel — Despliegue y configuración
+
+## Variables de entorno
+
+```bash
+# .env.local (nunca commitear)
+NEXT_PUBLIC_SUPABASE_URL=https://[project].supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJ...
+
+# Solo en servidor (sin NEXT_PUBLIC_)
+SUPABASE_SERVICE_ROLE_KEY=eyJ...   # Solo admin/webhooks
+```
+
+## vercel.json
+
+```json
+{
+  "framework": "nextjs",
+  "buildCommand": "npm run build",
+  "installCommand": "npm install",
+  "regions": ["iad1"],
+  "headers": [
+    {
+      "source": "/api/(.*)",
+      "headers": [
+        { "key": "X-Content-Type-Options", "value": "nosniff" },
+        { "key": "X-Frame-Options", "value": "DENY" }
+      ]
+    }
+  ]
+}
+```
+
+## next.config.ts
+
+```typescript
+import type { NextConfig } from 'next'
+
+const nextConfig: NextConfig = {
+  images: {
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: '[project].supabase.co',
+        pathname: '/storage/v1/object/public/**',
+      },
+    ],
+  },
+  experimental: {
+    optimizePackageImports: ['@supabase/ssr', 'lucide-react'],
+  },
+}
+
+export default nextConfig
+```
+
+## Environments
+
+- `main` → Production → Supabase Production
+- `staging` → Preview → Supabase Staging
+- Feature branches → Preview → Supabase Development
+- Nunca compartir `SERVICE_ROLE_KEY` entre environments
+
+## Comandos frecuentes
+
+```bash
+supabase start
+supabase db diff -f [name]
+supabase db push
+supabase gen types typescript --project-id [ID] > src/lib/db/types.ts
+
+npm run dev
+npm run build && npm start
+npm run type-check
+
+vercel
+vercel --prod
+vercel env pull .env.local
+```
