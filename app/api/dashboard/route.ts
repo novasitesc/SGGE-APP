@@ -1,7 +1,8 @@
 import { createSupabaseAdmin } from "@/lib/supabase/admin";
-import { resolveFarmId } from "@/lib/api/farm";
+import { resolveGranjaId } from "@/lib/api/granja";
 import { jsonError, jsonOk } from "@/lib/api/http";
-import { mapAnimalToApi, mapSaleRow, mapAlertRow, type AnimalRow } from "@/lib/api/mappers";
+import { mapAnimalToApi, mapSaleRow } from "@/lib/api/mappers";
+import { ANIMAL_SELECT, normalizeAnimalRow } from "@/lib/api/animales-query";
 
 export const dynamic = "force-dynamic";
 
@@ -15,55 +16,60 @@ export async function GET(req: Request) {
   try {
     const admin = createSupabaseAdmin();
     const url = new URL(req.url);
-    const farmId = await resolveFarmId(admin, url.searchParams.get("farmId"));
+    const granjaId = await resolveGranjaId(
+      admin,
+      url.searchParams.get("farmId") ?? url.searchParams.get("granjaId")
+    );
 
     const [
       { data: animals, error: e1 },
-      { data: modules },
-      { data: costs },
-      { data: sales },
-      { data: alerts },
-      { data: feeds },
+      { data: gastos },
+      { data: ventas },
+      { data: alimentos },
     ] = await Promise.all([
-      admin.from("animals").select("*").eq("farm_id", farmId),
-      admin.from("modules").select("id, code").eq("farm_id", farmId),
-      admin.from("costs").select("amount, category").eq("farm_id", farmId),
-      admin.from("sales").select("*").eq("farm_id", farmId),
       admin
-        .from("health_alerts")
-        .select("*")
-        .eq("farm_id", farmId)
-        .is("resolved_at", null)
-        .order("due_date", { ascending: true })
-        .limit(10),
+        .from("animales")
+        .select(ANIMAL_SELECT)
+        .eq("granja_id", granjaId)
+        .is("deleted_at", null),
       admin
-        .from("feed_catalog")
-        .select("daily_consumption, price_per_unit")
-        .or(`farm_id.eq.${farmId},farm_id.is.null`),
+        .from("gastos")
+        .select("monto, categorias_gastos(codigo)")
+        .eq("granja_id", granjaId)
+        .is("deleted_at", null),
+      admin
+        .from("ventas")
+        .select("id, monto_total, fecha_venta")
+        .eq("granja_id", granjaId)
+        .is("deleted_at", null),
+      admin
+        .from("alimentos")
+        .select("costo_unitario")
+        .eq("granja_id", granjaId)
+        .is("deleted_at", null)
+        .eq("activo", true),
     ]);
     if (e1) throw new Error(e1.message);
 
-    const codeById = new Map(
-      (modules ?? []).map((m: { id: string; code: string }) => [m.id, m.code])
+    const list = (animals ?? []).map((row) =>
+      normalizeAnimalRow(row as Record<string, unknown>)
     );
-    const list = animals ?? [];
-    const active = list.filter((a: { status: string }) => a.status === "activo");
+    const active = list.filter(
+      (a) => a.estados_animales?.codigo === "activo"
+    );
     const now = new Date();
     const totalAnimals = list.length;
     const activeAnimals = active.length;
 
     const avgCurrentWeight =
       activeAnimals > 0
-        ? active.reduce(
-            (s: number, a: { current_weight: number }) =>
-              s + Number(a.current_weight),
-            0
-          ) / activeAnimals
+        ? active.reduce((s, a) => s + Number(a.peso_actual_kg), 0) /
+          activeAnimals
         : 0;
 
-    const gains = active.map((a: AnimalRow) => {
-      const gain = Number(a.current_weight) - Number(a.initial_weight);
-      const days = daysBetween(a.entry_date, now);
+    const gains = active.map((a) => {
+      const gain = Number(a.peso_actual_kg) - Number(a.peso_inicial_kg);
+      const days = daysBetween(a.fecha_ingreso, now);
       return { gain, days, daily: gain / days };
     });
     const avgDailyGain =
@@ -72,37 +78,31 @@ export async function GET(req: Request) {
         : 0;
 
     const totalGainKg = gains.reduce((s, g) => s + g.gain, 0);
-    const totalCost = (costs ?? []).reduce(
-      (s: number, c: { amount: number }) => s + Number(c.amount),
+    const totalCost = (gastos ?? []).reduce(
+      (s: number, c: { monto: number }) => s + Number(c.monto),
       0
     );
-    const totalRevenue = (sales ?? []).reduce(
-      (s: number, v: { total_revenue: number }) => s + Number(v.total_revenue),
+    const totalRevenue = (ventas ?? []).reduce(
+      (s: number, v: { monto_total: number }) => s + Number(v.monto_total),
       0
     );
 
-    const feedSumDaily = (feeds ?? []).reduce(
-      (s: number, r: { daily_consumption: number }) =>
-        s + Number(r.daily_consumption),
-      0
-    );
-    const feedCostApproxDay =
-      activeAnimals > 0
-        ? (feeds ?? []).reduce((s: number, r: Record<string, unknown>) => {
-            const d = Number(r.daily_consumption);
-            const p = Number(r.price_per_unit);
-            return s + d * p * activeAnimals;
-          }, 0)
+    const avgFeedPrice =
+      (alimentos ?? []).length > 0
+        ? (alimentos ?? []).reduce(
+            (s: number, r: { costo_unitario: number }) =>
+              s + Number(r.costo_unitario),
+            0
+          ) / (alimentos ?? []).length
         : 0;
+    const feedCostApproxDay = avgFeedPrice * 12 * activeAnimals;
 
     const feedConversionRatio =
-      totalGainKg > 0 && feedSumDaily > 0 && activeAnimals > 0
-        ? (feedSumDaily * activeAnimals * 30) / totalGainKg
+      totalGainKg > 0 && activeAnimals > 0
+        ? (12 * activeAnimals * 30) / totalGainKg
         : 0;
 
-    const costPerKg =
-      totalGainKg > 0 ? totalCost / totalGainKg : totalCost;
-
+    const costPerKg = totalGainKg > 0 ? totalCost / totalGainKg : totalCost;
     const netProfit = totalRevenue - totalCost;
     const profitability = totalCost > 0 ? (netProfit / totalCost) * 100 : 0;
 
@@ -122,69 +122,77 @@ export async function GET(req: Request) {
 
     const recentAnimals = [...list]
       .sort(
-        (a: { created_at: string }, b: { created_at: string }) =>
+        (a, b) =>
           new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
       )
       .slice(0, 5)
-      .map((row) => mapAnimalToApi(row as AnimalRow, codeById));
+      .map((row) => mapAnimalToApi(row));
 
-    const recentSales = [...(sales ?? [])]
-      .sort(
-        (a: { sale_date: string }, b: { sale_date: string }) =>
-          new Date(b.sale_date).getTime() - new Date(a.sale_date).getTime()
+    const { data: salesDetail } = await admin
+      .from("detalle_ventas")
+      .select(
+        `
+        id, peso_salida_kg, precio_kg, subtotal,
+        animales ( arete, razas ( nombre ), corrales ( codigo ) ),
+        ventas ( fecha_venta, clientes ( razon_social ) )
+      `
       )
-      .slice(0, 4)
-      .map((row: Record<string, unknown>) =>
-        mapSaleRow({
-          id: String(row.id),
-          tag_id: String(row.tag_id),
-          breed: String(row.breed),
-          final_weight: Number(row.final_weight),
-          price_per_kg: Number(row.price_per_kg),
-          total_revenue: Number(row.total_revenue),
-          sale_date: String(row.sale_date),
-          buyer: String(row.buyer),
-          module_code: String(row.module_code),
-        })
-      );
+      .eq("ventas.granja_id", granjaId)
+      .order("created_at", { ascending: false })
+      .limit(4);
 
-    const healthAlerts = (alerts ?? []).map((row: Record<string, unknown>) =>
-      mapAlertRow({
-        id: String(row.id),
-        animal_id: (row.animal_id as string | null) ?? null,
-        tag_id: (row.tag_id as string | null) ?? null,
-        type: String(row.type),
-        message: String(row.message),
-        due_date: String(row.due_date),
-        priority: String(row.priority),
-      })
+    const recentSales = (salesDetail ?? []).map(
+      (row: Record<string, unknown>) => {
+        const anim = row.animales as {
+          arete: string;
+          razas: { nombre: string } | null;
+          corrales: { codigo: string } | null;
+        } | null;
+        const venta = row.ventas as {
+          fecha_venta: string;
+          clientes: { razon_social: string } | null;
+        } | null;
+        return mapSaleRow({
+          id: String(row.id),
+          tag_id: anim?.arete ?? "",
+          breed: anim?.razas?.nombre ?? "",
+          final_weight: Number(row.peso_salida_kg),
+          price_per_kg: Number(row.precio_kg),
+          total_revenue: Number(row.subtotal),
+          sale_date: venta?.fecha_venta ?? "",
+          buyer: venta?.clientes?.razon_social ?? "",
+          module_code: anim?.corrales?.codigo ?? "—",
+        });
+      }
     );
 
-    const costsByCategoryMap = new Map<string, number>();
     const labels: Record<string, string> = {
-      alimentación: "Alimentación",
-      mano_de_obra: "Mano de Obra",
-      transporte: "Transporte",
-      vacunas: "Vacunas",
-      medicamentos: "Medicamentos",
-      servicios: "Servicios",
-      otros: "Otros",
+      ALIM: "Alimentación",
+      MO: "Mano de Obra",
+      TRANS: "Transporte",
+      VET: "Veterinaria",
+      COMB: "Combustible",
+      MANT: "Mantenimiento",
+      OTRO: "Otros",
     };
     const colors: Record<string, string> = {
       Alimentación: "#16a34a",
       "Mano de Obra": "#2563eb",
       Transporte: "#d97706",
-      Vacunas: "#7c3aed",
-      Medicamentos: "#dc2626",
-      Servicios: "#0891b2",
+      Veterinaria: "#7c3aed",
+      Combustible: "#d97706",
+      Mantenimiento: "#0891b2",
       Otros: "#6b7280",
     };
-    for (const c of costs ?? []) {
-      const cat = (c as { category: string }).category;
-      const label = labels[cat] ?? cat;
+    const costsByCategoryMap = new Map<string, number>();
+    for (const c of gastos ?? []) {
+      const catRaw = (c as Record<string, unknown>).categorias_gastos;
+      const cat = Array.isArray(catRaw) ? catRaw[0] : catRaw;
+      const codigo = (cat as { codigo?: string } | null)?.codigo;
+      const label = labels[codigo ?? "OTRO"] ?? codigo ?? "Otros";
       costsByCategoryMap.set(
         label,
-        (costsByCategoryMap.get(label) ?? 0) + Number((c as { amount: number }).amount)
+        (costsByCategoryMap.get(label) ?? 0) + Number((c as { monto: number }).monto)
       );
     }
     const costsByCategory = [...costsByCategoryMap.entries()].map(
@@ -199,7 +207,7 @@ export async function GET(req: Request) {
       kpiSummary,
       recentAnimals,
       recentSales,
-      healthAlerts,
+      healthAlerts: [],
       costsByCategory,
     });
   } catch (e) {

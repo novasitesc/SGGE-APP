@@ -11,8 +11,11 @@ import {
   Wheat,
   Settings2,
   ChevronRight,
+  ScrollText,
   Database,
+  MessageSquare,
 } from "lucide-react";
+import { usePendingSolicitudesCount } from "@/components/mensajeria/MensajeriaGerente";
 
 interface GestionSection {
   href: string;
@@ -34,6 +37,35 @@ const sections: GestionSection[] = [
     color: "border-emerald-200 hover:border-emerald-400 hover:bg-emerald-50/50",
     iconBg: "bg-emerald-100 text-emerald-700",
     countFn: (s) => s.animals.length,
+  },
+  {
+    href: "/gestion/historial",
+    icon: ScrollText,
+    label: "Historial del sistema",
+    description: "Libro de actas transversal: animales, ventas, costos, módulos y más.",
+    color: "border-indigo-200 hover:border-indigo-400 hover:bg-indigo-50/50",
+    iconBg: "bg-indigo-100 text-indigo-700",
+    countFn: () => 0,
+    badge: "Auditoría",
+  },
+  {
+    href: "/gestion/animales/historial",
+    icon: ScrollText,
+    label: "Historial animal",
+    description: "Libro de actas del inventario: altas, cambios, bajas y ventas.",
+    color: "border-indigo-200 hover:border-indigo-300 hover:bg-indigo-50/30",
+    iconBg: "bg-indigo-50 text-indigo-600",
+    countFn: () => 0,
+  },
+  {
+    href: "/gestion/mensajeria",
+    icon: MessageSquare,
+    label: "Mensajería",
+    description: "Bandeja del gerente: aprobar o rechazar solicitudes de baja y otras acciones.",
+    color: "border-amber-200 hover:border-amber-400 hover:bg-amber-50/50",
+    iconBg: "bg-amber-100 text-amber-800",
+    countFn: () => 0,
+    badge: "Gerente",
   },
   {
     href: "/gestion/modulos",
@@ -84,6 +116,7 @@ const sections: GestionSection[] = [
 
 export default function GestionPage() {
   const store = useStore();
+  const { count: pendingMensajes } = usePendingSolicitudesCount();
 
   const totalRecords =
     store.animals.length +
@@ -130,7 +163,10 @@ export default function GestionPage() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {sections.map((section) => {
           const Icon = section.icon;
-          const count = section.countFn(store);
+          const count =
+            section.href === "/gestion/mensajeria"
+              ? pendingMensajes
+              : section.countFn(store);
 
           return (
             <Link

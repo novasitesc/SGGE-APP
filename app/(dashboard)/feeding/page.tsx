@@ -11,7 +11,7 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import { feedTypes } from "@/lib/mockData";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency, formatCurrencyCompact } from "@/lib/utils";
 import { Wheat, Scale, DollarSign, Gauge } from "lucide-react";
 
 export default function FeedingPage() {
@@ -142,7 +142,7 @@ export default function FeedingPage() {
                   tick={{ fontSize: 11 }}
                   axisLine={false}
                   tickLine={false}
-                  tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`}
+                  tickFormatter={(v) => formatCurrencyCompact(Number(v))}
                 />
                 <YAxis
                   dataKey="name"

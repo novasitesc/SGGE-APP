@@ -282,7 +282,7 @@ export default function GestionCostosPage() {
                 </Select>
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="cost-amount">Monto ($) *</Label>
+                <Label htmlFor="cost-amount">Monto (₡) *</Label>
                 <Input
                   id="cost-amount"
                   type="number"

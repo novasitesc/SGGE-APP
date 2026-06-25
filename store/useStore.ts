@@ -1,6 +1,5 @@
 import { create } from "zustand";
 import {
-  animals as mockAnimals,
   Animal,
   treatments as mockTreatments,
   Treatment,
@@ -65,21 +64,11 @@ export interface AppState {
 }
 
 export const useStore = create<AppState>((set) => ({
-  // ─── Animals ──────────────────────────────────────────────────────────────
-  animals: mockAnimals,
-  addAnimal: (animal) =>
-    set((state) => ({
-      animals: [
-        ...state.animals,
-        { ...animal, id: String(state.animals.length + 1) },
-      ],
-    })),
-  updateAnimal: (id, updates) =>
-    set((state) => ({
-      animals: state.animals.map((a) => (a.id === id ? { ...a, ...updates } : a)),
-    })),
-  removeAnimal: (id) =>
-    set((state) => ({ animals: state.animals.filter((a) => a.id !== id) })),
+  // ─── Animals (vacío — la sección /animals usa API real) ─────────────────
+  animals: [] as Animal[],
+  addAnimal: () => {},
+  updateAnimal: () => {},
+  removeAnimal: () => {},
 
   // ─── Modules ──────────────────────────────────────────────────────────────
   modules: mockModules,

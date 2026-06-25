@@ -1,23 +1,57 @@
 import { createSupabaseAdmin } from "@/lib/supabase/admin";
-import { resolveFarmId, isUuid } from "@/lib/api/farm";
+import { resolveGranjaId, isUuid } from "@/lib/api/granja";
 import { jsonError, jsonOk } from "@/lib/api/http";
 import { mapSaleRow } from "@/lib/api/mappers";
+import { ANIMAL_SELECT, normalizeAnimalRow } from "@/lib/api/animales-query";
+import { registrarVentaAnimal } from "@/lib/api/venta-animal";
 
 export const dynamic = "force-dynamic";
+
+function mapDetalleVenta(row: Record<string, unknown>) {
+  const anim = row.animales as {
+    arete: string;
+    razas: { nombre: string } | null;
+    corrales: { codigo: string } | null;
+  } | null;
+  const venta = row.ventas as {
+    fecha_venta: string;
+    clientes: { razon_social: string } | null;
+  } | null;
+  return mapSaleRow({
+    id: String(row.id),
+    tag_id: anim?.arete ?? "",
+    breed: anim?.razas?.nombre ?? "",
+    final_weight: Number(row.peso_salida_kg),
+    price_per_kg: Number(row.precio_kg),
+    total_revenue: Number(row.subtotal),
+    sale_date: venta?.fecha_venta ?? "",
+    buyer: venta?.clientes?.razon_social ?? "",
+    module_code: anim?.corrales?.codigo ?? "—",
+  });
+}
 
 export async function GET(req: Request) {
   try {
     const admin = createSupabaseAdmin();
     const url = new URL(req.url);
-    const farmId = await resolveFarmId(admin, url.searchParams.get("farmId"));
+    const granjaId = await resolveGranjaId(
+      admin,
+      url.searchParams.get("farmId") ?? url.searchParams.get("granjaId")
+    );
 
     const { data, error } = await admin
-      .from("sales")
-      .select("*")
-      .eq("farm_id", farmId)
-      .order("sale_date", { ascending: false });
+      .from("detalle_ventas")
+      .select(
+        `
+        id, peso_salida_kg, precio_kg, subtotal, created_at,
+        animales ( arete, razas ( nombre ), corrales ( codigo ) ),
+        ventas!inner ( fecha_venta, granja_id, clientes ( razon_social ) )
+      `
+      )
+      .eq("ventas.granja_id", granjaId)
+      .order("created_at", { ascending: false });
     if (error) throw new Error(error.message);
-    return jsonOk((data ?? []).map(mapSaleRow));
+    return jsonOk((data ?? []).map(mapDetalleVenta));
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Error desconocido";
     return jsonError(msg, 500);
@@ -36,7 +70,10 @@ export async function POST(req: Request) {
   try {
     const admin = createSupabaseAdmin();
     const url = new URL(req.url);
-    const farmId = await resolveFarmId(admin, url.searchParams.get("farmId"));
+    const granjaId = await resolveGranjaId(
+      admin,
+      url.searchParams.get("farmId") ?? url.searchParams.get("granjaId")
+    );
     const body = (await req.json()) as PostBody;
 
     if (!body.animalId || !isUuid(body.animalId)) {
@@ -52,65 +89,54 @@ export async function POST(req: Request) {
     if (!body.buyer?.trim()) return jsonError("buyer es obligatorio.");
 
     const { data: animal, error: e1 } = await admin
-      .from("animals")
-      .select("id, tag_id, breed, status, module_id")
-      .eq("farm_id", farmId)
+      .from("animales")
+      .select(ANIMAL_SELECT)
+      .eq("granja_id", granjaId)
       .eq("id", body.animalId)
+      .is("deleted_at", null)
       .maybeSingle();
     if (e1) throw new Error(e1.message);
     if (!animal) return jsonError("Animal no encontrado.", 404);
-    if (animal.status === "vendido") {
+
+    const a = normalizeAnimalRow(animal as Record<string, unknown>);
+    const estadoCodigo = a.estados_animales?.codigo;
+    if (estadoCodigo === "vendido") {
       return jsonError("El animal ya está vendido.", 409);
     }
-    if (animal.status === "muerto") {
+    if (estadoCodigo === "muerto") {
       return jsonError("No se puede vender un animal registrado como muerto.", 409);
     }
 
-    let moduleCode = "";
-    if (animal.module_id) {
-      const { data: mod } = await admin
-        .from("modules")
-        .select("code")
-        .eq("id", animal.module_id)
-        .maybeSingle();
-      moduleCode = mod?.code ?? "";
-    }
-
-    const saleRow = {
-      farm_id: farmId,
-      animal_id: animal.id,
-      tag_id: animal.tag_id,
-      breed: animal.breed,
-      final_weight: body.finalWeight,
-      price_per_kg: body.pricePerKg,
-      sale_date: body.saleDate,
+    const saleResult = await registrarVentaAnimal(admin, granjaId, {
+      animalId: body.animalId,
+      arete: a.arete,
+      finalWeight: body.finalWeight,
+      pricePerKg: body.pricePerKg,
+      saleDate: body.saleDate,
       buyer: body.buyer.trim(),
-      module_code: moduleCode || "—",
-    };
+      wasActivo: estadoCodigo === "activo",
+      corralId: a.corral_id,
+    });
+    if (!saleResult.ok) {
+      return jsonError(saleResult.message, saleResult.status);
+    }
 
-    const { data: sale, error: e2 } = await admin
-      .from("sales")
-      .insert(saleRow)
-      .select("*")
+    const { data: detalle, error: eDetalle } = await admin
+      .from("detalle_ventas")
+      .select(
+        `
+        id, peso_salida_kg, precio_kg, subtotal,
+        animales ( arete, razas ( nombre ), corrales ( codigo ) ),
+        ventas ( fecha_venta, clientes ( razon_social ) )
+      `
+      )
+      .eq("id", saleResult.detalleId)
       .single();
-    if (e2) {
-      if (e2.code === "23505") {
-        return jsonError("Este animal ya tiene un registro de venta.", 409);
-      }
-      return jsonError(e2.message, 400);
-    }
+    if (eDetalle) return jsonError(eDetalle.message, 500);
 
-    const { error: e3 } = await admin
-      .from("animals")
-      .update({ status: "vendido", current_weight: body.finalWeight })
-      .eq("farm_id", farmId)
-      .eq("id", animal.id);
-    if (e3) {
-      await admin.from("sales").delete().eq("id", sale.id);
-      return jsonError(`No se pudo actualizar el animal: ${e3.message}`, 500);
-    }
-
-    return jsonOk(mapSaleRow(sale), { status: 201 });
+    return jsonOk(mapDetalleVenta(detalle as Record<string, unknown>), {
+      status: 201,
+    });
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Error desconocido";
     return jsonError(msg, 500);

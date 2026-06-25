@@ -24,77 +24,13 @@ export interface Animal {
   invoiceOrAuctionDate?: string;
   /** Número de lote en la subasta. */
   auctionLotNumber?: string;
-  /** Precio de compra al remate ($/kg) — base para valor de inventario. */
+  /** Precio de compra al remate (₡/kg) — base para valor de inventario. */
   purchasePricePerKg?: number;
+  /** Costo total de adquisición (₡). */
+  purchaseTotalCost?: number;
 }
 
-export const animals: Animal[] = [
-  {
-    id: "1",
-    tagId: "BV-001",
-    breed: "Angus",
-    entryDate: "2024-10-01",
-    initialWeight: 220,
-    currentWeight: 385,
-    moduleId: "M1",
-    status: "activo",
-    sex: "M",
-    age: 18,
-    acquisitionType: "subasta",
-    invoiceFolio: "410756",
-    invoiceOrAuctionDate: "2024-09-28",
-    auctionLotNumber: "L-12",
-    purchasePricePerKg: 52.5,
-  },
-  {
-    id: "2",
-    tagId: "BV-002",
-    breed: "Simmental",
-    entryDate: "2024-10-01",
-    initialWeight: 235,
-    currentWeight: 402,
-    moduleId: "M1",
-    status: "activo",
-    sex: "M",
-    age: 20,
-    acquisitionType: "subasta",
-    invoiceFolio: "410756",
-    invoiceOrAuctionDate: "2024-09-28",
-    auctionLotNumber: "L-12",
-    purchasePricePerKg: 52.5,
-  },
-  {
-    id: "3",
-    tagId: "BV-003",
-    breed: "Brahman",
-    entryDate: "2024-10-05",
-    initialWeight: 210,
-    currentWeight: 358,
-    moduleId: "M1",
-    status: "activo",
-    sex: "M",
-    age: 17,
-    acquisitionType: "particular",
-    purchasePricePerKg: 48.0,
-  },
-  { id: "4", tagId: "BV-004", breed: "Charolais", entryDate: "2024-10-05", initialWeight: 245, currentWeight: 420, moduleId: "M2", status: "activo", sex: "M", age: 22 },
-  { id: "5", tagId: "BV-005", breed: "Hereford", entryDate: "2024-10-10", initialWeight: 228, currentWeight: 375, moduleId: "M2", status: "activo", sex: "M", age: 19 },
-  { id: "6", tagId: "BV-006", breed: "Angus", entryDate: "2024-10-10", initialWeight: 218, currentWeight: 340, moduleId: "M2", status: "enfermo", sex: "M", age: 16 },
-  { id: "7", tagId: "BV-007", breed: "Simmental", entryDate: "2024-11-01", initialWeight: 230, currentWeight: 365, moduleId: "M3", status: "activo", sex: "M", age: 18 },
-  { id: "8", tagId: "BV-008", breed: "Brahman", entryDate: "2024-11-01", initialWeight: 215, currentWeight: 348, moduleId: "M3", status: "activo", sex: "M", age: 17 },
-  { id: "9", tagId: "BV-009", breed: "Charolais", entryDate: "2024-11-05", initialWeight: 250, currentWeight: 430, moduleId: "M3", status: "activo", sex: "M", age: 23 },
-  { id: "10", tagId: "BV-010", breed: "Hereford", entryDate: "2024-11-05", initialWeight: 240, currentWeight: 410, moduleId: "M3", status: "activo", sex: "M", age: 21 },
-  { id: "11", tagId: "BV-011", breed: "Angus", entryDate: "2024-11-10", initialWeight: 225, currentWeight: 355, moduleId: "M4", status: "activo", sex: "M", age: 18 },
-  { id: "12", tagId: "BV-012", breed: "Brahman", entryDate: "2024-11-10", initialWeight: 212, currentWeight: 330, moduleId: "M4", status: "activo", sex: "M", age: 16 },
-  { id: "13", tagId: "BV-013", breed: "Simmental", entryDate: "2024-12-01", initialWeight: 238, currentWeight: 360, moduleId: "M4", status: "activo", sex: "M", age: 17 },
-  { id: "14", tagId: "BV-014", breed: "Charolais", entryDate: "2024-12-01", initialWeight: 255, currentWeight: 395, moduleId: "M4", status: "activo", sex: "M", age: 19 },
-  { id: "15", tagId: "BV-015", breed: "Hereford", entryDate: "2024-12-05", initialWeight: 242, currentWeight: 388, moduleId: "M5", status: "activo", sex: "M", age: 20 },
-  { id: "16", tagId: "BV-016", breed: "Angus", entryDate: "2024-12-05", initialWeight: 220, currentWeight: 312, moduleId: "M5", status: "activo", sex: "M", age: 15 },
-  { id: "17", tagId: "BV-017", breed: "Brahman", entryDate: "2024-12-10", initialWeight: 208, currentWeight: 295, moduleId: "M5", status: "activo", sex: "M", age: 14 },
-  { id: "18", tagId: "BV-018", breed: "Simmental", entryDate: "2025-01-05", initialWeight: 232, currentWeight: 280, moduleId: "M5", status: "activo", sex: "M", age: 13 },
-  { id: "19", tagId: "BV-019", breed: "Charolais", entryDate: "2025-01-05", initialWeight: 260, currentWeight: 420, moduleId: "M1", status: "vendido", sex: "M", age: 24 },
-  { id: "20", tagId: "BV-020", breed: "Hereford", entryDate: "2025-01-10", initialWeight: 235, currentWeight: 398, moduleId: "M1", status: "vendido", sex: "M", age: 21 },
-];
+export const animals: Animal[] = [];
 
 // ─── MODULES ────────────────────────────────────────────────────────────────
 

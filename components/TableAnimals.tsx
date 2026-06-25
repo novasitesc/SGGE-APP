@@ -1,3 +1,6 @@
+"use client";
+
+import { useEffect, useState } from "react";
 import {
   Table,
   TableBody,
@@ -7,9 +10,14 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { animals } from "@/lib/mockData";
-import { formatDate } from "@/lib/utils";
-import { TrendingUp } from "lucide-react";
+import { fetchAnimals } from "@/lib/api/animals-client";
+import type { Animal } from "@/lib/mockData";
+import { Loader2 } from "lucide-react";
+
+interface TableAnimalsProps {
+  limit?: number;
+  showAll?: boolean;
+}
 
 const statusConfig = {
   activo: { label: "Activo", variant: "success" as const },
@@ -18,49 +26,57 @@ const statusConfig = {
   enfermo: { label: "Enfermo", variant: "warning" as const },
 };
 
-interface TableAnimalsProps {
-  limit?: number;
-  showAll?: boolean;
-}
-
 export default function TableAnimals({ limit = 8, showAll = false }: TableAnimalsProps) {
+  const [animals, setAnimals] = useState<Animal[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchAnimals()
+      .then(setAnimals)
+      .catch(() => setAnimals([]))
+      .finally(() => setLoading(false));
+  }, []);
+
   const data = showAll ? animals : animals.slice(0, limit);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-8 text-muted-foreground gap-2 text-sm">
+        <Loader2 className="h-4 w-4 animate-spin" />
+        Cargando...
+      </div>
+    );
+  }
+
+  if (data.length === 0) {
+    return (
+      <p className="text-sm text-muted-foreground py-6 text-center">
+        No hay animales registrados.
+      </p>
+    );
+  }
 
   return (
     <Table>
       <TableHeader>
-        <TableRow className="bg-muted/30">
+        <TableRow>
           <TableHead>Arete</TableHead>
           <TableHead>Raza</TableHead>
-          <TableHead className="hidden md:table-cell">F. Entrada</TableHead>
-          <TableHead className="hidden sm:table-cell">Peso Ini.</TableHead>
-          <TableHead>Peso Act.</TableHead>
-          <TableHead className="hidden lg:table-cell">
-            <div className="flex items-center gap-1">
-              <TrendingUp className="h-3.5 w-3.5" />
-              Ganancia
-            </div>
-          </TableHead>
+          <TableHead>Peso</TableHead>
+          <TableHead>Módulo</TableHead>
           <TableHead>Estado</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
         {data.map((animal) => {
-          const gain = animal.currentWeight - animal.initialWeight;
           const status = statusConfig[animal.status];
           return (
             <TableRow key={animal.id}>
-              <TableCell className="font-mono font-semibold text-xs">{animal.tagId}</TableCell>
-              <TableCell className="font-medium">{animal.breed}</TableCell>
-              <TableCell className="hidden md:table-cell text-muted-foreground text-xs">
-                {formatDate(animal.entryDate)}
-              </TableCell>
-              <TableCell className="hidden sm:table-cell text-muted-foreground">
-                {animal.initialWeight} kg
-              </TableCell>
-              <TableCell className="font-semibold">{animal.currentWeight} kg</TableCell>
-              <TableCell className="hidden lg:table-cell">
-                <span className="text-emerald-600 font-medium">+{gain} kg</span>
+              <TableCell className="font-mono text-xs font-semibold">{animal.tagId}</TableCell>
+              <TableCell>{animal.breed}</TableCell>
+              <TableCell>{animal.currentWeight} kg</TableCell>
+              <TableCell>
+                <span className="text-xs bg-muted px-2 py-0.5 rounded-lg">{animal.moduleId}</span>
               </TableCell>
               <TableCell>
                 <Badge variant={status.variant}>{status.label}</Badge>

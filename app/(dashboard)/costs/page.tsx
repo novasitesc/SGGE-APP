@@ -21,7 +21,7 @@ import {
   Cell,
 } from "recharts";
 import { costs, costsByCategory } from "@/lib/mockData";
-import { formatCurrency, formatDate } from "@/lib/utils";
+import { formatCurrency, formatCurrencyCompact, formatDate } from "@/lib/utils";
 import { Receipt, TrendingDown } from "lucide-react";
 
 const categoryConfig: Record<string, { label: string; variant: "default" | "secondary" | "success" | "info" | "warning" | "destructive" | "outline" }> = {
@@ -99,7 +99,7 @@ export default function CostsPage() {
                   tick={{ fontSize: 11, fill: "#6b7280" }}
                   axisLine={false}
                   tickLine={false}
-                  tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`}
+                  tickFormatter={(v) => formatCurrencyCompact(Number(v))}
                 />
                 <Tooltip
                   contentStyle={{ borderRadius: "12px", border: "1px solid #e5e7eb", fontSize: 12 }}

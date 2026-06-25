@@ -1,12 +1,33 @@
 import { createSupabaseAdmin } from "@/lib/supabase/admin";
-import { resolveFarmId } from "@/lib/api/farm";
+import { resolveGranjaId, getSystemUserId } from "@/lib/api/granja";
 import { jsonError, jsonOk } from "@/lib/api/http";
-import { mapAnimalToApi, type AnimalRow } from "@/lib/api/mappers";
+import { mapAnimalToApi } from "@/lib/api/mappers";
 import {
-  countActiveAnimalsInModule,
-  getModuleCapacity,
-  getModuleIdByCode,
-} from "@/lib/api/modules-helpers";
+  ANIMAL_SELECT,
+  findRazaId,
+  getDefaultCategoriaId,
+  getDefaultLoteId,
+  normalizeAnimalRow,
+  type AnimalRowSrrg,
+} from "@/lib/api/animales-query";
+import {
+  countActiveAnimalsInCorral,
+  getCorralCapacity,
+  getCorralIdByCodigo,
+  getEstadoIdByCodigo,
+  adjustCorralOcupacion,
+} from "@/lib/api/corrales-helpers";
+import {
+  buildCambiosResumen,
+  registrarHistorialAnimal,
+  snapshotFromAnimalRow,
+  snapshotFromApiBody,
+} from "@/lib/api/historial-animal";
+import { registrarCompraAnimal, fetchComprasForAnimals } from "@/lib/api/compra-animal";
+import { createActaAnimal } from "@/lib/api/actas-animal";
+import { normalizeWeightKg } from "@/lib/api/weight-utils";
+import { upsertPesajeAnimal } from "@/lib/api/pesaje-utils";
+import type { AcquisitionType } from "@/lib/mockData";
 
 export const dynamic = "force-dynamic";
 
@@ -14,27 +35,32 @@ export async function GET(req: Request) {
   try {
     const admin = createSupabaseAdmin();
     const url = new URL(req.url);
-    const farmId = await resolveFarmId(admin, url.searchParams.get("farmId"));
-
-    const [{ data: animals, error: e1 }, { data: modules, error: e2 }] =
-      await Promise.all([
-        admin
-          .from("animals")
-          .select("*")
-          .eq("farm_id", farmId)
-          .order("tag_id", { ascending: true }),
-        admin.from("modules").select("id, code").eq("farm_id", farmId),
-      ]);
-    if (e1) throw new Error(e1.message);
-    if (e2) throw new Error(e2.message);
-
-    const codeById = new Map(
-      (modules ?? []).map((m: { id: string; code: string }) => [m.id, m.code])
+    const granjaId = await resolveGranjaId(
+      admin,
+      url.searchParams.get("farmId") ?? url.searchParams.get("granjaId")
     );
-    const list = (animals ?? []).map((row) =>
-      mapAnimalToApi(row as AnimalRow, codeById)
+
+    const { data, error } = await admin
+      .from("animales")
+      .select(ANIMAL_SELECT)
+      .eq("granja_id", granjaId)
+      .is("deleted_at", null)
+      .order("arete", { ascending: true });
+    if (error) throw new Error(error.message);
+
+    const rows = (data ?? []).map((row) =>
+      normalizeAnimalRow(row as Record<string, unknown>)
     );
-    return jsonOk(list);
+    const detalleIds = rows
+      .map((r) => r.compra_detalle_id)
+      .filter((id): id is string => !!id);
+    const compras = await fetchComprasForAnimals(admin, detalleIds);
+
+    return jsonOk(
+      rows.map((row) =>
+        mapAnimalToApi(row, row.compra_detalle_id ? compras.get(row.compra_detalle_id) : null)
+      )
+    );
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Error desconocido";
     return jsonError(msg, 500);
@@ -51,18 +77,22 @@ type PostBody = {
   status?: string;
   sex?: string;
   age?: number;
-  acquisitionType?: string | null;
-  invoiceFolio?: string | null;
-  invoiceOrAuctionDate?: string | null;
-  auctionLotNumber?: string | null;
-  purchasePricePerKg?: number | null;
+  observaciones?: string;
+  acquisitionType?: AcquisitionType;
+  purchasePricePerKg?: number;
+  invoiceFolio?: string;
+  invoiceOrAuctionDate?: string;
+  auctionLotNumber?: string;
 };
 
 export async function POST(req: Request) {
   try {
     const admin = createSupabaseAdmin();
     const url = new URL(req.url);
-    const farmId = await resolveFarmId(admin, url.searchParams.get("farmId"));
+    const granjaId = await resolveGranjaId(
+      admin,
+      url.searchParams.get("farmId") ?? url.searchParams.get("granjaId")
+    );
     const body = (await req.json()) as PostBody;
 
     if (!body.tagId?.trim()) return jsonError("tagId es obligatorio.");
@@ -71,61 +101,148 @@ export async function POST(req: Request) {
     if (body.initialWeight == null || body.currentWeight == null) {
       return jsonError("initialWeight y currentWeight son obligatorios.");
     }
+    if (body.purchasePricePerKg == null || body.purchasePricePerKg < 0) {
+      return jsonError("purchasePricePerKg es obligatorio (precio de compra ₡/kg).");
+    }
 
-    const moduleCode = body.moduleId?.trim() || "M1";
-    const moduleUuid = await getModuleIdByCode(admin, farmId, moduleCode);
-    if (!moduleUuid) return jsonError(`Módulo '${moduleCode}' no existe.`);
+    const corralCodigo = body.moduleId?.trim() || "M1";
+    const corralId = await getCorralIdByCodigo(admin, granjaId, corralCodigo);
+    if (!corralId) return jsonError(`Corral '${corralCodigo}' no existe.`);
 
-    const status = (body.status ?? "activo") as string;
-    if (status === "activo") {
-      const cap = await getModuleCapacity(admin, farmId, moduleUuid);
-      const n = await countActiveAnimalsInModule(admin, farmId, moduleUuid);
+    const statusCodigo = body.status ?? "activo";
+    const estadoId = await getEstadoIdByCodigo(admin, statusCodigo);
+    if (!estadoId) return jsonError(`Estado '${statusCodigo}' no existe.`);
+
+    if (statusCodigo === "activo") {
+      const cap = await getCorralCapacity(admin, granjaId, corralId);
+      const n = await countActiveAnimalsInCorral(admin, granjaId, corralId);
       if (n >= cap) {
         return jsonError(
-          `Capacidad del módulo ${moduleCode} agotada (${n}/${cap} activos).`
+          `Capacidad del corral ${corralCodigo} agotada (${n}/${cap} activos).`
         );
       }
     }
 
-    const acq = body.acquisitionType;
-    const acquisitionType =
-      acq === "subasta" || acq === "particular" || acq === "otro" ? acq : "subasta";
+    const razaId = await findRazaId(admin, granjaId, body.breed);
+    if (!razaId) {
+      return jsonError(
+        `Raza '${body.breed}' no encontrada. Use: Angus, Brahman, Simmental, Charolais o Hereford.`
+      );
+    }
 
-    const insert = {
-      farm_id: farmId,
-      tag_id: body.tagId.trim(),
-      breed: body.breed.trim(),
-      entry_date: body.entryDate,
-      initial_weight: body.initialWeight,
-      current_weight: body.currentWeight,
-      module_id: moduleUuid,
-      status,
-      sex: body.sex === "H" ? "H" : "M",
-      age_months: body.age ?? 0,
-      acquisition_type: acquisitionType,
-      invoice_folio: body.invoiceFolio?.trim() || null,
-      invoice_or_auction_date: body.invoiceOrAuctionDate?.trim() || null,
-      auction_lot_number: body.auctionLotNumber?.trim() || null,
-      purchase_price_per_kg:
-        body.purchasePricePerKg != null && !Number.isNaN(Number(body.purchasePricePerKg))
-          ? Number(body.purchasePricePerKg)
-          : null,
-    };
+    const categoriaId = await getDefaultCategoriaId(admin, granjaId);
+    const loteId = await getDefaultLoteId(admin, granjaId);
+    const pesoInicial = normalizeWeightKg(body.initialWeight);
+    const pesoActual = normalizeWeightKg(body.currentWeight);
+    const systemUser = getSystemUserId();
+
+    let fechaNacimiento: string | null = null;
+    if (body.age != null && body.age > 0) {
+      const d = new Date(body.entryDate + "T12:00:00Z");
+      d.setMonth(d.getMonth() - body.age);
+      fechaNacimiento = d.toISOString().slice(0, 10);
+    }
 
     const { data, error } = await admin
-      .from("animals")
-      .insert(insert)
-      .select("*")
+      .from("animales")
+      .insert({
+        granja_id: granjaId,
+        arete: body.tagId.trim(),
+        raza_id: razaId,
+        sexo: body.sex === "H" ? "H" : "M",
+        fecha_nacimiento: fechaNacimiento,
+        fecha_ingreso: body.entryDate,
+        peso_inicial_kg: pesoInicial,
+        peso_actual_kg: pesoActual,
+        categoria_id: categoriaId,
+        estado_id: estadoId,
+        lote_id: loteId,
+        corral_id: corralId,
+        observaciones: null,
+      })
+      .select(ANIMAL_SELECT)
       .single();
+
     if (error) {
       if (error.code === "23505") {
-        return jsonError("Ya existe un animal con ese arete en la finca.");
+        return jsonError("Ya existe un animal con ese arete en la granja.");
       }
       return jsonError(error.message, 400);
     }
 
-    const codeById = new Map([[moduleUuid, moduleCode]]);
-    return jsonOk(mapAnimalToApi(data as AnimalRow, codeById), { status: 201 });
+    const pesajeResult = await upsertPesajeAnimal(admin, {
+      animalId: data.id,
+      fechaPesaje: body.entryDate,
+      pesoKg: pesoActual,
+      tipoPesaje: "ingreso",
+      registradoPorId: systemUser,
+    });
+    if (!pesajeResult.ok) {
+      await admin.from("animales").delete().eq("id", data.id);
+      return jsonError(pesajeResult.message, 400);
+    }
+
+    if (statusCodigo === "activo") {
+      await adjustCorralOcupacion(admin, corralId, 1);
+    }
+
+    const created = normalizeAnimalRow(data as Record<string, unknown>);
+
+    const compraResult = await registrarCompraAnimal(admin, {
+      granjaId,
+      animalId: created.id,
+      arete: created.arete,
+      pesoCompraKg: pesoInicial,
+      precioKg: body.purchasePricePerKg!,
+      fechaCompra: body.invoiceOrAuctionDate ?? body.entryDate,
+      tipoAdquisicion: body.acquisitionType ?? "particular",
+      folio: body.invoiceFolio,
+      loteSubasta: body.auctionLotNumber,
+    });
+    if (!compraResult.ok) {
+      await admin.from("animales").delete().eq("id", created.id);
+      return jsonError(compraResult.message, compraResult.status);
+    }
+
+    const { data: refreshed } = await admin
+      .from("animales")
+      .select(ANIMAL_SELECT)
+      .eq("id", created.id)
+      .single();
+    const finalRow = normalizeAnimalRow((refreshed ?? data) as Record<string, unknown>);
+
+    const snap = snapshotFromAnimalRow(finalRow);
+    const costoTotal = Math.round(pesoInicial * body.purchasePricePerKg! * 100) / 100;
+    await registrarHistorialAnimal(admin, {
+      granjaId,
+      animalId: finalRow.id,
+      arete: finalRow.arete,
+      accion: "crear",
+      resumen: `Alta en inventario: arete ${finalRow.arete}, raza ${snap.raza}, corral ${snap.corral}, peso ${snap.pesoActualKg} kg, compra ₡${body.purchasePricePerKg}/kg (total ₡${costoTotal}).`,
+      datosNuevos: {
+        ...snap,
+        precioCompraKg: body.purchasePricePerKg,
+        costoTotalCompra: costoTotal,
+        tipoAdquisicion: body.acquisitionType ?? "particular",
+      },
+    });
+
+    if (body.observaciones?.trim()) {
+      await createActaAnimal(admin, {
+        granjaId,
+        animalId: finalRow.id,
+        arete: finalRow.arete,
+        fecha: body.entryDate,
+        texto: body.observaciones.trim(),
+      }).catch(() => {});
+    }
+
+    const compraMap = await fetchComprasForAnimals(admin, [compraResult.detalleId]);
+    const purchase = compraMap.get(compraResult.detalleId);
+
+    return jsonOk(mapAnimalToApi(finalRow, purchase), {
+      status: 201,
+    });
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Error desconocido";
     return jsonError(msg, 500);

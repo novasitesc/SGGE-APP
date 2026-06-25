@@ -1,64 +1,52 @@
-/** Fila animals + code del módulo (si existe) */
-export type AnimalRow = {
-  id: string;
-  farm_id: string;
-  tag_id: string;
-  breed: string;
-  entry_date: string;
-  initial_weight: number;
-  current_weight: number;
-  module_id: string | null;
-  status: string;
-  sex: string;
-  age_months: number;
-  acquisition_type?: string | null;
-  invoice_folio?: string | null;
-  invoice_or_auction_date?: string | null;
-  auction_lot_number?: string | null;
-  purchase_price_per_kg?: number | null;
-};
+import type { AnimalRowSrrg } from "./animales-query";
+import type { CompraAnimalInfo } from "./compra-animal";
 
-export function mapAnimalToApi(
-  row: AnimalRow,
-  moduleCodeById: Map<string, string>
-) {
+export type { AnimalRowSrrg };
+
+function monthsBetween(birthIso: string, end: Date): number {
+  const birth = new Date(birthIso + "T12:00:00Z");
+  return Math.max(
+    0,
+    (end.getFullYear() - birth.getFullYear()) * 12 +
+      (end.getMonth() - birth.getMonth())
+  );
+}
+
+/** Mapea fila SRRG (animales + joins) al contrato del frontend. */
+export function mapAnimalToApi(row: AnimalRowSrrg, purchase?: CompraAnimalInfo | null) {
   return {
     id: row.id,
-    tagId: row.tag_id,
-    breed: row.breed,
-    entryDate: row.entry_date,
-    initialWeight: Number(row.initial_weight),
-    currentWeight: Number(row.current_weight),
-    moduleId: row.module_id ? moduleCodeById.get(row.module_id) ?? "" : "",
-    status: row.status,
-    sex: row.sex,
-    age: row.age_months,
-    acquisitionType: row.acquisition_type ?? undefined,
-    invoiceFolio: row.invoice_folio ?? undefined,
-    invoiceOrAuctionDate: row.invoice_or_auction_date ?? undefined,
-    auctionLotNumber: row.auction_lot_number ?? undefined,
-    purchasePricePerKg:
-      row.purchase_price_per_kg != null
-        ? Number(row.purchase_price_per_kg)
-        : undefined,
+    tagId: row.arete,
+    breed: row.razas?.nombre ?? "",
+    entryDate: row.fecha_ingreso,
+    initialWeight: Number(row.peso_inicial_kg),
+    currentWeight: Number(row.peso_actual_kg),
+    moduleId: row.corrales?.codigo ?? "",
+    status: row.estados_animales?.codigo ?? "activo",
+    sex: row.sexo,
+    age: row.fecha_nacimiento ? monthsBetween(row.fecha_nacimiento, new Date()) : 0,
+    acquisitionType: purchase?.acquisitionType as "subasta" | "particular" | "otro" | undefined,
+    invoiceFolio: purchase?.folio,
+    invoiceOrAuctionDate: purchase?.purchaseDate,
+    auctionLotNumber: purchase?.auctionLotNumber,
+    purchasePricePerKg: purchase?.pricePerKg,
+    purchaseTotalCost: purchase?.totalCost,
   };
 }
 
-export function mapCostRow(row: {
-  id: string;
-  category: string;
-  description: string;
-  amount: number;
-  date: string;
-  animal_count: number | null;
-}) {
+/** @deprecated Usar AnimalRowSrrg */
+export type AnimalRow = AnimalRowSrrg;
+
+export function mapCostRow(row: Record<string, unknown>) {
+  const catRaw = row.categorias_gastos;
+  const cat = Array.isArray(catRaw) ? catRaw[0] : catRaw;
+  const codigo = (cat as { codigo?: string } | null)?.codigo;
   return {
-    id: row.id,
-    category: row.category,
-    description: row.description,
-    amount: Number(row.amount),
-    date: row.date,
-    animalCount: row.animal_count ?? undefined,
+    id: row.id as string,
+    category: codigo?.toLowerCase() ?? "otro",
+    description: row.concepto as string,
+    amount: Number(row.monto),
+    date: row.fecha as string,
   };
 }
 

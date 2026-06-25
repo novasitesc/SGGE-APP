@@ -152,7 +152,7 @@ export default function GestionVentasPage() {
           <p className="text-2xl font-bold tabular-nums">
             {avgPricePerKg > 0 ? formatCurrency(avgPricePerKg) : "—"}
           </p>
-          <p className="text-sm font-medium mt-0.5">Precio prom. $/kg</p>
+          <p className="text-sm font-medium mt-0.5">Precio prom. ₡/kg</p>
         </div>
       </div>
 
@@ -179,7 +179,7 @@ export default function GestionVentasPage() {
                 <TableHead>Fecha</TableHead>
                 <TableHead>Comprador</TableHead>
                 <TableHead className="hidden md:table-cell">Peso Final</TableHead>
-                <TableHead className="hidden md:table-cell">$/kg</TableHead>
+                <TableHead className="hidden md:table-cell">₡/kg</TableHead>
                 <TableHead className="text-right">Total</TableHead>
                 <TableHead className="text-right">Acciones</TableHead>
               </TableRow>
@@ -278,7 +278,7 @@ export default function GestionVentasPage() {
                 />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="sale-price">Precio ($/kg) *</Label>
+                <Label htmlFor="sale-price">Precio (₡/kg) *</Label>
                 <Input
                   id="sale-price"
                   type="number"

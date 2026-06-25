@@ -1,5 +1,5 @@
 import { createSupabaseAdmin } from "@/lib/supabase/admin";
-import { resolveFarmId } from "@/lib/api/farm";
+import { resolveGranjaId } from "@/lib/api/granja";
 import { jsonError, jsonOk } from "@/lib/api/http";
 
 export const dynamic = "force-dynamic";
@@ -12,18 +12,8 @@ function monthKeyFromDate(isoDate: string): string {
 function labelFromKey(key: string): string {
   const [y, m] = key.split("-").map(Number);
   const months = [
-    "Ene",
-    "Feb",
-    "Mar",
-    "Abr",
-    "May",
-    "Jun",
-    "Jul",
-    "Ago",
-    "Sep",
-    "Oct",
-    "Nov",
-    "Dic",
+    "Ene", "Feb", "Mar", "Abr", "May", "Jun",
+    "Jul", "Ago", "Sep", "Oct", "Nov", "Dic",
   ];
   return `${months[(m ?? 1) - 1]} ${y}`;
 }
@@ -31,29 +21,36 @@ function labelFromKey(key: string): string {
 export async function GET(req: Request) {
   try {
     const admin = createSupabaseAdmin();
-    const url = new URL(req.url);
-    const farmId = await resolveFarmId(admin, url.searchParams.get("farmId"));
+    const granjaId = await resolveGranjaId(
+      admin,
+      new URL(req.url).searchParams.get("farmId")
+    );
 
-    const [{ data: costs }, { data: sales }] = await Promise.all([
-      admin.from("costs").select("amount, date").eq("farm_id", farmId),
-      admin.from("sales").select("total_revenue, sale_date").eq("farm_id", farmId),
+    const [{ data: gastos }, { data: ventas }] = await Promise.all([
+      admin
+        .from("gastos")
+        .select("monto, fecha")
+        .eq("granja_id", granjaId)
+        .is("deleted_at", null),
+      admin
+        .from("ventas")
+        .select("monto_total, fecha_venta")
+        .eq("granja_id", granjaId)
+        .is("deleted_at", null),
     ]);
 
-    const byMonth = new Map<
-      string,
-      { costs: number; revenue: number }
-    >();
+    const byMonth = new Map<string, { costs: number; revenue: number }>();
 
-    for (const c of costs ?? []) {
-      const key = monthKeyFromDate((c as { date: string }).date);
+    for (const c of gastos ?? []) {
+      const key = monthKeyFromDate((c as { fecha: string }).fecha);
       const cur = byMonth.get(key) ?? { costs: 0, revenue: 0 };
-      cur.costs += Number((c as { amount: number }).amount);
+      cur.costs += Number((c as { monto: number }).monto);
       byMonth.set(key, cur);
     }
-    for (const s of sales ?? []) {
-      const key = monthKeyFromDate((s as { sale_date: string }).sale_date);
+    for (const s of ventas ?? []) {
+      const key = monthKeyFromDate((s as { fecha_venta: string }).fecha_venta);
       const cur = byMonth.get(key) ?? { costs: 0, revenue: 0 };
-      cur.revenue += Number((s as { total_revenue: number }).total_revenue);
+      cur.revenue += Number((s as { monto_total: number }).monto_total);
       byMonth.set(key, cur);
     }
 
