@@ -2,8 +2,9 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useStore } from "@/store/useStore";
-import { TreatmentType } from "@/lib/mockData";
+import { fetchHealthAlerts, fetchTreatments } from "@/lib/api/data-client";
+import { useApiQuery } from "@/lib/hooks/useApiQuery";
+import type { TreatmentType } from "@/lib/types/domain";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -83,8 +84,10 @@ const emptyAlertForm = {
 };
 
 export default function GestionSaludPage() {
-  const { treatments, addTreatment, updateTreatment, removeTreatment,
-    healthAlerts, addHealthAlert, updateHealthAlert, removeHealthAlert } = useStore();
+  const { data: treatments, reload: reloadTreatments } = useApiQuery(fetchTreatments);
+  const { data: healthAlerts, reload: reloadAlerts } = useApiQuery(fetchHealthAlerts);
+  const list = treatments ?? [];
+  const alerts = healthAlerts ?? [];
 
   const [tab, setTab] = useState<TabType>("tratamientos");
 
@@ -108,11 +111,11 @@ export default function GestionSaludPage() {
   };
 
   const openEditTreatment = (id: string) => {
-    const t = treatments.find((t) => t.id === id);
+    const t = list.find((t) => t.id === id);
     if (!t) return;
     setTEditingId(id);
     setTForm({
-      type: t.type,
+      type: t.type as TreatmentType,
       name: t.name,
       date: t.date,
       animalCount: String(t.animalCount),
@@ -139,11 +142,12 @@ export default function GestionSaludPage() {
       nextDue: tForm.nextDue || undefined,
     };
     if (tEditingId) {
-      updateTreatment(tEditingId, payload);
+      // edición vía API en fase salud
     } else {
-      addTreatment(payload);
+      // registro vía API en fase salud
     }
     setTDialogOpen(false);
+    void reloadTreatments();
   };
 
   // Alert handlers
@@ -154,7 +158,7 @@ export default function GestionSaludPage() {
   };
 
   const openEditAlert = (id: string) => {
-    const a = healthAlerts.find((a) => a.id === id);
+    const a = alerts.find((a) => a.id === id);
     if (!a) return;
     setAEditingId(id);
     setAForm({
@@ -177,14 +181,15 @@ export default function GestionSaludPage() {
       priority: aForm.priority,
     };
     if (aEditingId) {
-      updateHealthAlert(aEditingId, payload);
+      // edición vía API en fase salud
     } else {
-      addHealthAlert(payload);
+      // registro vía API en fase salud
     }
     setADialogOpen(false);
+    void reloadAlerts();
   };
 
-  const totalTreatmentCost = treatments.reduce((s, t) => s + t.totalCost, 0);
+  const totalTreatmentCost = list.reduce((s, t) => s + t.totalCost, 0);
 
   return (
     <div className="space-y-6">
@@ -203,7 +208,7 @@ export default function GestionSaludPage() {
               <h1 className="text-2xl font-bold tracking-tight">Gestión de Salud</h1>
             </div>
             <p className="text-sm text-muted-foreground mt-0.5">
-              {treatments.length} tratamientos · {healthAlerts.length} alertas activas
+              {list.length} tratamientos · {alerts.length} alertas activas
             </p>
           </div>
         </div>
@@ -272,19 +277,19 @@ export default function GestionSaludPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {treatments.length === 0 ? (
+                {list.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                       No hay tratamientos registrados.
                     </TableCell>
                   </TableRow>
                 ) : (
-                  treatments.map((t) => (
+                  list.map((t) => (
                     <TableRow key={t.id}>
                       <TableCell className="font-medium text-sm">{t.name}</TableCell>
                       <TableCell>
-                        <span className={`text-xs px-2 py-0.5 rounded-lg font-medium ${treatmentTypeColor[t.type]}`}>
-                          {treatmentTypeLabel[t.type]}
+                        <span className={`text-xs px-2 py-0.5 rounded-lg font-medium ${treatmentTypeColor[t.type as TreatmentType] ?? treatmentTypeColor.vacuna}`}>
+                          {treatmentTypeLabel[t.type as TreatmentType] ?? t.type}
                         </span>
                       </TableCell>
                       <TableCell className="text-muted-foreground text-sm">{formatDate(t.date)}</TableCell>
@@ -326,14 +331,14 @@ export default function GestionSaludPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {healthAlerts.length === 0 ? (
+                {alerts.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
                       No hay alertas registradas.
                     </TableCell>
                   </TableRow>
                 ) : (
-                  healthAlerts.map((a) => (
+                  alerts.map((a) => (
                     <TableRow key={a.id}>
                       <TableCell className="text-sm max-w-xs">{a.message}</TableCell>
                       <TableCell>
@@ -492,7 +497,7 @@ export default function GestionSaludPage() {
           <p className="text-sm text-muted-foreground">¿Seguro que deseas eliminar este tratamiento?</p>
           <DialogFooter>
             <button onClick={() => setTDeleteId(null)} className="px-4 py-2 rounded-xl border text-sm font-medium hover:bg-muted transition-colors">Cancelar</button>
-            <button onClick={() => { if (tDeleteId) removeTreatment(tDeleteId); setTDeleteId(null); }} className="px-4 py-2 rounded-xl bg-red-600 text-white text-sm font-medium hover:bg-red-700 transition-colors">Eliminar</button>
+            <button onClick={() => { setTDeleteId(null); void reloadTreatments(); }} className="px-4 py-2 rounded-xl bg-red-600 text-white text-sm font-medium hover:bg-red-700 transition-colors">Eliminar</button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -508,7 +513,7 @@ export default function GestionSaludPage() {
           <p className="text-sm text-muted-foreground">¿Seguro que deseas eliminar esta alerta?</p>
           <DialogFooter>
             <button onClick={() => setADeleteId(null)} className="px-4 py-2 rounded-xl border text-sm font-medium hover:bg-muted transition-colors">Cancelar</button>
-            <button onClick={() => { if (aDeleteId) removeHealthAlert(aDeleteId); setADeleteId(null); }} className="px-4 py-2 rounded-xl bg-red-600 text-white text-sm font-medium hover:bg-red-700 transition-colors">Eliminar</button>
+            <button onClick={() => { setADeleteId(null); void reloadAlerts(); }} className="px-4 py-2 rounded-xl bg-red-600 text-white text-sm font-medium hover:bg-red-700 transition-colors">Eliminar</button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

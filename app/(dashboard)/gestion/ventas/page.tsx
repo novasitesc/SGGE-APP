@@ -2,7 +2,10 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useStore } from "@/store/useStore";
+import { useSales } from "@/lib/hooks/useSales";
+import { useModules } from "@/lib/hooks/useModules";
+import { fetchRazas } from "@/lib/api/data-client";
+import { useApiQuery } from "@/lib/hooks/useApiQuery";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -27,18 +30,18 @@ import { ShoppingCart, Plus, Pencil, Trash2, ChevronLeft, AlertTriangle, Search 
 
 const emptyForm = {
   tagId: "",
-  breed: "Angus",
+  breed: "",
   finalWeight: "",
   pricePerKg: "",
   saleDate: new Date().toISOString().split("T")[0],
   buyer: "",
-  moduleId: "M1",
+  moduleId: "",
 };
 
-const breeds = ["Angus", "Simmental", "Brahman", "Charolais", "Hereford", "Brangus", "Simbrah", "Otra"];
-
 export default function GestionVentasPage() {
-  const { sales, modules, addSale, updateSale, removeSale } = useStore();
+  const { sales, loading } = useSales();
+  const { modules } = useModules();
+  const { data: breeds } = useApiQuery(fetchRazas);
 
   const [search, setSearch] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -81,31 +84,14 @@ export default function GestionVentasPage() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const finalWeight = Number(form.finalWeight);
-    const pricePerKg = Number(form.pricePerKg);
-    const payload = {
-      tagId: form.tagId,
-      breed: form.breed,
-      finalWeight,
-      pricePerKg,
-      totalRevenue: finalWeight * pricePerKg,
-      saleDate: form.saleDate,
-      buyer: form.buyer,
-      moduleId: form.moduleId,
-    };
-    if (editingId) {
-      updateSale(editingId, payload);
-    } else {
-      addSale(payload);
-    }
     setDialogOpen(false);
   };
 
   const doDelete = () => {
-    if (deleteId) removeSale(deleteId);
     setDeleteId(null);
   };
 
+  const breedList = breeds ?? [];
   const moduleIds = modules.map((m) => m.id);
 
   return (
@@ -260,7 +246,7 @@ export default function GestionVentasPage() {
                   value={form.breed}
                   onChange={(e) => setForm({ ...form, breed: e.target.value })}
                 >
-                  {breeds.map((b) => <option key={b} value={b}>{b}</option>)}
+                  {breedList.map((b) => <option key={b} value={b}>{b}</option>)}
                 </Select>
               </div>
             </div>

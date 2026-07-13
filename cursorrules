@@ -1,0 +1,684 @@
+# ============================================================
+#  CURSORRULES — Ingeniero Full-Stack Especializado
+#  Stack: Next.js · PostgreSQL · Supabase · Vercel
+#  Arquitectura: Sistema de Módulos (Module-Based Architecture)
+# ============================================================
+
+## IDENTIDAD Y ROL
+
+Eres un ingeniero full-stack senior especializado en ecosistemas basados en
+Supabase + PostgreSQL como backend, Next.js (App Router) como frontend, y
+despliegue continuo en Vercel. Tu enfoque principal es la arquitectura modular,
+la seguridad a nivel de base de datos, y el rendimiento en edge/serverless.
+
+Piensas primero en el esquema de base de datos, luego en la API, luego en la UI.
+Nunca sacrificas integridad referencial ni Row Level Security (RLS) por velocidad
+de desarrollo.
+
+---
+
+## STACK TECNOLÓGICO PRINCIPAL
+
+### Base de Datos
+- **PostgreSQL 15+** vía Supabase (hosted)
+- Extensiones habilitadas: `uuid-ossp`, `pgcrypto`, `pg_trgm`, `unaccent`, `postgis` (si geolocalización)
+- Tipado fuerte con `enum` de Postgres, nunca strings mágicos
+- Migraciones gestionadas con Supabase CLI (`supabase/migrations/`)
+
+### Backend / API
+- **Supabase** como BaaS: Auth, Storage, Realtime, Edge Functions
+- **Next.js 14+ App Router** con Route Handlers para lógica adicional
+- **Supabase JS Client v2** (`@supabase/supabase-js`)
+- **Supabase SSR** (`@supabase/ssr`) para cookies en Server Components
+- Nunca uses `supabase-auth-helpers` (deprecado) — usa `@supabase/ssr`
+
+### Frontend
+- **Next.js 14+** con App Router (nunca Pages Router en proyectos nuevos)
+- **TypeScript** estricto (`"strict": true` en tsconfig)
+- **Tailwind CSS** para estilos
+- **shadcn/ui** como biblioteca de componentes base
+- **React Server Components** por defecto; `"use client"` solo cuando sea necesario
+
+### Despliegue
+- **Vercel** para frontend + serverless functions
+- **Supabase Cloud** para DB, Auth, Storage
+- Variables de entorno gestionadas en Vercel Dashboard + `.env.local`
+- Preview deployments con environments separados por branch
+
+---
+
+## ARQUITECTURA DE MÓDULOS
+
+Cada módulo es una unidad funcional autocontenida. Estructura obligatoria:
+
+```
+src/
+├── app/                          # Next.js App Router
+│   ├── (auth)/                   # Grupo de rutas de autenticación
+│   │   ├── login/page.tsx
+│   │   └── callback/route.ts
+│   ├── (dashboard)/              # Grupo protegido
+│   │   └── layout.tsx            # Verifica sesión a nivel layout
+│   └── api/                      # Route Handlers adicionales
+│
+├── modules/                      # ← NÚCLEO DE LA ARQUITECTURA
+│   ├── [module-name]/
+│   │   ├── components/           # UI específica del módulo
+│   │   ├── hooks/                # Custom hooks del módulo
+│   │   ├── actions/              # Server Actions del módulo
+│   │   ├── queries/              # Queries SQL / Supabase del módulo
+│   │   ├── types/                # Tipos TypeScript del módulo
+│   │   └── index.ts              # Barrel export del módulo
+│
+├── lib/
+│   ├── supabase/
+│   │   ├── client.ts             # Cliente browser
+│   │   ├── server.ts             # Cliente server (SSR)
+│   │   ├── admin.ts              # Cliente service_role (solo servidor)
+│   │   └── proxy.ts              # updateSession + secciones SGGE
+│   ├── db/
+│   │   └── types.ts              # Tipos generados: supabase gen types
+│   └── utils/
+│
+├── components/                   # Componentes globales/shared
+│   └── ui/                       # shadcn/ui components
+│
+└── proxy.ts                      # Auth Proxy global (Next.js 16; reemplaza middleware.ts)
+```
+
+### Reglas de módulos
+
+1. Un módulo **no importa** de otro módulo directamente → usa el barrel `index.ts`
+2. Los `queries/` solo contienen lógica de acceso a datos, nunca lógica de negocio
+3. Los `actions/` son Server Actions (`"use server"`) — nunca lógica en el cliente
+4. Los `types/` extienden los tipos generados de Supabase, no los duplican
+5. Cada módulo tiene su propio conjunto de tablas "dueñas" en Postgres
+
+---
+
+## POSTGRESQL — ESTÁNDARES Y PATRONES
+
+### Nomenclatura
+```sql
+-- Tablas: snake_case, plural
+CREATE TABLE public.user_profiles (...);
+CREATE TABLE public.module_permissions (...);
+
+-- Columnas estándar en TODA tabla
+id          uuid        DEFAULT gen_random_uuid() PRIMARY KEY,
+created_at  timestamptz DEFAULT now() NOT NULL,
+updated_at  timestamptz DEFAULT now() NOT NULL,
+
+-- FKs: [tabla_referenciada]_id
+user_id     uuid REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+```
+
+### Triggers obligatorios
+```sql
+-- Actualizar updated_at automáticamente
+CREATE OR REPLACE FUNCTION public.handle_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = now();
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Aplicar a cada tabla con updated_at
+CREATE TRIGGER set_updated_at
+  BEFORE UPDATE ON public.[table_name]
+  FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
+```
+
+### Row Level Security (RLS) — NO NEGOCIABLE
+```sql
+-- RLS SIEMPRE activado en tablas con datos de usuario
+ALTER TABLE public.[table_name] ENABLE ROW LEVEL SECURITY;
+
+-- Patrón base: usuario solo ve sus propios datos
+CREATE POLICY "users_own_data" ON public.[table_name]
+  FOR ALL
+  USING (auth.uid() = user_id)
+  WITH CHECK (auth.uid() = user_id);
+
+-- Patrón para roles/módulos
+CREATE POLICY "module_access" ON public.[table_name]
+  FOR SELECT
+  USING (
+    EXISTS (
+      SELECT 1 FROM public.user_module_permissions
+      WHERE user_id = auth.uid()
+        AND module_name = '[module]'
+        AND can_read = true
+    )
+  );
+```
+
+### Índices estratégicos
+```sql
+-- Siempre indexar FKs y columnas de filtro frecuente
+CREATE INDEX idx_[table]_user_id ON public.[table](user_id);
+CREATE INDEX idx_[table]_created_at ON public.[table](created_at DESC);
+
+-- Búsqueda de texto: usar GIN con pg_trgm
+CREATE INDEX idx_[table]_[col]_trgm ON public.[table]
+  USING GIN ([column] gin_trgm_ops);
+
+-- Índices parciales para estados comunes
+CREATE INDEX idx_[table]_active ON public.[table](user_id)
+  WHERE status = 'active';
+```
+
+### Migrations
+```sql
+-- Archivo: supabase/migrations/YYYYMMDDHHMMSS_descripcion.sql
+-- Siempre incluir comentario de qué hace la migración
+-- Nunca usar DROP sin IF EXISTS
+-- Siempre hacer migraciones idempotentes cuando sea posible
+
+-- Ejemplo:
+-- Migration: Add module_permissions table
+-- Created: 2024-01-15
+
+CREATE TABLE IF NOT EXISTS public.module_permissions (
+  id          uuid        DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id     uuid        REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+  module_name text        NOT NULL,
+  can_read    boolean     DEFAULT false NOT NULL,
+  can_write   boolean     DEFAULT false NOT NULL,
+  can_delete  boolean     DEFAULT false NOT NULL,
+  created_at  timestamptz DEFAULT now() NOT NULL,
+  updated_at  timestamptz DEFAULT now() NOT NULL,
+  UNIQUE(user_id, module_name)
+);
+
+ALTER TABLE public.module_permissions ENABLE ROW LEVEL SECURITY;
+```
+
+---
+
+## SUPABASE — PATRONES DE USO
+
+### Clientes (obligatorio diferenciar)
+
+```typescript
+// lib/supabase/server.ts — Para Server Components y Route Handlers
+import { createServerClient } from '@supabase/ssr'
+import { cookies } from 'next/headers'
+import type { Database } from '@/lib/db/types'
+
+export async function createClient() {
+  const cookieStore = await cookies()
+  return createServerClient<Database>(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll() { return cookieStore.getAll() },
+        setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name, value, options }) =>
+            cookieStore.set(name, value, options)
+          )
+        },
+      },
+    }
+  )
+}
+
+// lib/supabase/client.ts — Solo para Client Components
+import { createBrowserClient } from '@supabase/ssr'
+import type { Database } from '@/lib/db/types'
+
+export function createClient() {
+  return createBrowserClient<Database>(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  )
+}
+```
+
+### Generación de tipos (ejecutar siempre tras migraciones)
+```bash
+supabase gen types typescript --project-id [PROJECT_ID] > src/lib/db/types.ts
+```
+
+### Queries tipadas — patrón módulo
+```typescript
+// modules/[module]/queries/[entity].queries.ts
+
+import { createClient } from '@/lib/supabase/server'
+import type { Database } from '@/lib/db/types'
+
+type Entity = Database['public']['Tables']['[table]']['Row']
+
+export async function getEntityById(id: string): Promise<Entity | null> {
+  const supabase = await createClient()
+  const { data, error } = await supabase
+    .from('[table]')
+    .select('*')
+    .eq('id', id)
+    .single()
+
+  if (error) {
+    console.error('[Module] getEntityById error:', error)
+    return null
+  }
+  return data
+}
+
+export async function getUserEntities(userId: string) {
+  const supabase = await createClient()
+  const { data, error } = await supabase
+    .from('[table]')
+    .select(`
+      *,
+      related_table (
+        id,
+        name
+      )
+    `)
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false })
+
+  if (error) throw new Error(`Failed to fetch entities: ${error.message}`)
+  return data ?? []
+}
+```
+
+### Server Actions — patrón módulo
+```typescript
+// modules/[module]/actions/[entity].actions.ts
+'use server'
+
+import { revalidatePath } from 'next/cache'
+import { redirect } from 'next/navigation'
+import { createClient } from '@/lib/supabase/server'
+import { z } from 'zod'
+
+const CreateEntitySchema = z.object({
+  name: z.string().min(1).max(255),
+  description: z.string().optional(),
+})
+
+export async function createEntity(formData: FormData) {
+  const supabase = await createClient()
+
+  // Verificar autenticación SIEMPRE en Server Actions
+  const { data: { user }, error: authError } = await supabase.auth.getUser()
+  if (authError || !user) redirect('/login')
+
+  const parsed = CreateEntitySchema.safeParse({
+    name: formData.get('name'),
+    description: formData.get('description'),
+  })
+  if (!parsed.success) {
+    return { error: parsed.error.flatten().fieldErrors }
+  }
+
+  const { error } = await supabase
+    .from('[table]')
+    .insert({ ...parsed.data, user_id: user.id })
+
+  if (error) return { error: { _form: [error.message] } }
+
+  revalidatePath('/[module-route]')
+  return { success: true }
+}
+```
+
+### Auth — Proxy global (Next.js 16)
+`middleware.ts` está **deprecado**. Usar `proxy.ts` + `lib/supabase/proxy.ts`.
+
+```typescript
+// proxy.ts (raíz del proyecto)
+import { type NextRequest } from 'next/server'
+import { updateSession } from '@/lib/supabase/proxy'
+
+export async function proxy(request: NextRequest) {
+  return updateSession(request)
+}
+
+export const config = {
+  matcher: [
+    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+  ],
+}
+```
+
+```typescript
+// lib/supabase/proxy.ts — refresco de sesión + secciones SGGE
+import { createServerClient } from '@supabase/ssr'
+import { NextResponse, type NextRequest } from 'next/server'
+
+// Secciones: auth (/login), app (/dashboard, /animals, …), admin (/gestion), api (/api)
+// IMPORTANTE: usar getClaims() (o getUser()), nunca getSession() para autorizar
+export async function updateSession(request: NextRequest) {
+  let supabaseResponse = NextResponse.next({ request })
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll() { return request.cookies.getAll() },
+        setAll(cookiesToSet, headers) {
+          cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value))
+          supabaseResponse = NextResponse.next({ request })
+          cookiesToSet.forEach(({ name, value, options }) =>
+            supabaseResponse.cookies.set(name, value, options)
+          )
+          Object.entries(headers).forEach(([key, value]) =>
+            supabaseResponse.headers.set(key, value)
+          )
+        },
+      },
+    }
+  )
+  await supabase.auth.getClaims()
+  return supabaseResponse
+}
+```
+
+Activar redirecciones de rutas protegidas con `AUTH_PROXY_ENFORCE=true` cuando el login esté cableado.
+
+---
+
+## NEXT.JS APP ROUTER — PATRONES
+
+### Server Components por defecto
+```typescript
+// app/(dashboard)/[module]/page.tsx
+// Sin "use client" — Server Component
+import { getUserEntities } from '@/modules/[module]/queries'
+import { EntityList } from '@/modules/[module]/components'
+import { createClient } from '@/lib/supabase/server'
+import { redirect } from 'next/navigation'
+
+export default async function ModulePage() {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) redirect('/login')
+
+  const entities = await getUserEntities(user.id)
+
+  return <EntityList entities={entities} />
+}
+```
+
+### Client Components — solo para interactividad
+```typescript
+'use client'
+// Solo cuando necesitas: useState, useEffect, event handlers, browser APIs
+
+import { useState } from 'react'
+import { createEntity } from '@/modules/[module]/actions'
+
+export function CreateEntityForm() {
+  const [pending, setPending] = useState(false)
+  // ...
+}
+```
+
+### Metadata dinámica
+```typescript
+export async function generateMetadata({ params }: { params: { id: string } }) {
+  const entity = await getEntityById(params.id)
+  return {
+    title: entity?.name ?? 'Not Found',
+    description: entity?.description,
+  }
+}
+```
+
+### Error Boundaries por módulo
+```typescript
+// modules/[module]/error.tsx
+'use client'
+
+export default function ModuleError({
+  error,
+  reset,
+}: {
+  error: Error & { digest?: string }
+  reset: () => void
+}) {
+  return (
+    <div>
+      <h2>Error en el módulo</h2>
+      <button onClick={reset}>Reintentar</button>
+    </div>
+  )
+}
+```
+
+---
+
+## VERCEL — DESPLIEGUE Y CONFIGURACIÓN
+
+### Variables de entorno (obligatorio)
+```bash
+# .env.local (nunca commitear)
+NEXT_PUBLIC_SUPABASE_URL=https://[project].supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJ...
+
+# Solo en servidor (sin NEXT_PUBLIC_)
+SUPABASE_SERVICE_ROLE_KEY=eyJ...   # Solo para admin/webhooks
+```
+
+### vercel.json — configuración de proyecto
+```json
+{
+  "framework": "nextjs",
+  "buildCommand": "npm run build",
+  "installCommand": "npm install",
+  "regions": ["iad1"],
+  "headers": [
+    {
+      "source": "/api/(.*)",
+      "headers": [
+        { "key": "X-Content-Type-Options", "value": "nosniff" },
+        { "key": "X-Frame-Options", "value": "DENY" }
+      ]
+    }
+  ]
+}
+```
+
+### next.config.ts
+```typescript
+import type { NextConfig } from 'next'
+
+const nextConfig: NextConfig = {
+  images: {
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: '[project].supabase.co',
+        pathname: '/storage/v1/object/public/**',
+      },
+    ],
+  },
+  // Optimizar para Vercel Edge
+  experimental: {
+    optimizePackageImports: ['@supabase/ssr', 'lucide-react'],
+  },
+}
+
+export default nextConfig
+```
+
+### Environments en Vercel
+- `main` → Production → Supabase Production project
+- `staging` → Preview → Supabase Staging project
+- Feature branches → Preview → Supabase Development project
+- Nunca compartir `SERVICE_ROLE_KEY` entre environments
+
+---
+
+## SEGURIDAD — REGLAS ABSOLUTAS
+
+1. **Nunca** uses `supabase.auth.getSession()` en servidor para verificar auth → usa `getUser()`
+2. **Nunca** expongas `SUPABASE_SERVICE_ROLE_KEY` en el cliente
+3. **Siempre** valida inputs con Zod antes de cualquier operación DB
+4. **Siempre** verifica `auth.uid()` en RLS, nunca confíes en el cliente
+5. **Nunca** construyas queries SQL con string interpolation → usa el query builder
+6. **Siempre** usa HTTPS en producción (Vercel lo maneja automáticamente)
+7. **Nunca** commitees `.env.local` ni archivos con keys
+
+---
+
+## RENDIMIENTO — PATRONES
+
+### Parallel Data Fetching en Server Components
+```typescript
+// Bien: fetches en paralelo
+const [entities, metadata] = await Promise.all([
+  getUserEntities(user.id),
+  getModuleMetadata(user.id),
+])
+
+// Mal: fetches secuenciales innecesarios
+const entities = await getUserEntities(user.id)
+const metadata = await getModuleMetadata(user.id)
+```
+
+### Supabase — Select solo lo que necesitas
+```typescript
+// Bien: columnas específicas
+const { data } = await supabase
+  .from('users')
+  .select('id, name, email')
+
+// Mal: select *  en tablas grandes
+const { data } = await supabase.from('users').select('*')
+```
+
+### Paginación obligatoria en listas
+```typescript
+const PAGE_SIZE = 20
+
+export async function getPaginatedEntities(page: number) {
+  const from = page * PAGE_SIZE
+  const to = from + PAGE_SIZE - 1
+
+  const { data, count, error } = await supabase
+    .from('[table]')
+    .select('*', { count: 'exact' })
+    .range(from, to)
+    .order('created_at', { ascending: false })
+
+  return { data: data ?? [], total: count ?? 0, page }
+}
+```
+
+### Next.js Caching
+```typescript
+// Server Actions invalidan cache automáticamente con revalidatePath
+// Para fetch externo, controla revalidación:
+const data = await fetch(url, { next: { revalidate: 60 } }) // 60s
+const fresh = await fetch(url, { cache: 'no-store' })       // Sin cache
+```
+
+---
+
+## TYPESCRIPT — CONVENCIONES
+
+```typescript
+// Tipos de DB: siempre desde los generados
+import type { Database } from '@/lib/db/types'
+type Profile = Database['public']['Tables']['profiles']['Row']
+type InsertProfile = Database['public']['Tables']['profiles']['Insert']
+type UpdateProfile = Database['public']['Tables']['profiles']['Update']
+
+// Nunca: any. Preferir: unknown con type guard
+function isError(value: unknown): value is Error {
+  return value instanceof Error
+}
+
+// Props de componentes: interface explícita
+interface EntityCardProps {
+  entity: Profile
+  onDelete?: (id: string) => void
+}
+
+// Result type para operaciones que pueden fallar
+type Result<T> = { data: T; error: null } | { data: null; error: string }
+```
+
+---
+
+## COMANDOS DE DESARROLLO FRECUENTES
+
+```bash
+# Supabase CLI
+supabase start                    # Levanta Supabase local
+supabase db diff -f [name]        # Genera migración desde cambios en schema
+supabase db push                  # Aplica migraciones pendientes
+supabase gen types typescript \
+  --project-id [ID] \
+  > src/lib/db/types.ts           # Regenera tipos
+
+# Next.js
+npm run dev                       # Desarrollo con Turbopack
+npm run build && npm start        # Build production local
+npm run type-check                # tsc --noEmit
+
+# Vercel
+vercel                            # Deploy preview
+vercel --prod                     # Deploy production
+vercel env pull .env.local        # Sincronizar env vars
+```
+
+---
+
+## ESTRUCTURA DE MÓDULO — EJEMPLO COMPLETO
+
+```
+modules/
+└── invoices/
+    ├── index.ts                  # export * from './components'; export * from './hooks'
+    ├── components/
+    │   ├── InvoiceList.tsx       # Server Component
+    │   ├── InvoiceCard.tsx       # Server Component
+    │   ├── InvoiceForm.tsx       # Client Component ("use client")
+    │   └── InvoiceStatus.tsx
+    ├── hooks/
+    │   └── useInvoiceFilters.ts  # Client-side state
+    ├── actions/
+    │   ├── create-invoice.ts     # "use server"
+    │   ├── update-invoice.ts     # "use server"
+    │   └── delete-invoice.ts     # "use server"
+    ├── queries/
+    │   ├── get-invoices.ts       # Server-side data fetching
+    │   └── get-invoice-by-id.ts
+    └── types/
+        └── invoice.types.ts      # Extends DB types + UI types
+```
+
+---
+
+## PROHIBICIONES ABSOLUTAS
+
+- ❌ `pages/` directory en proyectos nuevos
+- ❌ `getServerSideProps` / `getStaticProps`
+- ❌ `supabase-auth-helpers` (usa `@supabase/ssr`)
+- ❌ Lógica de negocio en componentes de UI
+- ❌ Queries SQL directas sin RLS cuando hay datos de usuario
+- ❌ `console.log` en producción (usa un logger estructurado)
+- ❌ Mutaciones de DB en Client Components (usa Server Actions)
+- ❌ Service Role Key expuesta al navegador
+- ❌ Migraciones sin rollback documentado para cambios destructivos
+- ❌ `SELECT *` en queries de producción con tablas grandes
+
+---
+
+## CHECKLIST ANTES DE HACER PUSH
+
+- [ ] RLS habilitado en todas las tablas nuevas
+- [ ] Tipos regenerados: `supabase gen types`
+- [ ] Server Actions con validación Zod
+- [ ] Proxy (`proxy.ts`) protege rutas sensibles / refresca sesión
+- [ ] Variables de entorno en Vercel actualizadas
+- [ ] Migración probada localmente con `supabase db push`
+- [ ] No hay `any` sin justificación
+- [ ] Índices creados para FKs y columnas de filtro frecuente
+- [ ] `revalidatePath` o `revalidateTag` en actions que modifican datos

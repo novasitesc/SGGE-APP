@@ -26,7 +26,7 @@ import {
   Trash2,
   ScrollText,
 } from "lucide-react";
-import type { Animal } from "@/lib/mockData";
+import type { Animal } from "@/lib/types/domain";
 import type { AnimalDetail, AnimalFormValues } from "@/components/animales/types";
 import {
   EMPTY_ANIMAL_FORM,
@@ -42,7 +42,7 @@ import {
   type AnimalDeletePayload,
 } from "@/components/animales/AnimalDeleteDialog";
 import { fetchSolicitudes } from "@/lib/api/solicitudes-client";
-import type { AnimalStatus } from "@/lib/mockData";
+import type { AnimalStatus } from "@/lib/types/domain";
 
 type Props = {
   title?: string;

@@ -20,26 +20,35 @@ import {
   ResponsiveContainer,
   Cell,
 } from "recharts";
-import { costs, costsByCategory } from "@/lib/mockData";
+import { aggregateCostsByCategory, fetchCosts } from "@/lib/api/data-client";
+import { useApiQuery } from "@/lib/hooks/useApiQuery";
 import { formatCurrency, formatCurrencyCompact, formatDate } from "@/lib/utils";
 import { Receipt, TrendingDown } from "lucide-react";
 
 const categoryConfig: Record<string, { label: string; variant: "default" | "secondary" | "success" | "info" | "warning" | "destructive" | "outline" }> = {
   alimentación: { label: "Alimentación", variant: "success" },
+  alim: { label: "Alimentación", variant: "success" },
   transporte: { label: "Transporte", variant: "warning" },
+  trans: { label: "Transporte", variant: "warning" },
   vacunas: { label: "Vacunas", variant: "info" },
+  vet: { label: "Veterinaria", variant: "info" },
   mano_de_obra: { label: "Mano de Obra", variant: "secondary" },
+  mo: { label: "Mano de Obra", variant: "secondary" },
   servicios: { label: "Servicios", variant: "outline" },
+  mant: { label: "Mantenimiento", variant: "outline" },
   medicamentos: { label: "Medicamentos", variant: "destructive" },
   otros: { label: "Otros", variant: "default" },
+  otro: { label: "Otros", variant: "default" },
 };
 
 export default function CostsPage() {
-  const totalCost = costs.reduce((s, c) => s + c.amount, 0);
+  const { data: costs, loading } = useApiQuery(fetchCosts);
+  const list = costs ?? [];
+  const costsByCategory = aggregateCostsByCategory(list);
+  const totalCost = list.reduce((s, c) => s + c.amount, 0);
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Costos</h1>
         <p className="text-sm text-muted-foreground mt-0.5">
@@ -47,7 +56,6 @@ export default function CostsPage() {
         </p>
       </div>
 
-      {/* Summary cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <Card>
           <CardContent className="p-5">
@@ -60,14 +68,16 @@ export default function CostsPage() {
           { cat: "mano_de_obra", label: "Mano de Obra" },
           { cat: "transporte", label: "Transporte" },
         ].map(({ cat, label }) => {
-          const catTotal = costs.filter((c) => c.category === cat).reduce((s, c) => s + c.amount, 0);
+          const catTotal = list
+            .filter((c) => c.category === cat || c.category === cat.replace("ó", "o").slice(0, 4))
+            .reduce((s, c) => s + c.amount, 0);
           return (
             <Card key={cat}>
               <CardContent className="p-5">
                 <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{label}</p>
                 <p className="text-2xl font-bold mt-1">{formatCurrency(catTotal)}</p>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  {((catTotal / totalCost) * 100).toFixed(0)}% del total
+                  {totalCost > 0 ? `${((catTotal / totalCost) * 100).toFixed(0)}% del total` : "—"}
                 </p>
               </CardContent>
             </Card>
@@ -76,46 +86,50 @@ export default function CostsPage() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
-        {/* Bar chart */}
         <Card className="lg:col-span-3">
           <CardHeader>
             <CardTitle>Costos por Categoría</CardTitle>
             <CardDescription>Distribución acumulada del ciclo</CardDescription>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={260}>
-              <BarChart data={costsByCategory} margin={{ top: 5, right: 10, left: -10, bottom: 5 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                <XAxis
-                  dataKey="category"
-                  tick={{ fontSize: 10, fill: "#6b7280" }}
-                  axisLine={false}
-                  tickLine={false}
-                  angle={-15}
-                  textAnchor="end"
-                  height={40}
-                />
-                <YAxis
-                  tick={{ fontSize: 11, fill: "#6b7280" }}
-                  axisLine={false}
-                  tickLine={false}
-                  tickFormatter={(v) => formatCurrencyCompact(Number(v))}
-                />
-                <Tooltip
-                  contentStyle={{ borderRadius: "12px", border: "1px solid #e5e7eb", fontSize: 12 }}
-                  formatter={(value) => [formatCurrency(Number(value ?? 0)), "Monto"]}
-                />
-                <Bar dataKey="amount" radius={[6, 6, 0, 0]}>
-                  {costsByCategory.map((entry, index) => (
-                    <Cell key={index} fill={entry.color} />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
+            {loading ? (
+              <div className="h-[260px] animate-pulse bg-muted/30 rounded-xl" />
+            ) : costsByCategory.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-16">No hay gastos registrados.</p>
+            ) : (
+              <ResponsiveContainer width="100%" height={260}>
+                <BarChart data={costsByCategory} margin={{ top: 5, right: 10, left: -10, bottom: 5 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                  <XAxis
+                    dataKey="category"
+                    tick={{ fontSize: 10, fill: "#6b7280" }}
+                    axisLine={false}
+                    tickLine={false}
+                    angle={-15}
+                    textAnchor="end"
+                    height={40}
+                  />
+                  <YAxis
+                    tick={{ fontSize: 11, fill: "#6b7280" }}
+                    axisLine={false}
+                    tickLine={false}
+                    tickFormatter={(v) => formatCurrencyCompact(Number(v))}
+                  />
+                  <Tooltip
+                    contentStyle={{ borderRadius: "12px", border: "1px solid #e5e7eb", fontSize: 12 }}
+                    formatter={(value) => [formatCurrency(Number(value ?? 0)), "Monto"]}
+                  />
+                  <Bar dataKey="amount" radius={[6, 6, 0, 0]}>
+                    {costsByCategory.map((entry, index) => (
+                      <Cell key={index} fill={entry.color} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            )}
           </CardContent>
         </Card>
 
-        {/* Category summary */}
         <Card className="lg:col-span-2">
           <CardHeader>
             <CardTitle>Resumen por Rubro</CardTitle>
@@ -130,7 +144,7 @@ export default function CostsPage() {
                 <div className="text-right">
                   <p className="text-sm font-semibold">{formatCurrency(cat.amount)}</p>
                   <p className="text-xs text-muted-foreground">
-                    {((cat.amount / totalCost) * 100).toFixed(1)}%
+                    {totalCost > 0 ? `${((cat.amount / totalCost) * 100).toFixed(1)}%` : "—"}
                   </p>
                 </div>
               </div>
@@ -146,7 +160,6 @@ export default function CostsPage() {
         </Card>
       </div>
 
-      {/* Costs table */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -155,39 +168,45 @@ export default function CostsPage() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow className="bg-muted/30">
-                <TableHead>Fecha</TableHead>
-                <TableHead>Categoría</TableHead>
-                <TableHead>Descripción</TableHead>
-                <TableHead className="hidden md:table-cell">Animales</TableHead>
-                <TableHead className="text-right">Monto</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {costs.map((cost) => {
-                const conf = categoryConfig[cost.category] ?? { label: cost.category, variant: "default" as const };
-                return (
-                  <TableRow key={cost.id}>
-                    <TableCell className="text-xs text-muted-foreground">
-                      {formatDate(cost.date)}
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant={conf.variant}>{conf.label}</Badge>
-                    </TableCell>
-                    <TableCell className="font-medium text-sm">{cost.description}</TableCell>
-                    <TableCell className="hidden md:table-cell text-muted-foreground text-sm">
-                      {cost.animalCount ? `${cost.animalCount} animales` : "—"}
-                    </TableCell>
-                    <TableCell className="text-right font-semibold">
-                      {formatCurrency(cost.amount)}
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
+          {loading ? (
+            <div className="h-48 animate-pulse bg-muted/30 rounded-xl" />
+          ) : list.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-8">No hay gastos registrados.</p>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-muted/30">
+                  <TableHead>Fecha</TableHead>
+                  <TableHead>Categoría</TableHead>
+                  <TableHead>Descripción</TableHead>
+                  <TableHead className="hidden md:table-cell">Animales</TableHead>
+                  <TableHead className="text-right">Monto</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {list.map((cost) => {
+                  const conf = categoryConfig[cost.category.toLowerCase()] ?? { label: cost.category, variant: "default" as const };
+                  return (
+                    <TableRow key={cost.id}>
+                      <TableCell className="text-xs text-muted-foreground">
+                        {formatDate(cost.date)}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={conf.variant}>{conf.label}</Badge>
+                      </TableCell>
+                      <TableCell className="font-medium text-sm">{cost.description}</TableCell>
+                      <TableCell className="hidden md:table-cell text-muted-foreground text-sm">
+                        {cost.animalCount ? `${cost.animalCount} animales` : "—"}
+                      </TableCell>
+                      <TableCell className="text-right font-semibold">
+                        {formatCurrency(cost.amount)}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          )}
           <div className="flex justify-end pt-4 border-t mt-2">
             <div className="text-right">
               <p className="text-xs text-muted-foreground">Total registrado</p>
@@ -199,5 +218,3 @@ export default function CostsPage() {
     </div>
   );
 }
-
-

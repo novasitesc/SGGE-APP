@@ -1,11 +1,16 @@
 import { createSupabaseAdmin } from "@/lib/supabase/admin";
 import { resolveGranjaId } from "@/lib/api/granja";
 import { jsonError, jsonOk } from "@/lib/api/http";
-import { getEstadoIdByCodigo } from "@/lib/api/corrales-helpers";
+import {
+  getEstadoIdByCodigo,
+  liberarCodigoSoftDeleted,
+  nextCodigoForTipo,
+} from "@/lib/api/corrales-helpers";
 import {
   registrarHistorial,
   snapshotCorral,
 } from "@/lib/api/historial-sistema";
+import { MODULE_TYPE_OPTIONS } from "@/lib/modulos/constants";
 
 export const dynamic = "force-dynamic";
 export async function GET(req: Request) {
@@ -59,8 +64,6 @@ export async function GET(req: Request) {
         type: m.tipo ?? "engorda",
         capacity: m.capacidad_maxima,
         animalCount: active.length,
-        location: m.codigo as string,
-        supervisor: "",
         avgWeightActive: avgWeight,
       };
     });
@@ -72,8 +75,11 @@ export async function GET(req: Request) {
   }
 }
 
+const VALID_TYPES = new Set(
+  MODULE_TYPE_OPTIONS.map((o) => o.value as string)
+);
+
 type PostBody = {
-  code?: string;
   name?: string;
   type?: string;
   capacity?: number;
@@ -89,27 +95,50 @@ export async function POST(req: Request) {
     );
     const body = (await req.json()) as PostBody;
 
-    if (!body.code?.trim()) return jsonError("code es obligatorio.");
     if (!body.name?.trim()) return jsonError("name es obligatorio.");
     if (body.capacity == null || body.capacity <= 0) {
       return jsonError("capacity debe ser > 0.");
     }
 
-    const { data, error } = await admin
+    const tipo = (body.type ?? "engorda").trim();
+    if (!VALID_TYPES.has(tipo)) {
+      return jsonError(`Tipo de módulo inválido: ${tipo}.`);
+    }
+
+    const codigo = await nextCodigoForTipo(admin, granjaId, tipo);
+    const payload = {
+      granja_id: granjaId,
+      codigo,
+      nombre: body.name.trim(),
+      tipo,
+      capacidad_maxima: body.capacity,
+      ocupacion_actual: 0,
+      activo: true,
+    };
+
+    let { data, error } = await admin
       .from("corrales")
-      .insert({
-        granja_id: granjaId,
-        codigo: body.code.trim().toUpperCase(),
-        nombre: body.name.trim(),
-        tipo: body.type ?? "engorda",
-        capacidad_maxima: body.capacity,
-        ocupacion_actual: 0,
-      })
+      .insert(payload)
       .select("*")
       .single();
+
+    // Compat: UNIQUE global antiguo bloquea códigos soft-deleted hasta aplicar la migración.
+    if (error?.code === "23505") {
+      await liberarCodigoSoftDeleted(admin, granjaId, codigo);
+      const retry = await admin
+        .from("corrales")
+        .insert(payload)
+        .select("*")
+        .single();
+      data = retry.data;
+      error = retry.error;
+    }
+
     if (error) {
       if (error.code === "23505") {
-        return jsonError(`Ya existe el corral '${body.code}'.`);
+        return jsonError(
+          `Ya existe un módulo activo con el código '${codigo}'.`
+        );
       }
       return jsonError(error.message, 400);
     }

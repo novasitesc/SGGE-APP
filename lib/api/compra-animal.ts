@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { AcquisitionType } from "@/lib/mockData";
+import type { AcquisitionType } from "@/lib/types/domain";
 
 const PROVEEDOR_DEMO_ID = "11111111-1111-1111-1111-111111111111";
 

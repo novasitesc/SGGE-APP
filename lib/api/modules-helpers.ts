@@ -7,4 +7,6 @@ export {
   getCorralCapacity,
   getModuleCapacity,
   adjustCorralOcupacion,
+  nextCodigoForTipo,
+  liberarCodigoSoftDeleted,
 } from "./corrales-helpers";

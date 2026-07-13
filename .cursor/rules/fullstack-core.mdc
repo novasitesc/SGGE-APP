@@ -56,11 +56,11 @@ src/
 │       ├── types/
 │       └── index.ts              # Barrel export
 ├── lib/
-│   ├── supabase/                 # client, server, middleware
+│   ├── supabase/                 # client, server, admin, proxy
 │   ├── db/types.ts               # Tipos generados
 │   └── utils/
 ├── components/ui/                # shadcn/ui
-└── middleware.ts
+└── proxy.ts                      # Auth Proxy (Next.js 16; reemplaza middleware.ts)
 ```
 
 ### Reglas de módulos
@@ -89,7 +89,7 @@ src/
 - [ ] RLS habilitado en tablas nuevas
 - [ ] Tipos regenerados: `supabase gen types`
 - [ ] Server Actions con validación Zod
-- [ ] Middleware protege rutas sensibles
+- [ ] Proxy (`proxy.ts`) protege rutas sensibles / refresca sesión
 - [ ] Variables de entorno en Vercel actualizadas
 - [ ] Migración probada con `supabase db push`
 - [ ] No hay `any` sin justificación

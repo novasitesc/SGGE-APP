@@ -1,3 +1,5 @@
+"use client";
+
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -8,7 +10,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { treatments, healthAlerts } from "@/lib/mockData";
+import { fetchHealthAlerts, fetchTreatments } from "@/lib/api/data-client";
+import { useApiQuery } from "@/lib/hooks/useApiQuery";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { HeartPulse, AlertTriangle, Syringe, Shield, Pill } from "lucide-react";
 
@@ -28,7 +31,11 @@ const alertPriorityConfig = {
 };
 
 export default function HealthPage() {
-  const totalTreatmentCost = treatments.reduce((s, t) => s + t.totalCost, 0);
+  const { data: treatments } = useApiQuery(fetchTreatments);
+  const { data: healthAlerts } = useApiQuery(fetchHealthAlerts);
+  const list = treatments ?? [];
+  const alerts = healthAlerts ?? [];
+  const totalTreatmentCost = list.reduce((s, t) => s + t.totalCost, 0);
 
   return (
     <div className="space-y-6">
@@ -50,7 +57,7 @@ export default function HealthPage() {
               </div>
               <div>
                 <p className="text-xs text-muted-foreground">Tratamientos</p>
-                <p className="text-2xl font-bold">{treatments.length}</p>
+                <p className="text-2xl font-bold">{list.length}</p>
               </div>
             </div>
           </CardContent>
@@ -64,7 +71,7 @@ export default function HealthPage() {
               <div>
                 <p className="text-xs text-muted-foreground">Alertas Activas</p>
                 <p className="text-2xl font-bold text-red-600">
-                  {healthAlerts.filter((a) => a.priority === "alta").length}
+                  {alerts.filter((a) => a.priority === "alta").length}
                 </p>
               </div>
             </div>
@@ -79,7 +86,7 @@ export default function HealthPage() {
               <div>
                 <p className="text-xs text-muted-foreground">Vacunas Aplicadas</p>
                 <p className="text-2xl font-bold text-emerald-700">
-                  {treatments.filter((t) => t.type === "vacuna").length}
+                  {list.filter((t) => t.type === "vacuna").length}
                 </p>
               </div>
             </div>
@@ -110,7 +117,9 @@ export default function HealthPage() {
         </CardHeader>
         <CardContent>
           <div className="space-y-3">
-            {healthAlerts.map((alert) => {
+            {alerts.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-6">No hay alertas activas.</p>
+            ) : alerts.map((alert) => {
               const priority = alertPriorityConfig[alert.priority];
               return (
                 <div
@@ -164,8 +173,14 @@ export default function HealthPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {treatments.map((t) => {
-                const conf = treatmentTypeConfig[t.type];
+              {list.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                    No hay tratamientos registrados.
+                  </TableCell>
+                </TableRow>
+              ) : list.map((t) => {
+                const conf = treatmentTypeConfig[t.type as keyof typeof treatmentTypeConfig] ?? treatmentTypeConfig.vacuna;
                 return (
                   <TableRow key={t.id}>
                     <TableCell className="text-xs text-muted-foreground">

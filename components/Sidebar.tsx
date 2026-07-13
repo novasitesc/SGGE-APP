@@ -16,6 +16,7 @@ import {
   Tractor,
   Settings2,
   MessageSquare,
+  Tags,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useStore } from "@/store/useStore";
@@ -32,6 +33,7 @@ const navItems = [
 ];
 
 const adminItems = [
+  { label: "Administración", href: "/administracion", icon: Tags },
   { label: "Gestión de Datos", href: "/gestion", icon: Settings2 },
   { label: "Mensajería", href: "/gestion/mensajeria", icon: MessageSquare },
 ];

@@ -13,8 +13,10 @@ import { Select } from "@/components/ui/select";
 import { Beef, Loader2 } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import type { AnimalFormValues } from "@/components/animales/types";
-import { ACQUISITION_OPTIONS, BREEDS } from "@/components/animales/types";
-import type { AnimalStatus } from "@/lib/mockData";
+import { ACQUISITION_OPTIONS } from "@/components/animales/types";
+import type { AnimalStatus } from "@/lib/types/domain";
+import { fetchRazas } from "@/lib/api/data-client";
+import { useApiQuery } from "@/lib/hooks/useApiQuery";
 
 type Props = {
   open: boolean;
@@ -41,12 +43,14 @@ export function AnimalFormDialog({
   corralIds,
   lockArete = false,
 }: Props) {
+  const { data: breeds } = useApiQuery(fetchRazas);
+  const breedList = breeds ?? [];
   const set = (partial: Partial<AnimalFormValues>) =>
     onChange({ ...form, ...partial });
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+      <DialogContent className="w-[calc(100%-1.5rem)] max-w-lg sm:max-w-2xl lg:max-w-4xl xl:max-w-5xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Beef className="h-5 w-5 text-emerald-600" />
@@ -54,7 +58,7 @@ export function AnimalFormDialog({
           </DialogTitle>
         </DialogHeader>
         <form onSubmit={onSubmit} className="space-y-4 mt-2">
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             <div className="space-y-1.5">
               <Label htmlFor="tagId">Arete *</Label>
               <Input
@@ -73,16 +77,16 @@ export function AnimalFormDialog({
                 value={form.breed}
                 onChange={(e) => set({ breed: e.target.value })}
               >
-                {BREEDS.map((b) => (
+                {breedList.length === 0 && (
+                  <option value="">Sin razas configuradas</option>
+                )}
+                {breedList.map((b) => (
                   <option key={b} value={b}>
                     {b}
                   </option>
                 ))}
               </Select>
             </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label htmlFor="sex">Sexo</Label>
               <Select
@@ -107,18 +111,17 @@ export function AnimalFormDialog({
             </div>
           </div>
 
-          <div className="space-y-1.5">
-            <Label htmlFor="entryDate">Fecha de ingreso *</Label>
-            <Input
-              id="entryDate"
-              type="date"
-              value={form.entryDate}
-              onChange={(e) => set({ entryDate: e.target.value })}
-              required
-            />
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="entryDate">Fecha de ingreso *</Label>
+              <Input
+                id="entryDate"
+                type="date"
+                value={form.entryDate}
+                onChange={(e) => set({ entryDate: e.target.value })}
+                required
+              />
+            </div>
             <div className="space-y-1.5">
               <Label htmlFor="initialWeight">Peso inicial (kg) *</Label>
               <Input
@@ -148,16 +151,32 @@ export function AnimalFormDialog({
                 </p>
               )}
             </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="moduleId">Corral</Label>
+              <Select
+                id="moduleId"
+                value={form.moduleId}
+                onChange={(e) => set({ moduleId: e.target.value })}
+              >
+                {corralIds.map((m) => (
+                  <option key={m} value={m}>
+                    {m}
+                  </option>
+                ))}
+              </Select>
+            </div>
           </div>
 
           <div className="rounded-xl border border-emerald-200 bg-emerald-50/40 p-4 space-y-3">
-            <p className="text-sm font-medium text-emerald-900">Datos de compra</p>
-            <p className="text-[11px] text-emerald-800/80">
-              {mode === "create"
-                ? "Base para costeo y comparación con el precio de venta (₡/kg)."
-                : "Datos de adquisición registrados al ingreso (solo lectura)."}
-            </p>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="flex flex-col sm:flex-row sm:items-baseline sm:justify-between gap-1">
+              <p className="text-sm font-medium text-emerald-900">Datos de compra</p>
+              <p className="text-[11px] text-emerald-800/80">
+                {mode === "create"
+                  ? "Base para costeo y comparación con el precio de venta (₡/kg)."
+                  : "Datos de adquisición registrados al ingreso (solo lectura)."}
+              </p>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
               <div className="space-y-1.5">
                 <Label htmlFor="acquisitionType">Origen</Label>
                 <Select
@@ -189,8 +208,6 @@ export function AnimalFormDialog({
                   required={mode === "create"}
                 />
               </div>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label htmlFor="invoiceFolio">Folio factura / remate</Label>
                 <Input
@@ -211,19 +228,19 @@ export function AnimalFormDialog({
                   onChange={(e) => set({ invoiceOrAuctionDate: e.target.value })}
                 />
               </div>
+              {form.acquisitionType === "subasta" && (
+                <div className="space-y-1.5 sm:col-span-2 lg:col-span-1">
+                  <Label htmlFor="auctionLotNumber">Lote subasta</Label>
+                  <Input
+                    id="auctionLotNumber"
+                    placeholder="L-12"
+                    value={form.auctionLotNumber}
+                    disabled={mode === "edit"}
+                    onChange={(e) => set({ auctionLotNumber: e.target.value })}
+                  />
+                </div>
+              )}
             </div>
-            {form.acquisitionType === "subasta" && (
-              <div className="space-y-1.5">
-                <Label htmlFor="auctionLotNumber">Lote subasta</Label>
-                <Input
-                  id="auctionLotNumber"
-                  placeholder="L-12"
-                  value={form.auctionLotNumber}
-                  disabled={mode === "edit"}
-                  onChange={(e) => set({ auctionLotNumber: e.target.value })}
-                />
-              </div>
-            )}
             {form.initialWeight && form.purchasePricePerKg && (
               <p className="text-[11px] text-muted-foreground">
                 Costo total estimado al ingreso:{" "}
@@ -235,21 +252,7 @@ export function AnimalFormDialog({
             )}
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <Label htmlFor="moduleId">Corral</Label>
-              <Select
-                id="moduleId"
-                value={form.moduleId}
-                onChange={(e) => set({ moduleId: e.target.value })}
-              >
-                {corralIds.map((m) => (
-                  <option key={m} value={m}>
-                    {m}
-                  </option>
-                ))}
-              </Select>
-            </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-xl">
             <div className="space-y-1.5">
               <Label htmlFor="status">Estado</Label>
               <Select
@@ -277,7 +280,7 @@ export function AnimalFormDialog({
                 Al guardar se registrará la venta y el animal pasará a resultados del
                 dashboard.
               </p>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                 <div className="space-y-1.5">
                   <Label htmlFor="saleDate">Fecha de venta *</Label>
                   <Input
@@ -301,16 +304,16 @@ export function AnimalFormDialog({
                     required
                   />
                 </div>
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="saleBuyer">Comprador *</Label>
-                <Input
-                  id="saleBuyer"
-                  placeholder="Frigorífico del Norte S.A."
-                  value={form.saleBuyer}
-                  onChange={(e) => set({ saleBuyer: e.target.value })}
-                  required
-                />
+                <div className="space-y-1.5 sm:col-span-2 lg:col-span-1">
+                  <Label htmlFor="saleBuyer">Comprador *</Label>
+                  <Input
+                    id="saleBuyer"
+                    placeholder="Frigorífico del Norte S.A."
+                    value={form.saleBuyer}
+                    onChange={(e) => set({ saleBuyer: e.target.value })}
+                    required
+                  />
+                </div>
               </div>
               <p className="text-[11px] text-muted-foreground">
                 Peso de salida: {form.currentWeight || "—"} kg (peso actual)

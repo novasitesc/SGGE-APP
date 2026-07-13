@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import type { Animal } from "@/lib/mockData";
+import type { Animal } from "@/lib/types/domain";
 import type { AnimalDetail } from "@/components/animales/types";
 import {
   createAnimal,

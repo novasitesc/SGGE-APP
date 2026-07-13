@@ -39,6 +39,10 @@ type Props = {
   showBackLink?: React.ReactNode;
   headerExtra?: React.ReactNode;
   defaultModulo?: string;
+  /** Filtra el historial a un registro concreto (p. ej. UUID del corral). */
+  registroId?: string;
+  /** Oculta el selector de módulo y compacta el encabezado. */
+  compact?: boolean;
 };
 
 const ACCIONES: { value: HistorialAccion | ""; label: string }[] = [
@@ -70,6 +74,8 @@ export function HistorialSistema({
   showBackLink,
   headerExtra,
   defaultModulo = "",
+  registroId,
+  compact = false,
 }: Props) {
   const {
     items,
@@ -82,7 +88,7 @@ export function HistorialSistema({
     setPage,
     applyFilters,
     reload,
-  } = useHistorialSistema({ defaultModulo });
+  } = useHistorialSistema({ defaultModulo, registroId });
 
   const [draft, setDraft] = useState({ ...EMPTY_HISTORIAL_FILTERS, modulo: defaultModulo });
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -123,7 +129,11 @@ export function HistorialSistema({
               <ScrollText className="h-5 w-5" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold tracking-tight">{title}</h1>
+              {compact ? (
+                <h2 className="text-lg font-semibold tracking-tight">{title}</h2>
+              ) : (
+                <h1 className="text-2xl font-bold tracking-tight">{title}</h1>
+              )}
               <p className="text-sm text-muted-foreground mt-0.5">
                 {subtitle ??
                   "Libro de actas — animales, módulos, ventas, costos, alimentación y más"}
@@ -144,28 +154,38 @@ export function HistorialSistema({
         </div>
       </div>
 
-      <div className="rounded-xl border border-indigo-100 bg-gradient-to-r from-indigo-50/80 to-violet-50/50 p-4 flex gap-3">
-        <Shield className="h-5 w-5 text-indigo-600 shrink-0 mt-0.5" />
-        <div className="text-sm text-indigo-950/90">
-          <p className="font-medium">Trazabilidad transversal del ERP</p>
-          <p className="text-indigo-800/70 mt-0.5 leading-relaxed">
-            Registro permanente e inmutable: no se puede borrar ni limpiar. Los filtros
-            solo acotan la consulta; todo el historial permanece en la base de datos.
-          </p>
-        </div>
-      </div>
+      {!compact && (
+        <>
+          <div className="rounded-xl border border-indigo-100 bg-gradient-to-r from-indigo-50/80 to-violet-50/50 p-4 flex gap-3">
+            <Shield className="h-5 w-5 text-indigo-600 shrink-0 mt-0.5" />
+            <div className="text-sm text-indigo-950/90">
+              <p className="font-medium">Trazabilidad transversal del ERP</p>
+              <p className="text-indigo-800/70 mt-0.5 leading-relaxed">
+                Registro permanente e inmutable: no se puede borrar ni limpiar. Los filtros
+                solo acotan la consulta; todo el historial permanece en la base de datos.
+              </p>
+            </div>
+          </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2">
-        <StatChip label="Total" value={total} accent="bg-slate-100 text-slate-800" />
-        {MODULO_OPTIONS.filter((m) => m.value).map(({ value, label }) => (
-          <StatChip
-            key={value}
-            label={label.split(" ")[0]}
-            value={countsByModule[value as HistorialModulo] ?? 0}
-            accent="bg-white border text-muted-foreground"
-          />
-        ))}
-      </div>
+          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2">
+            <StatChip label="Total" value={total} accent="bg-slate-100 text-slate-800" />
+            {MODULO_OPTIONS.filter((m) => m.value).map(({ value, label }) => (
+              <StatChip
+                key={value}
+                label={label.split(" ")[0]}
+                value={countsByModule[value as HistorialModulo] ?? 0}
+                accent="bg-white border text-muted-foreground"
+              />
+            ))}
+          </div>
+        </>
+      )}
+
+      {compact && (
+        <div className="text-sm text-muted-foreground">
+          {total} evento{total === 1 ? "" : "s"} registrado{total === 1 ? "" : "s"}
+        </div>
+      )}
 
       <Card>
         <CardHeader className="pb-3">

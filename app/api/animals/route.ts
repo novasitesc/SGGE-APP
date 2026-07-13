@@ -27,7 +27,7 @@ import { registrarCompraAnimal, fetchComprasForAnimals } from "@/lib/api/compra-
 import { createActaAnimal } from "@/lib/api/actas-animal";
 import { normalizeWeightKg } from "@/lib/api/weight-utils";
 import { upsertPesajeAnimal } from "@/lib/api/pesaje-utils";
-import type { AcquisitionType } from "@/lib/mockData";
+import type { AcquisitionType } from "@/lib/types/domain";
 
 export const dynamic = "force-dynamic";
 
@@ -126,7 +126,7 @@ export async function POST(req: Request) {
     const razaId = await findRazaId(admin, granjaId, body.breed);
     if (!razaId) {
       return jsonError(
-        `Raza '${body.breed}' no encontrada. Use: Angus, Brahman, Simmental, Charolais o Hereford.`
+        `Raza '${body.breed}' no encontrada. Configúrela en Administración.`
       );
     }
 

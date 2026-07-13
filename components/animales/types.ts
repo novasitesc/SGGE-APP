@@ -1,4 +1,4 @@
-import type { Animal, AnimalStatus, AcquisitionType } from "@/lib/mockData";
+import type { Animal, AnimalStatus, AcquisitionType } from "@/lib/types/domain";
 import { parseWeightField } from "@/lib/api/weight-utils";
 
 export type PesajeRecord = {
@@ -91,9 +91,6 @@ export const STATUS_CONFIG: Record<
   muerto: { label: "Muerto", variant: "destructive" },
   enfermo: { label: "Enfermo", variant: "warning" },
 };
-
-export const BREEDS = ["Angus", "Simmental", "Brahman", "Charolais", "Hereford"];
-
 export const ACQUISITION_OPTIONS: { value: AcquisitionType; label: string }[] = [
   { value: "subasta", label: "Subasta / remate" },
   { value: "particular", label: "Compra particular" },

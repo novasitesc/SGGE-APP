@@ -2,17 +2,26 @@ import { createSupabaseAdmin } from "@/lib/supabase/admin";
 import { resolveGranjaId, isUuid } from "@/lib/api/granja";
 import { jsonError, jsonOk } from "@/lib/api/http";
 import {
+  getEstadoIdByCodigo,
+  liberarCodigoSoftDeleted,
+  nextCodigoForTipo,
+} from "@/lib/api/corrales-helpers";
+import {
   registrarHistorial,
   snapshotCorral,
 } from "@/lib/api/historial-sistema";
+import { MODULE_TYPE_OPTIONS } from "@/lib/modulos/constants";
 
 export const dynamic = "force-dynamic";
+
+const VALID_TYPES = new Set(
+  MODULE_TYPE_OPTIONS.map((o) => o.value as string)
+);
 
 type PatchBody = Partial<{
   name: string;
   type: string;
   capacity: number;
-  location: string;
 }>;
 
 export async function PATCH(
@@ -43,25 +52,59 @@ export async function PATCH(
 
     const patch: Record<string, unknown> = { updated_at: new Date().toISOString() };
     if (body.name != null) patch.nombre = body.name.trim();
-    if (body.type != null) patch.tipo = body.type;
     if (body.capacity != null) patch.capacidad_maxima = body.capacity;
 
-    const { data, error } = await admin
+    if (body.type != null) {
+      const tipo = body.type.trim();
+      if (!VALID_TYPES.has(tipo)) {
+        return jsonError(`Tipo de módulo inválido: ${tipo}.`);
+      }
+      patch.tipo = tipo;
+      if (tipo !== current.tipo) {
+        patch.codigo = await nextCodigoForTipo(admin, granjaId, tipo, id);
+      }
+    }
+
+    let { data, error } = await admin
       .from("corrales")
       .update(patch)
       .eq("id", id)
       .select("*")
       .single();
-    if (error) return jsonError(error.message, 400);
+
+    if (error?.code === "23505" && typeof patch.codigo === "string") {
+      await liberarCodigoSoftDeleted(admin, granjaId, patch.codigo);
+      const retry = await admin
+        .from("corrales")
+        .update(patch)
+        .eq("id", id)
+        .select("*")
+        .single();
+      data = retry.data;
+      error = retry.error;
+    }
+
+    if (error) {
+      if (error.code === "23505") {
+        return jsonError(
+          `Ya existe un módulo activo con el código '${String(patch.codigo ?? "")}'.`
+        );
+      }
+      return jsonError(error.message, 400);
+    }
 
     const snapNew = snapshotCorral(data);
+    const codigoCambio =
+      data.codigo !== current.codigo
+        ? ` (código ${current.codigo} → ${data.codigo})`
+        : "";
     await registrarHistorial(admin, {
       granjaId,
       modulo: "modulos",
       registroId: id,
       referencia: data.codigo,
       accion: "modificar",
-      resumen: `Corral ${data.codigo} modificado: ${data.nombre}.`,
+      resumen: `Corral ${data.codigo} modificado: ${data.nombre}.${codigoCambio}`,
       datosAnteriores: snapAnt,
       datosNuevos: snapNew,
     });
@@ -107,9 +150,27 @@ export async function DELETE(
       return jsonError("No se puede eliminar un corral con animales activos.", 409);
     }
 
+    const estadoActivo = await getEstadoIdByCodigo(admin, "activo");
+    const { count: activeAnimals } = await admin
+      .from("animales")
+      .select("id", { count: "exact", head: true })
+      .eq("granja_id", granjaId)
+      .eq("corral_id", id)
+      .eq("estado_id", estadoActivo)
+      .is("deleted_at", null);
+    if ((activeAnimals ?? 0) > 0) {
+      return jsonError(
+        "No se puede eliminar un módulo con animales activos asignados.",
+        409
+      );
+    }
+
     const { error } = await admin
       .from("corrales")
-      .update({ deleted_at: new Date().toISOString() })
+      .update({
+        deleted_at: new Date().toISOString(),
+        activo: false,
+      })
       .eq("id", id);
     if (error) return jsonError(error.message, 400);
 
