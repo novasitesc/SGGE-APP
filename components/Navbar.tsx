@@ -2,8 +2,15 @@
 
 import Link from "next/link";
 import { SYSTEM_LOCALE } from "@/lib/utils";
-import { Bell, Calendar, User, ChevronDown, Search } from "lucide-react";
-import { useState } from "react";
+import {
+  Bell,
+  Calendar,
+  User,
+  ChevronDown,
+  Search,
+  Settings2,
+} from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import { usePendingSolicitudesCount } from "@/components/mensajeria/MensajeriaGerente";
 import { fetchGranjaInfo } from "@/lib/api/data-client";
 import { useApiQuery } from "@/lib/hooks/useApiQuery";
@@ -17,8 +24,21 @@ export default function Navbar() {
   });
 
   const [showNotif, setShowNotif] = useState(false);
+  const [showProfile, setShowProfile] = useState(false);
+  const profileRef = useRef<HTMLDivElement>(null);
   const { count: pendingCount } = usePendingSolicitudesCount();
   const { data: granja } = useApiQuery(fetchGranjaInfo);
+
+  useEffect(() => {
+    if (!showProfile) return;
+    const onPointerDown = (e: MouseEvent) => {
+      if (profileRef.current && !profileRef.current.contains(e.target as Node)) {
+        setShowProfile(false);
+      }
+    };
+    document.addEventListener("mousedown", onPointerDown);
+    return () => document.removeEventListener("mousedown", onPointerDown);
+  }, [showProfile]);
 
   const notifications =
     pendingCount > 0
@@ -53,7 +73,10 @@ export default function Navbar() {
 
         <div className="relative">
           <button
-            onClick={() => setShowNotif(!showNotif)}
+            onClick={() => {
+              setShowNotif(!showNotif);
+              setShowProfile(false);
+            }}
             className="relative flex items-center justify-center w-9 h-9 rounded-xl border bg-muted/50 hover:bg-muted transition-colors"
           >
             <Bell className="h-4 w-4" />
@@ -101,18 +124,48 @@ export default function Navbar() {
           )}
         </div>
 
-        <button className="flex items-center gap-2.5 rounded-xl border px-3 py-1.5 hover:bg-muted transition-colors">
-          <div className="flex items-center justify-center w-7 h-7 rounded-full bg-primary text-primary-foreground">
-            <User className="h-3.5 w-3.5" />
-          </div>
-          <div className="hidden sm:block text-left">
-            <p className="text-xs font-semibold leading-tight">Usuario</p>
-            <p className="text-[10px] text-muted-foreground leading-tight">
-              {granja?.name ?? "Cargando…"}
-            </p>
-          </div>
-          <ChevronDown className="h-3.5 w-3.5 text-muted-foreground hidden sm:block" />
-        </button>
+        <div className="relative" ref={profileRef}>
+          <button
+            type="button"
+            onClick={() => {
+              setShowProfile(!showProfile);
+              setShowNotif(false);
+            }}
+            className="flex items-center gap-2.5 rounded-xl border px-3 py-1.5 hover:bg-muted transition-colors"
+          >
+            <div className="flex items-center justify-center w-7 h-7 rounded-full bg-primary text-primary-foreground">
+              <User className="h-3.5 w-3.5" />
+            </div>
+            <div className="hidden sm:block text-left">
+              <p className="text-xs font-semibold leading-tight">Usuario</p>
+              <p className="text-[10px] text-muted-foreground leading-tight">
+                {granja?.name ?? "Cargando…"}
+              </p>
+            </div>
+            <ChevronDown className="h-3.5 w-3.5 text-muted-foreground hidden sm:block" />
+          </button>
+
+          {showProfile && (
+            <div className="absolute right-0 top-12 w-56 rounded-2xl border bg-card shadow-xl z-50 overflow-hidden">
+              <div className="px-4 py-3 border-b">
+                <p className="text-sm font-semibold">Cuenta</p>
+                <p className="text-xs text-muted-foreground truncate">
+                  {granja?.name ?? "Granja"}
+                </p>
+              </div>
+              <div className="py-1">
+                <Link
+                  href="/administracion"
+                  onClick={() => setShowProfile(false)}
+                  className="flex items-center gap-2.5 px-4 py-2.5 text-sm hover:bg-muted transition-colors"
+                >
+                  <Settings2 className="h-4 w-4 text-muted-foreground" />
+                  Administración
+                </Link>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
     </header>
   );

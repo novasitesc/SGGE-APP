@@ -126,7 +126,7 @@ export async function POST(req: Request) {
     const razaId = await findRazaId(admin, granjaId, body.breed);
     if (!razaId) {
       return jsonError(
-        `Raza '${body.breed}' no encontrada. Use: Angus, Brahman, Simmental, Charolais o Hereford.`
+        `Raza '${body.breed}' no encontrada. Configúrela en Administración.`
       );
     }
 

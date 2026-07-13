@@ -1,6 +1,6 @@
 ---
-description: Clientes Supabase, queries, Server Actions y auth middleware
-globs: "lib/supabase/**,modules/**,middleware.ts"
+description: Clientes Supabase, queries, Server Actions y auth proxy
+globs: "lib/supabase/**,modules/**,proxy.ts"
 alwaysApply: false
 ---
 
@@ -114,10 +114,14 @@ export async function createEntity(formData: FormData) {
 }
 ```
 
-## Auth middleware
+## Auth Proxy (Next.js 16)
 
-- Usar `getUser()` en servidor, **nunca** `getSession()` para verificar auth
-- Proteger rutas sensibles en `middleware.ts`
+`middleware.ts` está **deprecado**. Usar `proxy.ts` + `lib/supabase/proxy.ts`.
+
+- Usar `getClaims()` (o `getUser()`) en servidor/proxy; **nunca** `getSession()` para autorizar
+- Refrescar sesión en `updateSession` y reconocer secciones SGGE: auth, app, admin, api
+- Proteger rutas de app/admin en el Proxy; las API deciden auth en el handler
+- Activar redirecciones con `AUTH_PROXY_ENFORCE=true` cuando el login esté cableado
 - Nunca exponer `SUPABASE_SERVICE_ROLE_KEY` en el cliente
 - Siempre validar inputs con Zod antes de operaciones DB
 - Siempre verificar `auth.uid()` en RLS

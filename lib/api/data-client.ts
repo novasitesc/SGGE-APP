@@ -86,7 +86,6 @@ export async function fetchModules(): Promise<Module[]> {
 }
 
 export async function createModule(data: {
-  code: string;
   name: string;
   type?: string;
   capacity: number;
@@ -195,9 +194,45 @@ export async function fetchGranjaInfo(): Promise<{ id: string; name: string }> {
   return parseJson<{ id: string; name: string }>(res);
 }
 
+export type RazaAdmin = {
+  id: string;
+  codigo: string;
+  nombre: string;
+  activa: boolean;
+};
+
 export async function fetchRazas(): Promise<string[]> {
   const res = await fetch("/api/razas", { cache: "no-store" });
   return parseJson<string[]>(res);
+}
+
+export async function fetchRazasAdmin(): Promise<RazaAdmin[]> {
+  const res = await fetch("/api/razas?full=1", { cache: "no-store" });
+  return parseJson<RazaAdmin[]>(res);
+}
+
+export async function createRaza(data: {
+  nombre: string;
+  codigo?: string;
+}): Promise<RazaAdmin> {
+  const res = await fetch("/api/razas", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  return parseJson<RazaAdmin>(res);
+}
+
+export async function updateRazaApi(
+  id: string,
+  data: Partial<{ nombre: string; codigo: string; activa: boolean }>
+): Promise<RazaAdmin> {
+  const res = await fetch(`/api/razas/${id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  return parseJson<RazaAdmin>(res);
 }
 
 /** Agrupa ventas por mes para gráficos. */

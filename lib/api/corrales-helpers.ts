@@ -1,4 +1,53 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { nextCodigoFromList } from "@/lib/modulos/codigo";
+
+/** Si el UNIQUE antiguo aún incluye soft-deleted, libera ese código en filas borradas. */
+export async function liberarCodigoSoftDeleted(
+  admin: SupabaseClient,
+  granjaId: string,
+  codigo: string
+): Promise<void> {
+  const stamp = Date.now().toString(36);
+  const nuevo = `${codigo.slice(0, 12)}__old__${stamp}`.slice(0, 30);
+  await admin
+    .from("corrales")
+    .update({ codigo: nuevo })
+    .eq("granja_id", granjaId)
+    .eq("codigo", codigo)
+    .not("deleted_at", "is", null);
+}
+
+/** Siguiente código libre del tipo (RPC en BD; solo corrales activos → reutiliza M1 si se borró). */
+export async function nextCodigoForTipo(
+  admin: SupabaseClient,
+  granjaId: string,
+  tipo: string,
+  excludeCorralId?: string
+): Promise<string> {
+  const { data, error } = await admin.rpc("siguiente_codigo_corral", {
+    p_granja_id: granjaId,
+    p_tipo: tipo,
+    p_exclude_id: excludeCorralId ?? null,
+  });
+
+  if (!error && typeof data === "string" && data.trim()) {
+    return data.trim().toUpperCase();
+  }
+
+  // Fallback si la migración aún no está aplicada.
+  let q = admin
+    .from("corrales")
+    .select("id, codigo")
+    .eq("granja_id", granjaId)
+    .is("deleted_at", null);
+  if (excludeCorralId) q = q.neq("id", excludeCorralId);
+
+  const { data: rows, error: e2 } = await q;
+  if (e2) throw new Error(error?.message ?? e2.message);
+
+  const codigos = (rows ?? []).map((row) => String(row.codigo ?? ""));
+  return nextCodigoFromList(tipo, codigos);
+}
 
 export async function getCorralIdByCodigo(
   admin: SupabaseClient,

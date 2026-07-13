@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import type { Module } from "@/lib/types/domain";
 import type { Animal } from "@/lib/types/domain";
@@ -25,6 +25,7 @@ import {
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -38,17 +39,16 @@ import {
   AlertTriangle,
   Users,
   Loader2,
+  Eye,
 } from "lucide-react";
 
 type FormState = {
-  code: string;
   name: string;
   type: string;
   capacity: string;
 };
 
 const emptyForm: FormState = {
-  code: "",
   name: "",
   type: "engorda",
   capacity: "",
@@ -84,16 +84,50 @@ export function ModulosManager({
   const [form, setForm] = useState<FormState>(emptyForm);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
+  const [previewCodigo, setPreviewCodigo] = useState("");
 
   const totalCapacity = modules.reduce((s, m) => s + m.capacity, 0);
   const totalAnimals = modules.reduce((s, m) => s + m.animalCount, 0);
-  const occupancy =
-    totalCapacity > 0 ? Math.round((totalAnimals / totalCapacity) * 100) : 0;
   const activeCount = animals.filter((a) => a.status === "activo").length;
+
+  const editingMod = editingId
+    ? modules.find((m) => m.id === editingId)
+    : undefined;
+
+  useEffect(() => {
+    if (!dialogOpen) return;
+
+    if (editingMod && editingMod.type === form.type) {
+      setPreviewCodigo(editingMod.id);
+      return;
+    }
+
+    let cancelled = false;
+    const params = new URLSearchParams({ type: form.type });
+    if (editingMod?.uuid) params.set("excludeId", editingMod.uuid);
+
+    void (async () => {
+      try {
+        const res = await fetch(`/api/modules/next-code?${params}`, {
+          cache: "no-store",
+        });
+        const body = (await res.json()) as { code?: string; error?: string };
+        if (!cancelled && res.ok && body.code) setPreviewCodigo(body.code);
+      } catch {
+        if (!cancelled) setPreviewCodigo("…");
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+    // editingMod se deriva de editingId + modules; usamos campos estables.
+  }, [dialogOpen, form.type, editingId, editingMod?.id, editingMod?.type, editingMod?.uuid]);
 
   const openAdd = () => {
     setEditingId(null);
     setForm(emptyForm);
+    setPreviewCodigo("");
     setFormError(null);
     clearActionError();
     setDialogOpen(true);
@@ -104,11 +138,11 @@ export function ModulosManager({
     if (!mod) return;
     setEditingId(id);
     setForm({
-      code: mod.id,
       name: mod.name,
       type: mod.type,
       capacity: String(mod.capacity),
     });
+    setPreviewCodigo(mod.id);
     setFormError(null);
     clearActionError();
     setDialogOpen(true);
@@ -126,10 +160,6 @@ export function ModulosManager({
       setFormError("La capacidad debe ser mayor a 0.");
       return;
     }
-    if (!editingId && !form.code.trim()) {
-      setFormError("El código es obligatorio.");
-      return;
-    }
 
     try {
       if (editingId) {
@@ -140,7 +170,6 @@ export function ModulosManager({
         });
       } else {
         await addModule({
-          code: form.code.trim().toUpperCase(),
           name: form.name.trim(),
           type: form.type,
           capacity,
@@ -168,6 +197,13 @@ export function ModulosManager({
 
   const renderActions = (mod: Module) => (
     <div className="flex items-center gap-1">
+      <Link
+        href={`/modules/${encodeURIComponent(mod.id)}`}
+        className="p-1.5 rounded-lg hover:bg-violet-50 transition-colors text-muted-foreground hover:text-violet-700"
+        title="Ver animales y detalles"
+      >
+        <Eye className="h-3.5 w-3.5" />
+      </Link>
       <button
         type="button"
         onClick={() => openEdit(mod.id)}
@@ -232,7 +268,7 @@ export function ModulosManager({
         </p>
       )}
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <div className="rounded-xl border p-4 bg-violet-50 text-violet-700 border-violet-200">
           <p className="text-2xl font-bold">{loading ? "…" : modules.length}</p>
           <p className="text-sm font-medium mt-0.5">Módulos totales</p>
@@ -244,10 +280,6 @@ export function ModulosManager({
         <div className="rounded-xl border p-4 bg-blue-50 text-blue-700 border-blue-200">
           <p className="text-2xl font-bold">{loading ? "…" : totalAnimals}</p>
           <p className="text-sm font-medium mt-0.5">Animales asignados</p>
-        </div>
-        <div className="rounded-xl border p-4 bg-amber-50 text-amber-700 border-amber-200">
-          <p className="text-2xl font-bold">{loading ? "…" : `${occupancy}%`}</p>
-          <p className="text-sm font-medium mt-0.5">Ocupación</p>
         </div>
       </div>
 
@@ -286,17 +318,24 @@ export function ModulosManager({
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {modules.map((mod) => {
-                  const pct =
-                    mod.capacity > 0
-                      ? Math.round((mod.animalCount / mod.capacity) * 100)
-                      : 0;
-                  return (
+                {modules.map((mod) => (
                     <TableRow key={mod.id}>
                       <TableCell className="font-mono font-semibold text-xs">
-                        {mod.id}
+                        <Link
+                          href={`/modules/${encodeURIComponent(mod.id)}`}
+                          className="hover:text-violet-700 hover:underline"
+                        >
+                          {mod.id}
+                        </Link>
                       </TableCell>
-                      <TableCell className="font-medium">{mod.name}</TableCell>
+                      <TableCell className="font-medium">
+                        <Link
+                          href={`/modules/${encodeURIComponent(mod.id)}`}
+                          className="hover:text-violet-700 hover:underline"
+                        >
+                          {mod.name}
+                        </Link>
+                      </TableCell>
                       <TableCell>
                         <span
                           className={`text-xs px-2 py-0.5 rounded-lg font-medium ${moduleTypeColor(mod.type)}`}
@@ -305,26 +344,12 @@ export function ModulosManager({
                         </span>
                       </TableCell>
                       <TableCell>{mod.capacity}</TableCell>
-                      <TableCell>
-                        <span
-                          className={
-                            mod.animalCount >= mod.capacity
-                              ? "text-red-600 font-semibold"
-                              : "font-medium"
-                          }
-                        >
-                          {mod.animalCount}
-                        </span>
-                        <span className="text-muted-foreground text-xs ml-1">
-                          ({pct}%)
-                        </span>
-                      </TableCell>
+                      <TableCell className="font-medium">{mod.animalCount}</TableCell>
                       <TableCell className="text-right">
                         {renderActions(mod)}
                       </TableCell>
                     </TableRow>
-                  );
-                })}
+                  ))}
               </TableBody>
             </Table>
           </CardContent>
@@ -332,10 +357,6 @@ export function ModulosManager({
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
           {modules.map((mod) => {
-            const occupancyPct =
-              mod.capacity > 0
-                ? Math.round((mod.animalCount / mod.capacity) * 100)
-                : 0;
             const moduleAnimals = animals.filter(
               (a) => a.moduleId === mod.id && a.status === "activo"
             );
@@ -351,15 +372,20 @@ export function ModulosManager({
               <Card key={mod.id} className="hover:shadow-md transition-shadow">
                 <CardHeader className="pb-3">
                   <div className="flex items-start justify-between gap-2">
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-emerald-100 shrink-0">
+                    <Link
+                      href={`/modules/${encodeURIComponent(mod.id)}`}
+                      className="flex items-center gap-3 min-w-0 group"
+                    >
+                      <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-emerald-100 shrink-0 group-hover:bg-emerald-200 transition-colors">
                         <Grid3X3 className="h-5 w-5 text-emerald-700" />
                       </div>
                       <div className="min-w-0">
-                        <CardTitle className="text-base truncate">{mod.name}</CardTitle>
+                        <CardTitle className="text-base truncate group-hover:text-violet-700 transition-colors">
+                          {mod.name}
+                        </CardTitle>
                         <p className="text-xs text-muted-foreground font-mono">{mod.id}</p>
                       </div>
-                    </div>
+                    </Link>
                     <div className="flex items-center gap-1 shrink-0">
                       <span
                         className={`text-xs font-semibold px-2 py-1 rounded-full ${moduleTypeColor(mod.type)}`}
@@ -371,26 +397,6 @@ export function ModulosManager({
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <div>
-                    <div className="flex justify-between text-xs mb-1.5">
-                      <span className="text-muted-foreground">Ocupación</span>
-                      <span className="font-semibold">
-                        {mod.animalCount}/{mod.capacity} ({occupancyPct}%)
-                      </span>
-                    </div>
-                    <div className="h-2 rounded-full bg-muted overflow-hidden">
-                      <div
-                        className={`h-full rounded-full transition-all ${
-                          occupancyPct >= 90
-                            ? "bg-red-500"
-                            : occupancyPct >= 70
-                              ? "bg-amber-500"
-                              : "bg-emerald-500"
-                        }`}
-                        style={{ width: `${Math.min(occupancyPct, 100)}%` }}
-                      />
-                    </div>
-                  </div>
                   <div className="grid grid-cols-2 gap-3 text-sm">
                     <div className="flex items-center gap-2">
                       <Users className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
@@ -403,6 +409,9 @@ export function ModulosManager({
                       </span>
                     </div>
                   </div>
+                  <p className="text-xs text-muted-foreground">
+                    Capacidad: {mod.capacity} · Asignados: {mod.animalCount}
+                  </p>
                   {moduleAnimals.length > 0 && (
                     <div className="flex flex-wrap gap-1.5 pt-1 border-t">
                       {moduleAnimals.map((a) => (
@@ -415,6 +424,13 @@ export function ModulosManager({
                       ))}
                     </div>
                   )}
+                  <Link
+                    href={`/modules/${encodeURIComponent(mod.id)}`}
+                    className="flex items-center justify-center gap-2 w-full rounded-xl border border-violet-200 bg-violet-50 text-violet-800 text-sm font-medium py-2 hover:bg-violet-100 transition-colors"
+                  >
+                    <Eye className="h-3.5 w-3.5" />
+                    Ver animales y modificaciones
+                  </Link>
                 </CardContent>
               </Card>
             );
@@ -435,6 +451,11 @@ export function ModulosManager({
               <Grid3X3 className="h-5 w-5 text-violet-600" />
               {editingId ? "Editar módulo" : "Nuevo módulo"}
             </DialogTitle>
+            <DialogDescription>
+              {editingId
+                ? "Actualiza los datos del módulo. Si cambias el tipo, se asignará un código nuevo."
+                : "El código se genera automáticamente según el tipo de módulo."}
+            </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-4 mt-2">
             {(formError || actionError) && (
@@ -443,23 +464,32 @@ export function ModulosManager({
               </p>
             )}
             <div className="space-y-1.5">
-              <Label htmlFor="mod-code">Código *</Label>
+              <Label htmlFor="mod-type">Tipo *</Label>
+              <Select
+                id="mod-type"
+                value={form.type}
+                onChange={(e) => setForm({ ...form, type: e.target.value })}
+              >
+                {MODULE_TYPE_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="mod-code">Código</Label>
               <Input
                 id="mod-code"
-                placeholder="M6"
-                value={form.code}
-                onChange={(e) =>
-                  setForm({ ...form, code: e.target.value.toUpperCase() })
-                }
-                required
-                disabled={!!editingId}
-                className="font-mono"
+                value={previewCodigo}
+                readOnly
+                className="font-mono bg-muted/40"
               />
-              {editingId && (
-                <p className="text-xs text-muted-foreground">
-                  El código no se puede cambiar después de crear el módulo.
-                </p>
-              )}
+              <p className="text-xs text-muted-foreground">
+                {editingMod && editingMod.type !== form.type
+                  ? `Al cambiar el tipo, el código se actualizará a ${previewCodigo}.`
+                  : "Se asigna automáticamente según el tipo de módulo."}
+              </p>
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="mod-name">Nombre *</Label>
@@ -471,33 +501,17 @@ export function ModulosManager({
                 required
               />
             </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label htmlFor="mod-type">Tipo</Label>
-                <Select
-                  id="mod-type"
-                  value={form.type}
-                  onChange={(e) => setForm({ ...form, type: e.target.value })}
-                >
-                  {MODULE_TYPE_OPTIONS.map((opt) => (
-                    <option key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </option>
-                  ))}
-                </Select>
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="mod-capacity">Capacidad *</Label>
-                <Input
-                  id="mod-capacity"
-                  type="number"
-                  min="1"
-                  placeholder="20"
-                  value={form.capacity}
-                  onChange={(e) => setForm({ ...form, capacity: e.target.value })}
-                  required
-                />
-              </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="mod-capacity">Capacidad *</Label>
+              <Input
+                id="mod-capacity"
+                type="number"
+                min="1"
+                placeholder="20"
+                value={form.capacity}
+                onChange={(e) => setForm({ ...form, capacity: e.target.value })}
+                required
+              />
             </div>
             <DialogFooter>
               <button
@@ -528,6 +542,9 @@ export function ModulosManager({
               <AlertTriangle className="h-5 w-5" />
               Confirmar eliminación
             </DialogTitle>
+            <DialogDescription>
+              Esta acción no se puede deshacer desde esta pantalla.
+            </DialogDescription>
           </DialogHeader>
           <p className="text-sm text-muted-foreground">
             ¿Eliminar el módulo{" "}

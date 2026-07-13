@@ -297,7 +297,11 @@ export async function PATCH(
     if (body.tagId != null) patch.arete = body.tagId.trim();
     if (body.breed != null) {
       const razaId = await findRazaId(admin, granjaId, body.breed);
-      if (!razaId) return jsonError(`Raza '${body.breed}' no encontrada.`);
+      if (!razaId) {
+        return jsonError(
+          `Raza '${body.breed}' no encontrada. Configúrela en Administración.`
+        );
+      }
       patch.raza_id = razaId;
     }
     if (body.entryDate != null) patch.fecha_ingreso = body.entryDate;

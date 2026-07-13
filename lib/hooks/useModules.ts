@@ -33,7 +33,6 @@ export function useModules() {
   }, [reload]);
 
   const addModule = async (data: {
-    code: string;
     name: string;
     type?: string;
     capacity: number;
