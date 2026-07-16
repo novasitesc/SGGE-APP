@@ -6,18 +6,30 @@ import {
   registrarHistorial,
   snapshotGasto,
 } from "@/lib/api/historial-sistema";
+import { normalizeCostCategoryKey, costCategoryLabel } from "@/lib/costs/categories";
 
 export const dynamic = "force-dynamic";
 
+/** Clave UI / legacy → código DB. */
 const CATEGORIA_MAP: Record<string, string> = {
   alimentación: "ALIM",
   alimentacion: "ALIM",
+  combustible: "COMB",
+  mantenimiento: "MANT",
   transporte: "TRANS",
   mano_de_obra: "MO",
   vacunas: "VET",
   medicamentos: "VET",
-  servicios: "MANT",
+  servicios: "SERV",
   otros: "OTRO",
+  alim: "ALIM",
+  comb: "COMB",
+  mant: "MANT",
+  trans: "TRANS",
+  mo: "MO",
+  vet: "VET",
+  serv: "SERV",
+  otro: "OTRO",
 };
 
 export async function GET(req: Request) {
@@ -36,7 +48,49 @@ export async function GET(req: Request) {
       .is("deleted_at", null)
       .order("fecha", { ascending: false });
     if (error) throw new Error(error.message);
-    return jsonOk((data ?? []).map(mapCostRow));
+
+    const rows = data ?? [];
+    const gastoIds = rows.map((r) => r.id as string);
+
+    const origenByGasto = new Map<
+      string,
+      { id: string; emisor_nombre: string | null; archivo_nombre: string }
+    >();
+    if (gastoIds.length > 0) {
+      const { data: comps, error: eComp } = await admin
+        .from("comprobantes")
+        .select("id, gasto_id, emisor_nombre, archivo_nombre")
+        .eq("granja_id", granjaId)
+        .is("deleted_at", null)
+        .in("gasto_id", gastoIds);
+      if (eComp) throw new Error(eComp.message);
+      for (const c of comps ?? []) {
+        if (c.gasto_id) {
+          origenByGasto.set(c.gasto_id, {
+            id: c.id,
+            emisor_nombre: c.emisor_nombre,
+            archivo_nombre: c.archivo_nombre,
+          });
+        }
+      }
+    }
+
+    const mapped = rows.map((row) => {
+      const origen = origenByGasto.get(row.id as string);
+      return mapCostRow(
+        row as Record<string, unknown>,
+        origen
+          ? {
+              source: "comprobante",
+              issuer: origen.emisor_nombre,
+              comprobanteId: origen.id,
+              fileName: origen.archivo_nombre,
+            }
+          : { source: "manual" }
+      );
+    });
+
+    return jsonOk(mapped);
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Error desconocido";
     return jsonError(msg, 500);
@@ -67,8 +121,11 @@ export async function POST(req: Request) {
     }
     if (!body.date) return jsonError("date es obligatorio.");
 
+    const key = normalizeCostCategoryKey(body.category);
     const catCodigo =
-      CATEGORIA_MAP[body.category.toLowerCase()] ?? body.category.toUpperCase();
+      CATEGORIA_MAP[body.category.toLowerCase()] ??
+      CATEGORIA_MAP[key] ??
+      body.category.toUpperCase();
 
     const { data: categoria, error: e0 } = await admin
       .from("categorias_gastos")
@@ -93,9 +150,7 @@ export async function POST(req: Request) {
       .single();
     if (error) return jsonError(error.message, 400);
 
-    const mapped = mapCostRow(data);
-    const catInsert = (data as Record<string, unknown>).categorias_gastos;
-    const catObj = Array.isArray(catInsert) ? catInsert[0] : catInsert;
+    const mapped = mapCostRow(data as Record<string, unknown>, { source: "manual" });
 
     await registrarHistorial(admin, {
       granjaId,
@@ -108,7 +163,7 @@ export async function POST(req: Request) {
         concepto: mapped.description,
         monto: mapped.amount,
         fecha: mapped.date,
-        categoria: (catObj as { nombre?: string })?.nombre,
+        categoria: costCategoryLabel(mapped.category),
       }),
     });
 

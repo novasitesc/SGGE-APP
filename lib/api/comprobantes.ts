@@ -435,6 +435,7 @@ async function confirmarComoGasto(
     gasto_id: gasto.id,
     monto_total: data.amount,
     fecha_emision: data.issueDate,
+    emisor_nombre: data.issuer,
   });
   return updated;
 }

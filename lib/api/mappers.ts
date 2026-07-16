@@ -1,5 +1,7 @@
 import type { AnimalRowSrrg } from "./animales-query";
 import type { CompraAnimalInfo } from "./compra-animal";
+import { normalizeCostCategoryKey } from "@/lib/costs/categories";
+import type { Cost, CostSource } from "@/lib/types/domain";
 
 export type { AnimalRowSrrg };
 
@@ -37,16 +39,27 @@ export function mapAnimalToApi(row: AnimalRowSrrg, purchase?: CompraAnimalInfo |
 /** @deprecated Usar AnimalRowSrrg */
 export type AnimalRow = AnimalRowSrrg;
 
-export function mapCostRow(row: Record<string, unknown>) {
+export type CostRowExtras = {
+  source?: CostSource;
+  issuer?: string | null;
+  comprobanteId?: string | null;
+  fileName?: string | null;
+};
+
+export function mapCostRow(row: Record<string, unknown>, extras?: CostRowExtras): Cost {
   const catRaw = row.categorias_gastos;
   const cat = Array.isArray(catRaw) ? catRaw[0] : catRaw;
   const codigo = (cat as { codigo?: string } | null)?.codigo;
   return {
     id: row.id as string,
-    category: codigo?.toLowerCase() ?? "otro",
+    category: normalizeCostCategoryKey(codigo),
     description: row.concepto as string,
     amount: Number(row.monto),
     date: row.fecha as string,
+    source: extras?.source ?? "manual",
+    issuer: extras?.issuer ?? null,
+    comprobanteId: extras?.comprobanteId ?? null,
+    fileName: extras?.fileName ?? null,
   };
 }
 

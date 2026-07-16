@@ -1,5 +1,7 @@
 "use client";
 
+import { useMemo, useState } from "react";
+import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -22,62 +24,83 @@ import {
 } from "recharts";
 import { aggregateCostsByCategory, fetchCosts } from "@/lib/api/data-client";
 import { useApiQuery } from "@/lib/hooks/useApiQuery";
+import {
+  costCategoryLabel,
+  normalizeCostCategoryKey,
+} from "@/lib/costs/categories";
 import { formatCurrency, formatCurrencyCompact, formatDate } from "@/lib/utils";
-import { Receipt, TrendingDown } from "lucide-react";
-
-const categoryConfig: Record<string, { label: string; variant: "default" | "secondary" | "success" | "info" | "warning" | "destructive" | "outline" }> = {
-  alimentación: { label: "Alimentación", variant: "success" },
-  alim: { label: "Alimentación", variant: "success" },
-  transporte: { label: "Transporte", variant: "warning" },
-  trans: { label: "Transporte", variant: "warning" },
-  vacunas: { label: "Vacunas", variant: "info" },
-  vet: { label: "Veterinaria", variant: "info" },
-  mano_de_obra: { label: "Mano de Obra", variant: "secondary" },
-  mo: { label: "Mano de Obra", variant: "secondary" },
-  servicios: { label: "Servicios", variant: "outline" },
-  mant: { label: "Mantenimiento", variant: "outline" },
-  medicamentos: { label: "Medicamentos", variant: "destructive" },
-  otros: { label: "Otros", variant: "default" },
-  otro: { label: "Otros", variant: "default" },
-};
+import { FileText, Receipt, TrendingDown } from "lucide-react";
 
 export default function CostsPage() {
   const { data: costs, loading } = useApiQuery(fetchCosts);
   const list = costs ?? [];
-  const costsByCategory = aggregateCostsByCategory(list);
-  const totalCost = list.reduce((s, c) => s + c.amount, 0);
+  const [filterSource, setFilterSource] = useState<string>("todas");
+
+  const filtered = useMemo(() => {
+    if (filterSource === "todas") return list;
+    if (filterSource === "comprobante") {
+      return list.filter((c) => c.source === "comprobante");
+    }
+    return list.filter((c) => (c.source ?? "manual") === "manual");
+  }, [list, filterSource]);
+
+  const costsByCategory = aggregateCostsByCategory(filtered);
+  const totalCost = filtered.reduce((s, c) => s + c.amount, 0);
+  const fromInvoice = list.filter((c) => c.source === "comprobante").length;
+
+  const highlightCats = [
+    { cat: "alimentación", label: "Alimentación" },
+    { cat: "mano_de_obra", label: "Mano de Obra" },
+    { cat: "otros", label: "Otros" },
+  ] as const;
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Costos</h1>
-        <p className="text-sm text-muted-foreground mt-0.5">
-          Control y seguimiento de gastos operativos
-        </p>
+      <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Costos</h1>
+          <p className="text-sm text-muted-foreground mt-0.5">
+            Gastos operativos y procedentes de facturas · {fromInvoice} desde
+            comprobante
+          </p>
+        </div>
+        <select
+          value={filterSource}
+          onChange={(e) => setFilterSource(e.target.value)}
+          className="px-3 py-2 text-sm rounded-xl border bg-background focus:outline-none focus:ring-2 focus:ring-primary/30 min-w-[160px]"
+        >
+          <option value="todas">Todos los orígenes</option>
+          <option value="comprobante">Desde factura</option>
+          <option value="manual">Manual</option>
+        </select>
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <Card>
           <CardContent className="p-5">
-            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Costo Total</p>
-            <p className="text-2xl font-bold mt-1 text-red-700">{formatCurrency(totalCost)}</p>
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+              Costo Total
+            </p>
+            <p className="text-2xl font-bold mt-1 text-red-700">
+              {formatCurrency(totalCost)}
+            </p>
           </CardContent>
         </Card>
-        {[
-          { cat: "alimentación", label: "Alimentación" },
-          { cat: "mano_de_obra", label: "Mano de Obra" },
-          { cat: "transporte", label: "Transporte" },
-        ].map(({ cat, label }) => {
-          const catTotal = list
-            .filter((c) => c.category === cat || c.category === cat.replace("ó", "o").slice(0, 4))
+        {highlightCats.map(({ cat, label }) => {
+          const catTotal = filtered
+            .filter((c) => normalizeCostCategoryKey(c.category) === cat)
             .reduce((s, c) => s + c.amount, 0);
           return (
             <Card key={cat}>
               <CardContent className="p-5">
-                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{label}</p>
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                  {label}
+                </p>
                 <p className="text-2xl font-bold mt-1">{formatCurrency(catTotal)}</p>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  {totalCost > 0 ? `${((catTotal / totalCost) * 100).toFixed(0)}% del total` : "—"}
+                  {totalCost > 0
+                    ? `${((catTotal / totalCost) * 100).toFixed(0)}% del total`
+                    : "—"}
                 </p>
               </CardContent>
             </Card>
@@ -95,10 +118,15 @@ export default function CostsPage() {
             {loading ? (
               <div className="h-[260px] animate-pulse bg-muted/30 rounded-xl" />
             ) : costsByCategory.length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-16">No hay gastos registrados.</p>
+              <p className="text-sm text-muted-foreground text-center py-16">
+                No hay gastos registrados.
+              </p>
             ) : (
               <ResponsiveContainer width="100%" height={260}>
-                <BarChart data={costsByCategory} margin={{ top: 5, right: 10, left: -10, bottom: 5 }}>
+                <BarChart
+                  data={costsByCategory}
+                  margin={{ top: 5, right: 10, left: -10, bottom: 5 }}
+                >
                   <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                   <XAxis
                     dataKey="category"
@@ -116,7 +144,11 @@ export default function CostsPage() {
                     tickFormatter={(v) => formatCurrencyCompact(Number(v))}
                   />
                   <Tooltip
-                    contentStyle={{ borderRadius: "12px", border: "1px solid #e5e7eb", fontSize: 12 }}
+                    contentStyle={{
+                      borderRadius: "12px",
+                      border: "1px solid #e5e7eb",
+                      fontSize: 12,
+                    }}
                     formatter={(value) => [formatCurrency(Number(value ?? 0)), "Monto"]}
                   />
                   <Bar dataKey="amount" radius={[6, 6, 0, 0]}>
@@ -138,13 +170,18 @@ export default function CostsPage() {
             {costsByCategory.map((cat) => (
               <div key={cat.category} className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <span className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: cat.color }} />
+                  <span
+                    className="w-3 h-3 rounded-full shrink-0"
+                    style={{ backgroundColor: cat.color }}
+                  />
                   <span className="text-sm">{cat.category}</span>
                 </div>
                 <div className="text-right">
                   <p className="text-sm font-semibold">{formatCurrency(cat.amount)}</p>
                   <p className="text-xs text-muted-foreground">
-                    {totalCost > 0 ? `${((cat.amount / totalCost) * 100).toFixed(1)}%` : "—"}
+                    {totalCost > 0
+                      ? `${((cat.amount / totalCost) * 100).toFixed(1)}%`
+                      : "—"}
                   </p>
                 </div>
               </div>
@@ -166,51 +203,70 @@ export default function CostsPage() {
             <TrendingDown className="h-4 w-4 text-red-600" />
             Registro de Gastos
           </CardTitle>
+          <CardDescription>
+            Incluye altas manuales y gastos confirmados desde{" "}
+            <Link href="/gestion/comprobantes" className="text-primary underline-offset-2 hover:underline">
+              Comprobantes
+            </Link>
+          </CardDescription>
         </CardHeader>
         <CardContent>
           {loading ? (
             <div className="h-48 animate-pulse bg-muted/30 rounded-xl" />
-          ) : list.length === 0 ? (
-            <p className="text-sm text-muted-foreground text-center py-8">No hay gastos registrados.</p>
+          ) : filtered.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-8">
+              No hay gastos registrados.
+            </p>
           ) : (
             <Table>
               <TableHeader>
                 <TableRow className="bg-muted/30">
                   <TableHead>Fecha</TableHead>
+                  <TableHead>Origen</TableHead>
                   <TableHead>Categoría</TableHead>
                   <TableHead>Descripción</TableHead>
-                  <TableHead className="hidden md:table-cell">Animales</TableHead>
                   <TableHead className="text-right">Monto</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {list.map((cost) => {
-                  const conf = categoryConfig[cost.category.toLowerCase()] ?? { label: cost.category, variant: "default" as const };
-                  return (
-                    <TableRow key={cost.id}>
-                      <TableCell className="text-xs text-muted-foreground">
-                        {formatDate(cost.date)}
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant={conf.variant}>{conf.label}</Badge>
-                      </TableCell>
-                      <TableCell className="font-medium text-sm">{cost.description}</TableCell>
-                      <TableCell className="hidden md:table-cell text-muted-foreground text-sm">
-                        {cost.animalCount ? `${cost.animalCount} animales` : "—"}
-                      </TableCell>
-                      <TableCell className="text-right font-semibold">
-                        {formatCurrency(cost.amount)}
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
+                {filtered.map((cost) => (
+                  <TableRow key={cost.id}>
+                    <TableCell className="text-xs text-muted-foreground">
+                      {formatDate(cost.date)}
+                    </TableCell>
+                    <TableCell>
+                      {cost.source === "comprobante" ? (
+                        <Badge variant="info" className="gap-1">
+                          <FileText className="h-3 w-3" />
+                          Factura
+                        </Badge>
+                      ) : (
+                        <Badge variant="secondary">Manual</Badge>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="outline">{costCategoryLabel(cost.category)}</Badge>
+                    </TableCell>
+                    <TableCell className="text-sm">
+                      <p className="font-medium">{cost.description}</p>
+                      {cost.issuer && (
+                        <p className="text-xs text-muted-foreground">{cost.issuer}</p>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-right font-semibold">
+                      {formatCurrency(cost.amount)}
+                    </TableCell>
+                  </TableRow>
+                ))}
               </TableBody>
             </Table>
           )}
           <div className="flex justify-end pt-4 border-t mt-2">
             <div className="text-right">
               <p className="text-xs text-muted-foreground">Total registrado</p>
-              <p className="text-xl font-bold text-red-700">{formatCurrency(totalCost)}</p>
+              <p className="text-xl font-bold text-red-700">
+                {formatCurrency(totalCost)}
+              </p>
             </div>
           </div>
         </CardContent>

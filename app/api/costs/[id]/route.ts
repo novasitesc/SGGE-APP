@@ -12,12 +12,22 @@ export const dynamic = "force-dynamic";
 const CATEGORIA_MAP: Record<string, string> = {
   alimentación: "ALIM",
   alimentacion: "ALIM",
+  combustible: "COMB",
+  mantenimiento: "MANT",
   transporte: "TRANS",
   mano_de_obra: "MO",
   vacunas: "VET",
   medicamentos: "VET",
-  servicios: "MANT",
+  servicios: "SERV",
   otros: "OTRO",
+  alim: "ALIM",
+  comb: "COMB",
+  mant: "MANT",
+  trans: "TRANS",
+  mo: "MO",
+  vet: "VET",
+  serv: "SERV",
+  otro: "OTRO",
 };
 
 async function getCategoriaId(admin: ReturnType<typeof createSupabaseAdmin>, category: string) {

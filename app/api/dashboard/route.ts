@@ -173,6 +173,7 @@ export async function GET(req: Request) {
       VET: "Veterinaria",
       COMB: "Combustible",
       MANT: "Mantenimiento",
+      SERV: "Servicios",
       OTRO: "Otros",
     };
     const colors: Record<string, string> = {
@@ -181,7 +182,8 @@ export async function GET(req: Request) {
       Transporte: "#d97706",
       Veterinaria: "#7c3aed",
       Combustible: "#d97706",
-      Mantenimiento: "#0891b2",
+      Mantenimiento: "#64748b",
+      Servicios: "#0891b2",
       Otros: "#6b7280",
     };
     const costsByCategoryMap = new Map<string, number>();

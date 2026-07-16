@@ -4,10 +4,19 @@ import { useState } from "react";
 import Link from "next/link";
 import { useCosts } from "@/lib/hooks/useCosts";
 import type { CostCategory } from "@/lib/types/domain";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  COST_CATEGORY_KEYS,
+  COST_CATEGORY_LABEL,
+  COST_CATEGORY_COLOR,
+  costCategoryLabel,
+  normalizeCostCategoryKey,
+  type CostCategoryKey,
+} from "@/lib/costs/categories";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
 import {
   Table,
   TableBody,
@@ -24,27 +33,16 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { formatCurrency, formatDate } from "@/lib/utils";
-import { DollarSign, Plus, Pencil, Trash2, ChevronLeft, AlertTriangle, Search } from "lucide-react";
-
-const categoryLabel: Record<CostCategory, string> = {
-  transporte: "Transporte",
-  alimentación: "Alimentación",
-  vacunas: "Vacunas",
-  mano_de_obra: "Mano de Obra",
-  servicios: "Servicios",
-  medicamentos: "Medicamentos",
-  otros: "Otros",
-};
-
-const categoryColor: Record<CostCategory, string> = {
-  transporte: "bg-orange-100 text-orange-700",
-  alimentación: "bg-emerald-100 text-emerald-700",
-  vacunas: "bg-purple-100 text-purple-700",
-  mano_de_obra: "bg-blue-100 text-blue-700",
-  servicios: "bg-cyan-100 text-cyan-700",
-  medicamentos: "bg-red-100 text-red-700",
-  otros: "bg-slate-100 text-slate-600",
-};
+import {
+  DollarSign,
+  Plus,
+  Pencil,
+  Trash2,
+  ChevronLeft,
+  AlertTriangle,
+  Search,
+  FileText,
+} from "lucide-react";
 
 const emptyForm = {
   category: "alimentación" as CostCategory,
@@ -59,18 +57,31 @@ export default function GestionCostosPage() {
 
   const [search, setSearch] = useState("");
   const [filterCategory, setFilterCategory] = useState<string>("todas");
+  const [filterSource, setFilterSource] = useState<string>("todas");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState(emptyForm);
   const [deleteId, setDeleteId] = useState<string | null>(null);
 
   const filtered = costs.filter((c) => {
-    const matchSearch = c.description.toLowerCase().includes(search.toLowerCase());
-    const matchCat = filterCategory === "todas" || c.category === filterCategory;
-    return matchSearch && matchCat;
+    const q = search.toLowerCase();
+    const matchSearch =
+      !q ||
+      c.description.toLowerCase().includes(q) ||
+      (c.issuer ?? "").toLowerCase().includes(q) ||
+      (c.fileName ?? "").toLowerCase().includes(q);
+    const matchCat =
+      filterCategory === "todas" ||
+      normalizeCostCategoryKey(c.category) === filterCategory;
+    const matchSource =
+      filterSource === "todas" ||
+      (filterSource === "comprobante" && c.source === "comprobante") ||
+      (filterSource === "manual" && (c.source ?? "manual") === "manual");
+    return matchSearch && matchCat && matchSource;
   });
 
   const totalAmount = costs.reduce((s, c) => s + c.amount, 0);
+  const fromInvoice = costs.filter((c) => c.source === "comprobante").length;
 
   const openAdd = () => {
     setEditingId(null);
@@ -83,7 +94,7 @@ export default function GestionCostosPage() {
     if (!cost) return;
     setEditingId(id);
     setForm({
-      category: cost.category as CostCategory,
+      category: normalizeCostCategoryKey(cost.category) as CostCategory,
       description: cost.description,
       amount: String(cost.amount),
       date: cost.date,
@@ -126,7 +137,6 @@ export default function GestionCostosPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <Link
@@ -141,7 +151,8 @@ export default function GestionCostosPage() {
               <h1 className="text-2xl font-bold tracking-tight">Gestión de Costos</h1>
             </div>
             <p className="text-sm text-muted-foreground mt-0.5">
-              {costs.length} registros · Total: {formatCurrency(totalAmount)}
+              {costs.length} registros · {fromInvoice} desde factura · Total:{" "}
+              {formatCurrency(totalAmount)}
             </p>
           </div>
         </div>
@@ -154,20 +165,25 @@ export default function GestionCostosPage() {
         </button>
       </div>
 
-      {/* Category stats */}
-      <div className="grid grid-cols-3 md:grid-cols-7 gap-2">
-        {(Object.keys(categoryLabel) as CostCategory[]).map((cat) => {
-          const total = costs.filter((c) => c.category === cat).reduce((s, c) => s + c.amount, 0);
+      <div className="grid grid-cols-3 md:grid-cols-5 lg:grid-cols-9 gap-2">
+        {COST_CATEGORY_KEYS.map((cat) => {
+          const total = costs
+            .filter((c) => normalizeCostCategoryKey(c.category) === cat)
+            .reduce((s, c) => s + c.amount, 0);
           return (
-            <div key={cat} className={`rounded-xl border p-3 ${categoryColor[cat].replace("text-", "border-").replace("-700", "-200").replace("-600", "-200")} bg-white`}>
-              <p className="text-xs font-medium text-muted-foreground">{categoryLabel[cat]}</p>
+            <div
+              key={cat}
+              className="rounded-xl border p-3 bg-white border-slate-200"
+            >
+              <p className="text-xs font-medium text-muted-foreground">
+                {COST_CATEGORY_LABEL[cat]}
+              </p>
               <p className="text-sm font-bold mt-0.5">{formatCurrency(total)}</p>
             </div>
           );
         })}
       </div>
 
-      {/* Table */}
       <Card>
         <CardHeader className="pb-4">
           <div className="flex flex-col sm:flex-row gap-3">
@@ -175,7 +191,7 @@ export default function GestionCostosPage() {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <input
                 type="text"
-                placeholder="Buscar por descripción..."
+                placeholder="Buscar por descripción, emisor o archivo…"
                 className="pl-9 pr-4 py-2 w-full text-sm rounded-xl border bg-background focus:outline-none focus:ring-2 focus:ring-primary/30"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
@@ -187,9 +203,20 @@ export default function GestionCostosPage() {
               className="px-3 py-2 text-sm rounded-xl border bg-background focus:outline-none focus:ring-2 focus:ring-primary/30 min-w-[160px]"
             >
               <option value="todas">Todas las categorías</option>
-              {(Object.keys(categoryLabel) as CostCategory[]).map((cat) => (
-                <option key={cat} value={cat}>{categoryLabel[cat]}</option>
+              {COST_CATEGORY_KEYS.map((cat) => (
+                <option key={cat} value={cat}>
+                  {COST_CATEGORY_LABEL[cat]}
+                </option>
               ))}
+            </select>
+            <select
+              value={filterSource}
+              onChange={(e) => setFilterSource(e.target.value)}
+              className="px-3 py-2 text-sm rounded-xl border bg-background focus:outline-none focus:ring-2 focus:ring-primary/30 min-w-[150px]"
+            >
+              <option value="todas">Todos los orígenes</option>
+              <option value="comprobante">Desde factura</option>
+              <option value="manual">Manual</option>
             </select>
           </div>
         </CardHeader>
@@ -198,9 +225,9 @@ export default function GestionCostosPage() {
             <TableHeader>
               <TableRow className="bg-muted/30">
                 <TableHead>Descripción</TableHead>
+                <TableHead>Origen</TableHead>
                 <TableHead>Categoría</TableHead>
                 <TableHead>Fecha</TableHead>
-                <TableHead className="hidden md:table-cell">Animales</TableHead>
                 <TableHead className="text-right">Monto</TableHead>
                 <TableHead className="text-right">Acciones</TableHead>
               </TableRow>
@@ -219,41 +246,79 @@ export default function GestionCostosPage() {
                   </TableCell>
                 </TableRow>
               ) : (
-                filtered.map((cost) => (
-                  <TableRow key={cost.id}>
-                    <TableCell className="font-medium text-sm">{cost.description}</TableCell>
-                    <TableCell>
-                      <span className={`text-xs px-2 py-0.5 rounded-lg font-medium ${categoryColor[cost.category as CostCategory] ?? categoryColor.otros}`}>
-                        {categoryLabel[cost.category as CostCategory] ?? cost.category}
-                      </span>
-                    </TableCell>
-                    <TableCell className="text-muted-foreground text-sm">{formatDate(cost.date)}</TableCell>
-                    <TableCell className="hidden md:table-cell text-muted-foreground text-sm">
-                      {cost.animalCount ?? "—"}
-                    </TableCell>
-                    <TableCell className="text-right font-semibold tabular-nums">
-                      {formatCurrency(cost.amount)}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex items-center justify-end gap-1">
-                        <button
-                          onClick={() => openEdit(cost.id)}
-                          className="p-1.5 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
-                          title="Editar"
+                filtered.map((cost) => {
+                  const catKey = normalizeCostCategoryKey(cost.category) as CostCategoryKey;
+                  return (
+                    <TableRow key={cost.id}>
+                      <TableCell className="text-sm">
+                        <p className="font-medium">{cost.description}</p>
+                        {cost.issuer && (
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            Emisor: {cost.issuer}
+                          </p>
+                        )}
+                        {cost.fileName && (
+                          <p
+                            className="text-xs text-muted-foreground truncate max-w-[220px]"
+                            title={cost.fileName}
+                          >
+                            {cost.fileName}
+                          </p>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {cost.source === "comprobante" ? (
+                          <Badge variant="info" className="gap-1">
+                            <FileText className="h-3 w-3" />
+                            Desde factura
+                          </Badge>
+                        ) : (
+                          <Badge variant="secondary">Manual</Badge>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <span
+                          className={`text-xs px-2 py-0.5 rounded-lg font-medium ${COST_CATEGORY_COLOR[catKey]}`}
                         >
-                          <Pencil className="h-3.5 w-3.5" />
-                        </button>
-                        <button
-                          onClick={() => setDeleteId(cost.id)}
-                          className="p-1.5 rounded-lg hover:bg-red-50 transition-colors text-muted-foreground hover:text-red-600"
-                          title="Eliminar"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))
+                          {costCategoryLabel(cost.category)}
+                        </span>
+                      </TableCell>
+                      <TableCell className="text-muted-foreground text-sm">
+                        {formatDate(cost.date)}
+                      </TableCell>
+                      <TableCell className="text-right font-semibold tabular-nums">
+                        {formatCurrency(cost.amount)}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex items-center justify-end gap-1">
+                          {cost.comprobanteId && (
+                            <Link
+                              href="/gestion/comprobantes"
+                              className="p-1.5 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
+                              title="Ver en Comprobantes"
+                            >
+                              <FileText className="h-3.5 w-3.5" />
+                            </Link>
+                          )}
+                          <button
+                            onClick={() => openEdit(cost.id)}
+                            className="p-1.5 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
+                            title="Editar"
+                          >
+                            <Pencil className="h-3.5 w-3.5" />
+                          </button>
+                          <button
+                            onClick={() => setDeleteId(cost.id)}
+                            className="p-1.5 rounded-lg hover:bg-red-50 transition-colors text-muted-foreground hover:text-red-600"
+                            title="Eliminar"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })
               )}
             </TableBody>
           </Table>
@@ -263,7 +328,6 @@ export default function GestionCostosPage() {
         </CardContent>
       </Card>
 
-      {/* Add/Edit Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
@@ -289,10 +353,14 @@ export default function GestionCostosPage() {
                 <Select
                   id="cost-cat"
                   value={form.category}
-                  onChange={(e) => setForm({ ...form, category: e.target.value as CostCategory })}
+                  onChange={(e) =>
+                    setForm({ ...form, category: e.target.value as CostCategory })
+                  }
                 >
-                  {(Object.keys(categoryLabel) as CostCategory[]).map((cat) => (
-                    <option key={cat} value={cat}>{categoryLabel[cat]}</option>
+                  {COST_CATEGORY_KEYS.map((cat) => (
+                    <option key={cat} value={cat}>
+                      {COST_CATEGORY_LABEL[cat]}
+                    </option>
                   ))}
                 </Select>
               </div>
@@ -352,7 +420,6 @@ export default function GestionCostosPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Delete confirm */}
       <Dialog open={deleteId !== null} onOpenChange={(o) => !o && setDeleteId(null)}>
         <DialogContent className="max-w-sm">
           <DialogHeader>

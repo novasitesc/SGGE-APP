@@ -50,11 +50,15 @@ export interface WeightRecord {
 export type CostCategory =
   | "transporte"
   | "alimentación"
+  | "combustible"
+  | "mantenimiento"
   | "vacunas"
   | "mano_de_obra"
   | "servicios"
   | "medicamentos"
   | "otros";
+
+export type CostSource = "manual" | "comprobante";
 
 export interface Cost {
   id: string;
@@ -63,6 +67,11 @@ export interface Cost {
   amount: number;
   date: string;
   animalCount?: number;
+  /** Origen del registro: alta manual o confirmación de factura. */
+  source?: CostSource;
+  issuer?: string | null;
+  comprobanteId?: string | null;
+  fileName?: string | null;
 }
 
 export interface CostByCategory {

@@ -1,0 +1,72 @@
+%PDF-1.4
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [3 0 R] /Count 1 >>
+endobj
+3 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>
+endobj
+4 0 obj
+<< /Length 631 >>
+stream
+BT
+/F1 11 Tf
+50 750 Td
+14 TL
+/F1 14 Tf
+(COMPROBANTE DE MOVIMIENTO BANCARIO) Tj
+T*
+/F1 11 Tf
+(Banco Nacional de Costa Rica — Extracto) Tj
+T*
+() Tj
+T*
+(Oficina: 228) Tj
+T*
+(Fecha: 14/07/2026) Tj
+T*
+(Documento: 20879721) Tj
+T*
+(Tipo: Salida \(pago\)) Tj
+T*
+(Monto: CRC 14,370.05) Tj
+T*
+(Entradas: \(ninguna\)) Tj
+T*
+() Tj
+T*
+(Descripcion: PAGO CHAMBACU 5655/HERMANOS HERRERA PARRALES S A) Tj
+T*
+(Entidad: CHAMBACU) Tj
+T*
+(Referencia: 5655) Tj
+T*
+(Titular: HERMANOS HERRERA PARRALES S A) Tj
+T*
+() Tj
+T*
+(Origen: captura de extracto \(sin PDF original del banco\).) Tj
+T*
+(Generado para SGGE — importacion de comprobantes.) Tj
+T*
+ET
+endstream
+endobj
+5 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+xref
+0 6
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000115 00000 n 
+0000000241 00000 n 
+0000000923 00000 n 
+trailer
+<< /Size 6 /Root 1 0 R >>
+startxref
+993
+%%EOF

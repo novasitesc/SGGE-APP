@@ -244,7 +244,7 @@ export default function ComprobantesPage() {
               <h1 className="text-2xl font-bold tracking-tight">Comprobantes</h1>
             </div>
             <p className="text-sm text-muted-foreground mt-0.5">
-              Sube facturas PDF → se clasifican → confírmalas como compra o gasto
+              Las facturas confirmadas alimentan Costos o Animales · PDF → clasificar → confirmar
             </p>
           </div>
         </div>
@@ -337,6 +337,7 @@ export default function ComprobantesPage() {
                 <TableHead>Emisor</TableHead>
                 <TableHead>Tipo</TableHead>
                 <TableHead>Clasificación</TableHead>
+                <TableHead>Destino</TableHead>
                 <TableHead>Fecha</TableHead>
                 <TableHead className="text-right">Monto</TableHead>
                 <TableHead>Estado</TableHead>
@@ -346,13 +347,13 @@ export default function ComprobantesPage() {
             <TableBody>
               {loading ? (
                 <TableRow>
-                  <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
                     Cargando…
                   </TableCell>
                 </TableRow>
               ) : filtered.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
                     No hay comprobantes. Sube tus primeros PDFs arriba.
                   </TableCell>
                 </TableRow>
@@ -390,6 +391,29 @@ export default function ComprobantesPage() {
                           <span className="text-muted-foreground">({c.confidence}%)</span>
                         )}
                       </span>
+                    </TableCell>
+                    <TableCell className="text-sm">
+                      {c.status === "confirmado" && c.gastoId ? (
+                        <Link
+                          href="/gestion/costos"
+                          className="inline-flex items-center gap-1 text-xs font-medium text-orange-700 hover:underline"
+                        >
+                          <DollarSign className="h-3.5 w-3.5" />
+                          Costos
+                        </Link>
+                      ) : c.status === "confirmado" && c.compraId ? (
+                        <Link
+                          href="/gestion/animales"
+                          className="inline-flex items-center gap-1 text-xs font-medium text-emerald-700 hover:underline"
+                        >
+                          <Beef className="h-3.5 w-3.5" />
+                          Animales
+                        </Link>
+                      ) : c.status === "confirmado" ? (
+                        <span className="text-xs text-muted-foreground">Confirmado</span>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">Pendiente</span>
+                      )}
                     </TableCell>
                     <TableCell className="text-sm text-muted-foreground">
                       {c.issueDate ? formatDate(c.issueDate) : "—"}

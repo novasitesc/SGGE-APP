@@ -1,4 +1,8 @@
 import { parseJson } from "@/lib/api/parse-json";
+import {
+  costCategoryLabel,
+  COST_CATEGORY_CHART_COLOR,
+} from "@/lib/costs/categories";
 import type {
   Cost,
   CostByCategory,
@@ -255,40 +259,14 @@ export function groupSalesByMonth(sales: Sale[]): { month: string; revenue: numb
 
 /** Agrupa costos por categoría con colores para gráficos. */
 export function aggregateCostsByCategory(costs: Cost[]): CostByCategory[] {
-  const colors: Record<string, string> = {
-    Alimentación: "#16a34a",
-    "Mano de Obra": "#2563eb",
-    Transporte: "#d97706",
-    Vacunas: "#7c3aed",
-    Medicamentos: "#dc2626",
-    Servicios: "#0891b2",
-    Veterinaria: "#7c3aed",
-    Otros: "#6b7280",
-  };
-  const labels: Record<string, string> = {
-    alim: "Alimentación",
-    mo: "Mano de Obra",
-    trans: "Transporte",
-    vet: "Veterinaria",
-    comb: "Combustible",
-    mant: "Mantenimiento",
-    otro: "Otros",
-    alimentación: "Alimentación",
-    transporte: "Transporte",
-    vacunas: "Vacunas",
-    mano_de_obra: "Mano de Obra",
-    servicios: "Servicios",
-    medicamentos: "Medicamentos",
-    otros: "Otros",
-  };
   const map = new Map<string, number>();
   for (const c of costs) {
-    const label = labels[c.category.toLowerCase()] ?? c.category;
+    const label = costCategoryLabel(c.category);
     map.set(label, (map.get(label) ?? 0) + c.amount);
   }
   return [...map.entries()].map(([category, amount]) => ({
     category,
     amount: Math.round(amount * 100) / 100,
-    color: colors[category] ?? "#6b7280",
+    color: COST_CATEGORY_CHART_COLOR[category] ?? "#6b7280",
   }));
 }

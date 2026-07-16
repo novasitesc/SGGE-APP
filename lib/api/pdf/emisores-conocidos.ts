@@ -198,6 +198,17 @@ export function overrideForFileName(fileName: string): FileOverride | null {
     return { clasificacion: "gasto", categoria: "OTRO" };
   }
 
+  // Extracto BN generado desde capturas (CPLESCA / CHAMBACU)
+  if (n.includes("BN-EXTRACTO-")) {
+    const entidad = n.includes("CHAMBACU") ? "CHAMBACU" : n.includes("CPLESCA") ? "CPLESCA" : "Banco Nacional";
+    return {
+      clasificacion: "gasto",
+      categoria: "OTRO",
+      emisorNombre: entidad,
+      descripcion: `Movimiento bancario BN — ${entidad}`,
+    };
+  }
+
   return null;
 }
 

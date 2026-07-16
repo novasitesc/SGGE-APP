@@ -144,7 +144,8 @@ const sections: GestionSection[] = [
     href: "/gestion/costos",
     icon: DollarSign,
     label: "Costos",
-    description: "Gestionar gastos: alimentación, mano de obra, transporte y más.",
+    description:
+      "Gastos operativos y procedentes de facturas confirmadas (categoría, emisor y origen).",
     color: "border-orange-200 hover:border-orange-400 hover:bg-orange-50/50",
     iconBg: "bg-orange-100 text-orange-700",
     countKey: "costs",
@@ -164,7 +165,8 @@ const sections: GestionSection[] = [
     href: "/gestion/comprobantes",
     icon: FileText,
     label: "Comprobantes",
-    description: "Sube facturas PDF y conviértelas en compras de ganado o gastos.",
+    description:
+      "Sube facturas PDF y confírmalas: alimentan Costos (gastos) o Animales (compras).",
     color: "border-sky-200 hover:border-sky-400 hover:bg-sky-50/50",
     iconBg: "bg-sky-100 text-sky-700",
     countKey: "comprobantes",
