@@ -55,7 +55,7 @@ export async function uploadComprobantes(files: File[]): Promise<UploadResult> {
 }
 
 export type ConfirmPayload = {
-  classification: "gasto" | "compra_ganado";
+  classification: "gasto" | "compra_ganado" | "venta";
   issuer?: string | null;
   issuerId?: string | null;
   issueDate?: string | null;
@@ -63,6 +63,7 @@ export type ConfirmPayload = {
   categoryCode?: string | null;
   description?: string | null;
   totalWeightKg?: number | null;
+  buyer?: string | null;
 };
 
 export async function confirmComprobante(

@@ -37,6 +37,7 @@ import {
   UploadCloud,
   Beef,
   DollarSign,
+  TrendingUp,
   Trash2,
   ExternalLink,
   CheckCircle2,
@@ -58,8 +59,9 @@ const CATEGORIAS: { code: string; label: string }[] = [
 const CLASS_LABEL: Record<string, string> = {
   compra_ganado: "Compra de ganado",
   gasto: "Gasto",
+  venta: "Venta",
   pendiente: "Sin clasificar",
-  ignorado: "Ignorado",
+  ignorar: "Ignorado",
 };
 
 const DOC_LABEL: Record<string, string> = {
@@ -72,7 +74,7 @@ const DOC_LABEL: Record<string, string> = {
 };
 
 type ReviewForm = {
-  classification: "gasto" | "compra_ganado";
+  classification: "gasto" | "compra_ganado" | "venta";
   issuer: string;
   issuerId: string;
   issueDate: string;
@@ -80,6 +82,7 @@ type ReviewForm = {
   categoryCode: string;
   description: string;
   totalWeightKg: string;
+  buyer: string;
 };
 
 export default function ComprobantesPage() {
@@ -141,8 +144,14 @@ export default function ComprobantesPage() {
 
   const openReview = (c: Comprobante) => {
     setReview(c);
+    const cls: ReviewForm["classification"] =
+      c.classification === "compra_ganado"
+        ? "compra_ganado"
+        : c.classification === "venta"
+          ? "venta"
+          : "gasto";
     setForm({
-      classification: c.classification === "compra_ganado" ? "compra_ganado" : "gasto",
+      classification: cls,
       issuer: c.issuer ?? "",
       issuerId: c.issuerId ?? "",
       issueDate: c.issueDate ?? new Date().toISOString().slice(0, 10),
@@ -159,6 +168,7 @@ export default function ComprobantesPage() {
                 ) / 100
               )
             : "",
+      buyer: "",
     });
   };
 
@@ -182,6 +192,10 @@ export default function ComprobantesPage() {
       if (form.classification === "gasto") {
         payload.categoryCode = form.categoryCode;
         payload.description = form.description.trim() || null;
+      } else if (form.classification === "venta") {
+        payload.buyer = form.buyer.trim() || null;
+        payload.totalWeightKg = form.totalWeightKg ? Number(form.totalWeightKg) : null;
+        payload.description = form.description.trim() || null;
       } else {
         payload.totalWeightKg = form.totalWeightKg ? Number(form.totalWeightKg) : null;
       }
@@ -189,9 +203,11 @@ export default function ComprobantesPage() {
       setNotice(
         form.classification === "gasto"
           ? "Gasto registrado desde el comprobante."
-          : (review.animales?.length ?? 0) > 0
-            ? `Compra registrada con ${review.animales!.length} animal(es) en detalle.`
-            : "Compra de ganado registrada desde el comprobante."
+          : form.classification === "venta"
+            ? "Venta registrada desde el comprobante."
+            : (review.animales?.length ?? 0) > 0
+              ? `Compra registrada con ${review.animales!.length} animal(es) en detalle.`
+              : "Compra de ganado registrada desde el comprobante."
       );
       setReview(null);
       setForm(null);
@@ -244,7 +260,7 @@ export default function ComprobantesPage() {
               <h1 className="text-2xl font-bold tracking-tight">Comprobantes</h1>
             </div>
             <p className="text-sm text-muted-foreground mt-0.5">
-              Las facturas confirmadas alimentan Costos o Animales · PDF → clasificar → confirmar
+              Las facturas confirmadas alimentan Costos, Animales o Ventas · PDF → clasificar → confirmar
             </p>
           </div>
         </div>
@@ -385,6 +401,8 @@ export default function ComprobantesPage() {
                           <Beef className="h-3.5 w-3.5 text-emerald-600" />
                         ) : c.classification === "gasto" ? (
                           <DollarSign className="h-3.5 w-3.5 text-orange-600" />
+                        ) : c.classification === "venta" ? (
+                          <TrendingUp className="h-3.5 w-3.5 text-sky-600" />
                         ) : null}
                         {CLASS_LABEL[c.classification] ?? c.classification}
                         {c.confidence != null && c.status === "pendiente" && (
@@ -408,6 +426,14 @@ export default function ComprobantesPage() {
                         >
                           <Beef className="h-3.5 w-3.5" />
                           Animales
+                        </Link>
+                      ) : c.status === "confirmado" && c.classification === "venta" ? (
+                        <Link
+                          href="/gestion/ventas"
+                          className="inline-flex items-center gap-1 text-xs font-medium text-sky-700 hover:underline"
+                        >
+                          <TrendingUp className="h-3.5 w-3.5" />
+                          Ventas
                         </Link>
                       ) : c.status === "confirmado" ? (
                         <span className="text-xs text-muted-foreground">Confirmado</span>
@@ -503,7 +529,7 @@ export default function ComprobantesPage() {
               )}
 
               {/* Clasificación */}
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-3 gap-2">
                 <button
                   type="button"
                   onClick={() => setForm({ ...form, classification: "compra_ganado" })}
@@ -513,7 +539,7 @@ export default function ComprobantesPage() {
                       : "hover:bg-muted"
                   }`}
                 >
-                  <Beef className="h-4 w-4" /> Compra de ganado
+                  <Beef className="h-4 w-4" /> Compra
                 </button>
                 <button
                   type="button"
@@ -525,6 +551,17 @@ export default function ComprobantesPage() {
                   }`}
                 >
                   <DollarSign className="h-4 w-4" /> Gasto
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setForm({ ...form, classification: "venta" })}
+                  className={`flex items-center justify-center gap-2 rounded-xl border px-3 py-2.5 text-sm font-medium transition-colors ${
+                    form.classification === "venta"
+                      ? "border-sky-500 bg-sky-50 text-sky-700"
+                      : "hover:bg-muted"
+                  }`}
+                >
+                  <TrendingUp className="h-4 w-4" /> Venta
                 </button>
               </div>
 
@@ -597,18 +634,42 @@ export default function ComprobantesPage() {
                     />
                   </div>
                 )}
+
+                {form.classification === "venta" && (
+                  <div className="space-y-1.5 col-span-2">
+                    <Label htmlFor="rv-buyer">Cliente / comprador</Label>
+                    <Input
+                      id="rv-buyer"
+                      value={form.buyer}
+                      onChange={(e) => setForm({ ...form, buyer: e.target.value })}
+                      placeholder="Se usa 'Cliente (comprobante)' si se deja vacío"
+                    />
+                  </div>
+                )}
               </div>
 
-              {form.classification === "gasto" && (
+              {(form.classification === "gasto" || form.classification === "venta") && (
                 <div className="space-y-1.5">
                   <Label htmlFor="rv-desc">Concepto (opcional)</Label>
                   <Input
                     id="rv-desc"
                     value={form.description}
                     onChange={(e) => setForm({ ...form, description: e.target.value })}
-                    placeholder="Se genera del emisor si se deja vacío"
+                    placeholder={
+                      form.classification === "venta"
+                        ? "Detalle de la venta (opcional)"
+                        : "Se genera del emisor si se deja vacío"
+                    }
                   />
                 </div>
+              )}
+
+              {form.classification === "venta" && (
+                <p className="text-xs text-muted-foreground rounded-lg bg-sky-50/70 px-3 py-2">
+                  Factura emitida por la granja. Se creará una venta + su factura de
+                  ingreso en la sección <strong>Ventas</strong>. El emisor es la propia
+                  granja; indica el cliente/comprador si lo conoces.
+                </p>
               )}
 
               {form.classification === "compra_ganado" &&

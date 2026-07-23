@@ -1,7 +1,15 @@
 import type { ParsedComprobante } from "./parse-comprobante";
 import { lookupEmisor, CEDULA_GRANJA } from "./emisores-conocidos";
 
-export type Clasificacion = "compra_ganado" | "gasto" | "pendiente" | "ignorar";
+export type Clasificacion =
+  | "compra_ganado"
+  | "gasto"
+  | "venta"
+  | "pendiente"
+  | "ignorar";
+
+/** Tipos de documento (código 50-clave) que representan una venta de la granja. */
+const DOC_VENTA = new Set(["factura", "tiquete", "nota_debito", "nota_credito"]);
 
 export type ClassificationResult = {
   clasificacion: Clasificacion;
@@ -52,16 +60,25 @@ export function classifyComprobante(parsed: ParsedComprobante): ClassificationRe
   const animalCount = parsed.animales?.length ?? 0;
   const emisorKnown = lookupEmisor(parsed.emisorIdentificacion);
 
-  // Factura emitida por la propia granja → no entra como gasto ni compra.
-  if (
-    parsed.emisorIdentificacion === CEDULA_GRANJA ||
-    emisorKnown?.tipo === "ignorar"
-  ) {
+  // Documento emitido por la propia granja.
+  if (parsed.emisorIdentificacion === CEDULA_GRANJA) {
+    // factura_compra (autofactura) = compra a un no contribuyente → cae en las
+    // reglas de ganado/gasto más abajo. Los demás documentos (factura, tiquete,
+    // notas) son una VENTA de la granja.
+    if (parsed.tipoDocumento == null || DOC_VENTA.has(parsed.tipoDocumento)) {
+      return {
+        clasificacion: "venta",
+        categoriaSugerida: null,
+        confianza: 96,
+        motivo: "Factura de venta emitida por la propia granja.",
+      };
+    }
+  } else if (emisorKnown?.tipo === "ignorar") {
     return {
       clasificacion: "ignorar",
       categoriaSugerida: null,
       confianza: 99,
-      motivo: "Emisor = propia granja (no es egreso a terceros).",
+      motivo: "Emisor marcado como ignorar (no es egreso a terceros).",
     };
   }
 

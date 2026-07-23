@@ -311,6 +311,8 @@ export type ConfirmInput = {
   // Para compra de ganado
   totalWeightKg?: number | null;
   tipoAdquisicion?: "subasta" | "particular" | "contrato";
+  // Para venta (factura emitida por la granja)
+  buyer?: string | null;
 };
 
 export type ConfirmResult =
@@ -344,9 +346,10 @@ export async function confirmComprobante(
   const issueDate = input.issueDate ?? row.fecha_emision ?? new Date().toISOString().slice(0, 10);
   const amount = input.amount ?? (row.monto_total != null ? Number(row.monto_total) : null);
 
-  // Factura propia / no aplicable: soft-delete (la BD no acepta clasificacion='ignorar').
+  // No aplicable (factura propia sin venta, o mensaje de aceptación que duplica
+  // una factura ya contabilizada): se marca 'ignorar' y se saca de la bandeja.
   if (input.classification === "ignorar") {
-    const { error } = await admin
+    const { data: updated, error } = await admin
       .from("comprobantes")
       .update({
         deleted_at: new Date().toISOString(),
@@ -354,11 +357,13 @@ export async function confirmComprobante(
         emisor_identificacion: issuerId ?? row.emisor_identificacion,
         fecha_emision: issueDate,
         monto_total: amount != null && amount > 0 ? amount : row.monto_total,
-        clasificacion: "pendiente",
+        clasificacion: "ignorar",
       })
-      .eq("id", row.id);
+      .eq("id", row.id)
+      .select(COMPROBANTE_SELECT)
+      .single();
     if (error) return { ok: false, message: error.message, status: 400 };
-    return { ok: true, message: "Comprobante descartado (factura propia / no aplicable).", status: 200 };
+    return { ok: true, comprobante: await mapComprobanteToApi(admin, updated as ComprobanteRow) };
   }
 
   if (amount == null || amount <= 0) {
@@ -386,7 +391,47 @@ export async function confirmComprobante(
     });
   }
 
+  if (input.classification === "venta") {
+    return confirmarComoVenta(admin, granjaId, row, {
+      issueDate,
+      amount,
+      issuer,
+      buyer: input.buyer ?? null,
+      totalWeightKg: input.totalWeightKg ?? null,
+      description: input.description,
+    });
+  }
+
   return { ok: false, message: "Clasificación inválida para confirmar.", status: 400 };
+}
+
+/** Busca o crea un cliente por razón social (comprador de la factura de venta). */
+async function resolveOrCreateCliente(
+  admin: SupabaseClient,
+  granjaId: string,
+  buyer: string
+): Promise<string> {
+  const razon = buyer.trim() || "Cliente sin nombre";
+  const { data: existing } = await admin
+    .from("clientes")
+    .select("id")
+    .eq("granja_id", granjaId)
+    .ilike("razon_social", razon)
+    .is("deleted_at", null)
+    .maybeSingle();
+  if (existing?.id) return existing.id;
+
+  const { data: created, error } = await admin
+    .from("clientes")
+    .insert({
+      granja_id: granjaId,
+      razon_social: razon.slice(0, 200),
+      canal_venta: "nacional",
+    })
+    .select("id")
+    .single();
+  if (error) throw new Error(`No se pudo crear el cliente: ${error.message}`);
+  return created.id;
 }
 
 async function confirmarComoGasto(
@@ -593,6 +638,81 @@ async function confirmarComoCompra(
     factura_id: factura.id,
     monto_total: data.amount,
     fecha_emision: data.issueDate,
+  });
+}
+
+async function confirmarComoVenta(
+  admin: SupabaseClient,
+  granjaId: string,
+  row: ComprobanteRow,
+  data: {
+    issueDate: string;
+    amount: number;
+    issuer: string | null;
+    buyer: string | null;
+    totalWeightKg: number | null;
+    description?: string | null;
+  }
+): Promise<ConfirmResult> {
+  // El comprador puede no venir legible en el PDF; usamos un cliente genérico.
+  const comprador = data.buyer?.trim() || "Cliente (comprobante)";
+  let clienteId: string;
+  try {
+    clienteId = await resolveOrCreateCliente(admin, granjaId, comprador);
+  } catch (e) {
+    return { ok: false, message: e instanceof Error ? e.message : "Error con cliente", status: 400 };
+  }
+
+  const folio = row.folio_fiscal ?? row.clave_fiscal ?? `VTA-${row.id.slice(0, 8)}`;
+  const pesoTotalKg = data.totalWeightKg != null && data.totalWeightKg > 0 ? data.totalWeightKg : 0;
+  const observaciones =
+    data.description?.trim() || `Venta desde comprobante ${row.archivo_nombre}`;
+
+  const { data: venta, error: eVenta } = await admin
+    .from("ventas")
+    .insert({
+      granja_id: granjaId,
+      cliente_id: clienteId,
+      folio: folio.slice(0, 50),
+      fecha_venta: data.issueDate,
+      canal_venta: "nacional",
+      peso_total_kg: pesoTotalKg,
+      monto_total: data.amount,
+      observaciones: observaciones.slice(0, 500),
+    })
+    .select("id")
+    .single();
+  if (eVenta) {
+    if (eVenta.code === "23505") {
+      return { ok: false, message: "Ya existe una venta con ese folio.", status: 409 };
+    }
+    return { ok: false, message: eVenta.message, status: 400 };
+  }
+
+  const { data: factura, error: eFact } = await admin
+    .from("facturas")
+    .insert({
+      venta_id: venta.id,
+      tipo: "ingreso",
+      folio_fiscal: row.folio_fiscal,
+      uuid_fiscal: row.clave_fiscal?.slice(0, 36) ?? null,
+      fecha_emision: data.issueDate,
+      monto: data.amount,
+      archivo_url: row.archivo_path,
+    })
+    .select("id")
+    .single();
+  if (eFact) {
+    await admin.from("ventas").delete().eq("id", venta.id);
+    return { ok: false, message: eFact.message, status: 400 };
+  }
+
+  return finalizeComprobante(admin, row.id, {
+    clasificacion: "venta",
+    factura_id: factura.id,
+    monto_total: data.amount,
+    fecha_emision: data.issueDate,
+    emisor_nombre: data.issuer,
   });
 }
 

@@ -1,0 +1,948 @@
+{
+  "summary": {
+    "dryRun": false,
+    "granjaId": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+    "proveedorId": "11111111-1111-1111-1111-111111111111",
+    "compraId": "68d452a6-3d8f-4620-b642-02576e673883",
+    "folio": "HOJAS-SUBASTA-20260723",
+    "created": 146,
+    "updated": 4,
+    "skipped": 0,
+    "errors": 0,
+    "excluded": 5,
+    "uniqueAretes": 146,
+    "mismatches": []
+  },
+  "report": [
+    {
+      "arete": "2299",
+      "lote": "5",
+      "action": "excluded",
+      "detail": "No tienen precio de venta (excluido del alta)"
+    },
+    {
+      "arete": "2300",
+      "lote": "5",
+      "action": "excluded",
+      "detail": "No tienen precio de venta (excluido del alta)"
+    },
+    {
+      "arete": "21",
+      "lote": "7",
+      "action": "excluded",
+      "detail": "No tienen precio de venta (excluido del alta)"
+    },
+    {
+      "arete": "2265",
+      "lote": "6",
+      "action": "excluded",
+      "detail": "No tienen precio de venta (excluido del alta)"
+    },
+    {
+      "arete": "2214",
+      "lote": "2",
+      "action": "excluded",
+      "detail": "No tienen precio de venta (excluido del alta)"
+    },
+    {
+      "arete": "2174",
+      "lote": "1-Zapote Arriba",
+      "action": "created",
+      "detail": "455 kg @ ₡1350"
+    },
+    {
+      "arete": "2178",
+      "lote": "1-Zapote Arriba",
+      "action": "created",
+      "detail": "311 kg @ ₡1300"
+    },
+    {
+      "arete": "2177",
+      "lote": "1-Zapote Arriba",
+      "action": "created",
+      "detail": "386 kg @ ₡1300"
+    },
+    {
+      "arete": "2169",
+      "lote": "1-Zapote Arriba",
+      "action": "created",
+      "detail": "434 kg @ ₡1365"
+    },
+    {
+      "arete": "2161",
+      "lote": "1-Zapote Arriba",
+      "action": "created",
+      "detail": "452 kg @ ₡1380"
+    },
+    {
+      "arete": "2173",
+      "lote": "1-Zapote Arriba",
+      "action": "created",
+      "detail": "416 kg @ ₡1300"
+    },
+    {
+      "arete": "2171",
+      "lote": "1-Zapote Arriba",
+      "action": "created",
+      "detail": "425 kg @ ₡1300"
+    },
+    {
+      "arete": "2170",
+      "lote": "1-Zapote Arriba",
+      "action": "created",
+      "detail": "373 kg @ ₡1200"
+    },
+    {
+      "arete": "2165",
+      "lote": "1-Zapote Arriba",
+      "action": "created",
+      "detail": "441 kg @ ₡1400"
+    },
+    {
+      "arete": "2164",
+      "lote": "1-Zapote Arriba",
+      "action": "created",
+      "detail": "404 kg @ ₡1420"
+    },
+    {
+      "arete": "2168",
+      "lote": "1-Zapote Arriba",
+      "action": "created",
+      "detail": "463 kg @ ₡1400"
+    },
+    {
+      "arete": "2163",
+      "lote": "1-Zapote Arriba",
+      "action": "created",
+      "detail": "447 kg @ ₡1400"
+    },
+    {
+      "arete": "2167",
+      "lote": "1-Zapote Arriba",
+      "action": "created",
+      "detail": "422 kg @ ₡1380"
+    },
+    {
+      "arete": "2175",
+      "lote": "1-Zapote Arriba",
+      "action": "created",
+      "detail": "465 kg @ ₡1440"
+    },
+    {
+      "arete": "2166",
+      "lote": "1-Zapote Arriba",
+      "action": "created",
+      "detail": "431 kg @ ₡1400"
+    },
+    {
+      "arete": "2176",
+      "lote": "1-Zapote Arriba",
+      "action": "created",
+      "detail": "463 kg @ ₡1400"
+    },
+    {
+      "arete": "2172",
+      "lote": "1-Zapote Arriba",
+      "action": "created",
+      "detail": "437 kg @ ₡1350"
+    },
+    {
+      "arete": "2162",
+      "lote": "1-Zapote Arriba",
+      "action": "created",
+      "detail": "477 kg @ ₡1400"
+    },
+    {
+      "arete": "2222",
+      "lote": "1-Zapote Arriba",
+      "action": "created",
+      "detail": "414 kg @ ₡1365"
+    },
+    {
+      "arete": "2259",
+      "lote": "1-Zapote Arriba",
+      "action": "created",
+      "detail": "400 kg @ ₡1250"
+    },
+    {
+      "arete": "2248",
+      "lote": "2",
+      "action": "created",
+      "detail": "429 kg @ ₡1400"
+    },
+    {
+      "arete": "2252",
+      "lote": "2",
+      "action": "created",
+      "detail": "421 kg @ ₡1450"
+    },
+    {
+      "arete": "2210",
+      "lote": "2",
+      "action": "created",
+      "detail": "455 kg @ ₡1450"
+    },
+    {
+      "arete": "2234",
+      "lote": "2",
+      "action": "created",
+      "detail": "317 kg @ ₡1375"
+    },
+    {
+      "arete": "2242",
+      "lote": "2",
+      "action": "created",
+      "detail": "308 kg @ ₡1350"
+    },
+    {
+      "arete": "2233",
+      "lote": "2",
+      "action": "created",
+      "detail": "300 kg @ ₡1280"
+    },
+    {
+      "arete": "2235",
+      "lote": "2",
+      "action": "created",
+      "detail": "327 kg @ ₡1300"
+    },
+    {
+      "arete": "2241",
+      "lote": "2",
+      "action": "created",
+      "detail": "287 kg @ ₡1180"
+    },
+    {
+      "arete": "2266",
+      "lote": "2",
+      "action": "created",
+      "detail": "318 kg @ ₡1200"
+    },
+    {
+      "arete": "2227",
+      "lote": "2",
+      "action": "created",
+      "detail": "272 kg @ ₡1300"
+    },
+    {
+      "arete": "2232",
+      "lote": "2",
+      "action": "created",
+      "detail": "259 kg @ ₡1100"
+    },
+    {
+      "arete": "2237",
+      "lote": "2",
+      "action": "created",
+      "detail": "294 kg @ ₡1275"
+    },
+    {
+      "arete": "6552",
+      "lote": "2",
+      "action": "created",
+      "detail": "373 kg @ ₡1330"
+    },
+    {
+      "arete": "2162",
+      "lote": "2",
+      "action": "updated",
+      "detail": "dup en dataset → rellenó: observaciones"
+    },
+    {
+      "arete": "2225",
+      "lote": "2",
+      "action": "created",
+      "detail": "273 kg @ ₡1300"
+    },
+    {
+      "arete": "2230",
+      "lote": "2",
+      "action": "created",
+      "detail": "271 kg @ ₡1300"
+    },
+    {
+      "arete": "762752",
+      "lote": "2",
+      "action": "created",
+      "detail": "284 kg @ ₡1200"
+    },
+    {
+      "arete": "2231",
+      "lote": "2",
+      "action": "created",
+      "detail": "300 kg @ ₡1405"
+    },
+    {
+      "arete": "2239",
+      "lote": "3",
+      "action": "created",
+      "detail": "278 kg @ ₡1390"
+    },
+    {
+      "arete": "2238",
+      "lote": "3",
+      "action": "created",
+      "detail": "275 kg @ ₡1300"
+    },
+    {
+      "arete": "2286",
+      "lote": "3",
+      "action": "created",
+      "detail": "315 kg @ ₡1380"
+    },
+    {
+      "arete": "2263",
+      "lote": "3",
+      "action": "created",
+      "detail": "336 kg @ ₡1350"
+    },
+    {
+      "arete": "2229",
+      "lote": "3",
+      "action": "created",
+      "detail": "288 kg @ ₡1300"
+    },
+    {
+      "arete": "2243",
+      "lote": "3",
+      "action": "created",
+      "detail": "319 kg @ ₡1185"
+    },
+    {
+      "arete": "2228",
+      "lote": "3",
+      "action": "created",
+      "detail": "298 kg @ ₡1400"
+    },
+    {
+      "arete": "2240",
+      "lote": "3",
+      "action": "created",
+      "detail": "300 kg @ ₡1350"
+    },
+    {
+      "arete": "2273",
+      "lote": "3",
+      "action": "created",
+      "detail": "398 kg @ ₡1400"
+    },
+    {
+      "arete": "2279",
+      "lote": "3",
+      "action": "created",
+      "detail": "392 kg @ ₡1340"
+    },
+    {
+      "arete": "2275",
+      "lote": "3",
+      "action": "created",
+      "detail": "317 kg @ ₡1350"
+    },
+    {
+      "arete": "2271",
+      "lote": "3",
+      "action": "created",
+      "detail": "340 kg @ ₡1420"
+    },
+    {
+      "arete": "836402",
+      "lote": "3",
+      "action": "created",
+      "detail": "283 kg @ ₡1360"
+    },
+    {
+      "arete": "2276",
+      "lote": "3",
+      "action": "created",
+      "detail": "431 kg @ ₡1380"
+    },
+    {
+      "arete": "2270",
+      "lote": "3",
+      "action": "created",
+      "detail": "422 kg @ ₡1400"
+    },
+    {
+      "arete": "2278",
+      "lote": "3",
+      "action": "created",
+      "detail": "377 kg @ ₡1400"
+    },
+    {
+      "arete": "2280",
+      "lote": "3",
+      "action": "created",
+      "detail": "350 kg @ ₡1300"
+    },
+    {
+      "arete": "388658",
+      "lote": "3",
+      "action": "created",
+      "detail": "348 kg @ ₡1400"
+    },
+    {
+      "arete": "2272",
+      "lote": "3",
+      "action": "created",
+      "detail": "368 kg @ ₡1300"
+    },
+    {
+      "arete": "2274",
+      "lote": "4",
+      "action": "created",
+      "detail": "346 kg @ ₡1400"
+    },
+    {
+      "arete": "2279",
+      "lote": "4",
+      "action": "updated",
+      "detail": "dup en dataset → rellenó: observaciones"
+    },
+    {
+      "arete": "2282",
+      "lote": "4",
+      "action": "created",
+      "detail": "355 kg @ ₡1375"
+    },
+    {
+      "arete": "2283",
+      "lote": "4",
+      "action": "created",
+      "detail": "361 kg @ ₡1375"
+    },
+    {
+      "arete": "2284",
+      "lote": "4",
+      "action": "created",
+      "detail": "298 kg @ ₡1375"
+    },
+    {
+      "arete": "2285",
+      "lote": "4",
+      "action": "created",
+      "detail": "413 kg @ ₡1375"
+    },
+    {
+      "arete": "2286",
+      "lote": "4",
+      "action": "updated",
+      "detail": "dup en dataset → rellenó: observaciones"
+    },
+    {
+      "arete": "2287",
+      "lote": "4",
+      "action": "created",
+      "detail": "317 kg @ ₡1375"
+    },
+    {
+      "arete": "2288",
+      "lote": "4",
+      "action": "created",
+      "detail": "361 kg @ ₡1375"
+    },
+    {
+      "arete": "2289",
+      "lote": "4",
+      "action": "created",
+      "detail": "348 kg @ ₡1375"
+    },
+    {
+      "arete": "2290",
+      "lote": "4",
+      "action": "created",
+      "detail": "332 kg @ ₡1375"
+    },
+    {
+      "arete": "2291",
+      "lote": "4",
+      "action": "created",
+      "detail": "380 kg @ ₡1375"
+    },
+    {
+      "arete": "2292",
+      "lote": "4",
+      "action": "created",
+      "detail": "351 kg @ ₡1375"
+    },
+    {
+      "arete": "2293",
+      "lote": "4",
+      "action": "created",
+      "detail": "283 kg @ ₡1375"
+    },
+    {
+      "arete": "2294",
+      "lote": "4",
+      "action": "created",
+      "detail": "295 kg @ ₡1375"
+    },
+    {
+      "arete": "2295",
+      "lote": "4",
+      "action": "created",
+      "detail": "377 kg @ ₡1350"
+    },
+    {
+      "arete": "2297",
+      "lote": "4",
+      "action": "created",
+      "detail": "384 kg @ ₡1400"
+    },
+    {
+      "arete": "2296",
+      "lote": "4",
+      "action": "created",
+      "detail": "375 kg @ ₡1385"
+    },
+    {
+      "arete": "3642",
+      "lote": "4",
+      "action": "created",
+      "detail": "349 kg @ ₡1380"
+    },
+    {
+      "arete": "3631",
+      "lote": "4",
+      "action": "created",
+      "detail": "379 kg @ ₡1405"
+    },
+    {
+      "arete": "3629",
+      "lote": "5",
+      "action": "created",
+      "detail": "381 kg @ ₡1400"
+    },
+    {
+      "arete": "3637",
+      "lote": "5",
+      "action": "created",
+      "detail": "430 kg @ ₡1275"
+    },
+    {
+      "arete": "3625",
+      "lote": "5",
+      "action": "created",
+      "detail": "387 kg @ ₡1365"
+    },
+    {
+      "arete": "3634",
+      "lote": "5",
+      "action": "created",
+      "detail": "303 kg @ ₡1320"
+    },
+    {
+      "arete": "6917",
+      "lote": "5",
+      "action": "created",
+      "detail": "418 kg @ ₡1405"
+    },
+    {
+      "arete": "2301",
+      "lote": "5",
+      "action": "created",
+      "detail": "339 kg @ ₡1300"
+    },
+    {
+      "arete": "2302",
+      "lote": "5",
+      "action": "created",
+      "detail": "330 kg @ ₡1360"
+    },
+    {
+      "arete": "2304",
+      "lote": "5",
+      "action": "created",
+      "detail": "424 kg @ ₡1330"
+    },
+    {
+      "arete": "2303",
+      "lote": "5",
+      "action": "created",
+      "detail": "380 kg @ ₡1400"
+    },
+    {
+      "arete": "2305",
+      "lote": "5",
+      "action": "created",
+      "detail": "388 kg @ ₡1400"
+    },
+    {
+      "arete": "2308",
+      "lote": "5",
+      "action": "created",
+      "detail": "362 kg @ ₡1410"
+    },
+    {
+      "arete": "2318",
+      "lote": "5",
+      "action": "created",
+      "detail": "290 kg @ ₡1300"
+    },
+    {
+      "arete": "2315",
+      "lote": "5",
+      "action": "created",
+      "detail": "355 kg @ ₡1405"
+    },
+    {
+      "arete": "2313",
+      "lote": "5",
+      "action": "created",
+      "detail": "328 kg @ ₡1340"
+    },
+    {
+      "arete": "2490",
+      "lote": "5",
+      "action": "created",
+      "detail": "313 kg @ ₡1340"
+    },
+    {
+      "arete": "2309",
+      "lote": "5",
+      "action": "created",
+      "detail": "343 kg @ ₡1300"
+    },
+    {
+      "arete": "2310",
+      "lote": "5",
+      "action": "created",
+      "detail": "320 kg @ ₡1380"
+    },
+    {
+      "arete": "2317",
+      "lote": "5",
+      "action": "created",
+      "detail": "293 kg @ ₡1380"
+    },
+    {
+      "arete": "2316",
+      "lote": "6",
+      "action": "created",
+      "detail": "364 kg @ ₡1450"
+    },
+    {
+      "arete": "2311",
+      "lote": "6",
+      "action": "created",
+      "detail": "282 kg @ ₡1390"
+    },
+    {
+      "arete": "2319",
+      "lote": "6",
+      "action": "created",
+      "detail": "288 kg @ ₡1400"
+    },
+    {
+      "arete": "2312",
+      "lote": "6",
+      "action": "created",
+      "detail": "310 kg @ ₡1400"
+    },
+    {
+      "arete": "2314",
+      "lote": "6",
+      "action": "created",
+      "detail": "303 kg @ ₡1410"
+    },
+    {
+      "arete": "2320",
+      "lote": "6",
+      "action": "created",
+      "detail": "306 kg @ ₡1340"
+    },
+    {
+      "arete": "742",
+      "lote": "6",
+      "action": "created",
+      "detail": "352 kg @ ₡1350"
+    },
+    {
+      "arete": "2",
+      "lote": "6",
+      "action": "created",
+      "detail": "348 kg @ ₡1390"
+    },
+    {
+      "arete": "7",
+      "lote": "6",
+      "action": "created",
+      "detail": "372 kg @ ₡1360"
+    },
+    {
+      "arete": "1",
+      "lote": "6",
+      "action": "created",
+      "detail": "378 kg @ ₡1360"
+    },
+    {
+      "arete": "4",
+      "lote": "6",
+      "action": "created",
+      "detail": "342 kg @ ₡1350"
+    },
+    {
+      "arete": "9",
+      "lote": "6",
+      "action": "created",
+      "detail": "353 kg @ ₡1390"
+    },
+    {
+      "arete": "3",
+      "lote": "6",
+      "action": "created",
+      "detail": "337 kg @ ₡1380"
+    },
+    {
+      "arete": "5",
+      "lote": "6",
+      "action": "created",
+      "detail": "364 kg @ ₡1400"
+    },
+    {
+      "arete": "6",
+      "lote": "6",
+      "action": "created",
+      "detail": "401 kg @ ₡1380"
+    },
+    {
+      "arete": "8",
+      "lote": "6",
+      "action": "created",
+      "detail": "356 kg @ ₡1410"
+    },
+    {
+      "arete": "10",
+      "lote": "6",
+      "action": "created",
+      "detail": "345 kg @ ₡1350"
+    },
+    {
+      "arete": "11",
+      "lote": "6",
+      "action": "created",
+      "detail": "327 kg @ ₡1380"
+    },
+    {
+      "arete": "2251",
+      "lote": "6",
+      "action": "created",
+      "detail": "404 kg @ ₡1300"
+    },
+    {
+      "arete": "13",
+      "lote": "7",
+      "action": "created",
+      "detail": "367 kg @ ₡1420"
+    },
+    {
+      "arete": "14",
+      "lote": "7",
+      "action": "created",
+      "detail": "335 kg @ ₡1450"
+    },
+    {
+      "arete": "15",
+      "lote": "7",
+      "action": "created",
+      "detail": "323 kg @ ₡1360"
+    },
+    {
+      "arete": "1488",
+      "lote": "7",
+      "action": "created",
+      "detail": "252 kg @ ₡1350"
+    },
+    {
+      "arete": "3316",
+      "lote": "7",
+      "action": "created",
+      "detail": "307 kg @ ₡1390"
+    },
+    {
+      "arete": "2045",
+      "lote": "7",
+      "action": "created",
+      "detail": "326 kg @ ₡1260"
+    },
+    {
+      "arete": "62",
+      "lote": "7",
+      "action": "created",
+      "detail": "348 kg @ ₡1310"
+    },
+    {
+      "arete": "5776",
+      "lote": "7",
+      "action": "created",
+      "detail": "339 kg @ ₡1430"
+    },
+    {
+      "arete": "17",
+      "lote": "7",
+      "action": "created",
+      "detail": "346 kg @ ₡1430"
+    },
+    {
+      "arete": "18",
+      "lote": "7",
+      "action": "created",
+      "detail": "291 kg @ ₡1290"
+    },
+    {
+      "arete": "15",
+      "lote": "7",
+      "action": "updated",
+      "detail": "dup en dataset → rellenó: observaciones"
+    },
+    {
+      "arete": "16",
+      "lote": "7",
+      "action": "created",
+      "detail": "289 kg @ ₡1400"
+    },
+    {
+      "arete": "19",
+      "lote": "7",
+      "action": "created",
+      "detail": "424 kg @ ₡1410"
+    },
+    {
+      "arete": "20",
+      "lote": "7",
+      "action": "created",
+      "detail": "311 kg @ ₡1360"
+    },
+    {
+      "arete": "23",
+      "lote": "7",
+      "action": "created",
+      "detail": "285 kg @ ₡1380"
+    },
+    {
+      "arete": "24",
+      "lote": "7",
+      "action": "created",
+      "detail": "304 kg @ ₡1250"
+    },
+    {
+      "arete": "22",
+      "lote": "7",
+      "action": "created",
+      "detail": "366 kg @ ₡1380"
+    },
+    {
+      "arete": "5712",
+      "lote": "7",
+      "action": "created",
+      "detail": "311 kg @ ₡1360"
+    },
+    {
+      "arete": "5711",
+      "lote": "7",
+      "action": "created",
+      "detail": "357 kg @ ₡1350"
+    },
+    {
+      "arete": "5710",
+      "lote": "8",
+      "action": "created",
+      "detail": "328 kg @ ₡1270"
+    },
+    {
+      "arete": "5708",
+      "lote": "8",
+      "action": "created",
+      "detail": "292 kg @ ₡1240"
+    },
+    {
+      "arete": "5709",
+      "lote": "8",
+      "action": "created",
+      "detail": "313 kg @ ₡1350"
+    },
+    {
+      "arete": "91",
+      "lote": "8",
+      "action": "created",
+      "detail": "390 kg @ ₡1140"
+    },
+    {
+      "arete": "25",
+      "lote": "8",
+      "action": "created",
+      "detail": "439 kg @ ₡1400"
+    },
+    {
+      "arete": "773",
+      "lote": "8",
+      "action": "created",
+      "detail": "488 kg @ ₡1420"
+    },
+    {
+      "arete": "766",
+      "lote": "8",
+      "action": "created",
+      "detail": "386 kg @ ₡1400"
+    },
+    {
+      "arete": "7178",
+      "lote": "8",
+      "action": "created",
+      "detail": "425 kg @ ₡1400"
+    },
+    {
+      "arete": "28TT",
+      "lote": "8",
+      "action": "created",
+      "detail": "309 kg @ ₡1450"
+    },
+    {
+      "arete": "27TT",
+      "lote": "8",
+      "action": "created",
+      "detail": "302 kg @ ₡1310"
+    },
+    {
+      "arete": "33TT",
+      "lote": "8",
+      "action": "created",
+      "detail": "324 kg @ ₡1390"
+    },
+    {
+      "arete": "26TT",
+      "lote": "8",
+      "action": "created",
+      "detail": "303 kg @ ₡1200"
+    },
+    {
+      "arete": "30TT",
+      "lote": "8",
+      "action": "created",
+      "detail": "365 kg @ ₡1340"
+    },
+    {
+      "arete": "29TT",
+      "lote": "8",
+      "action": "created",
+      "detail": "346 kg @ ₡1380"
+    },
+    {
+      "arete": "744TT",
+      "lote": "8",
+      "action": "created",
+      "detail": "322 kg @ ₡1280"
+    },
+    {
+      "arete": "31N",
+      "lote": "8",
+      "action": "created",
+      "detail": "442 kg @ ₡1400"
+    },
+    {
+      "arete": "132T",
+      "lote": "8",
+      "action": "created",
+      "detail": "527 kg @ ₡1450"
+    }
+  ]
+}

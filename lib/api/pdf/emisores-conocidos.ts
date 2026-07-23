@@ -193,8 +193,13 @@ export function overrideForFileName(fileName: string): FileOverride | null {
     };
   }
 
-  // Comprobantes ilegibles de recepción / basura
-  if (n.startsWith("COMPROBANTE639") || n.includes("DOC-RECEPCION")) {
+  // Mensajes de aceptación (MensajeReceptor): confirman una factura de proveedor
+  // que YA se contabiliza por su propia factura → ignorar para no duplicar montos.
+  if (n.includes("DOC-RECEPCION")) {
+    return { clasificacion: "ignorar" };
+  }
+  // Comprobantes ilegibles / basura
+  if (n.startsWith("COMPROBANTE639")) {
     return { clasificacion: "gasto", categoria: "OTRO" };
   }
 

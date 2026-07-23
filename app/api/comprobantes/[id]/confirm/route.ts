@@ -16,6 +16,7 @@ type ConfirmBody = {
   categoryCode?: string | null;
   description?: string | null;
   totalWeightKg?: number | null;
+  buyer?: string | null;
 };
 
 export async function POST(
@@ -32,8 +33,12 @@ export async function POST(
     );
     const body = (await req.json()) as ConfirmBody;
 
-    if (body.classification !== "gasto" && body.classification !== "compra_ganado") {
-      return jsonError("classification debe ser 'gasto' o 'compra_ganado'.");
+    if (
+      body.classification !== "gasto" &&
+      body.classification !== "compra_ganado" &&
+      body.classification !== "venta"
+    ) {
+      return jsonError("classification debe ser 'gasto', 'compra_ganado' o 'venta'.");
     }
 
     const result = await confirmComprobante(admin, granjaId, id, {
@@ -45,6 +50,7 @@ export async function POST(
       categoryCode: body.categoryCode,
       description: body.description,
       totalWeightKg: body.totalWeightKg,
+      buyer: body.buyer,
     });
 
     if (!result.ok) return jsonError(result.message, result.status);
