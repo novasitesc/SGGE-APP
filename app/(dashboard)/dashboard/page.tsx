@@ -18,8 +18,14 @@ const alertTypeConfig = {
 };
 
 export default function DashboardPage() {
-  const { data: dashboard, loading: loadingDash } = useApiQuery(fetchDashboard);
-  const { data: weightHistory, loading: loadingWeight } = useApiQuery(fetchWeightHistory);
+  const { data: dashboard, loading: loadingDash } = useApiQuery(
+    "dashboard",
+    fetchDashboard
+  );
+  const { data: weightHistory, loading: loadingWeight } = useApiQuery(
+    "weights:history",
+    fetchWeightHistory
+  );
 
   const kpi = dashboard?.kpiSummary;
   const recentAnimals = dashboard?.recentAnimals ?? [];

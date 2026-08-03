@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useState } from "react";
 import type { Module } from "@/lib/types/domain";
 import {
   createModule,
@@ -8,31 +8,21 @@ import {
   fetchModules,
   updateModuleApi,
 } from "@/lib/api/data-client";
+import { invalidateApiCacheMany } from "@/lib/hooks/api-cache";
+import { useApiQuery } from "@/lib/hooks/useApiQuery";
+
+function invalidateModuleRelated() {
+  invalidateApiCacheMany(["modules", "dashboard", "animals"]);
+}
 
 export function useModules() {
-  const [modules, setModules] = useState<Module[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const { data, loading, error, reload } = useApiQuery("modules", fetchModules);
+  const modules = (data ?? []) as Module[];
+
   const [mutating, setMutating] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
 
-  const reload = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      setModules(await fetchModules());
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Error al cargar módulos");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    void reload();
-  }, [reload]);
-
-  const addModule = async (data: {
+  const addModule = async (payload: {
     name: string;
     type?: string;
     capacity: number;
@@ -40,7 +30,8 @@ export function useModules() {
     setMutating(true);
     setActionError(null);
     try {
-      const created = await createModule(data);
+      const created = await createModule(payload);
+      invalidateModuleRelated();
       await reload();
       return created;
     } catch (e) {
@@ -54,14 +45,15 @@ export function useModules() {
 
   const updateModule = async (
     id: string,
-    data: Parameters<typeof updateModuleApi>[1]
+    payload: Parameters<typeof updateModuleApi>[1]
   ) => {
     const mod = modules.find((m) => m.id === id);
     if (!mod?.uuid) throw new Error("Módulo no encontrado");
     setMutating(true);
     setActionError(null);
     try {
-      const updated = await updateModuleApi(mod.uuid, data);
+      const updated = await updateModuleApi(mod.uuid, payload);
+      invalidateModuleRelated();
       await reload();
       return updated;
     } catch (e) {
@@ -80,6 +72,7 @@ export function useModules() {
     setActionError(null);
     try {
       await deleteModuleApi(mod.uuid);
+      invalidateModuleRelated();
       await reload();
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Error al eliminar módulo";

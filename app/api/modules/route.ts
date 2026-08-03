@@ -11,6 +11,7 @@ import {
   snapshotCorral,
 } from "@/lib/api/historial-sistema";
 import { MODULE_TYPE_OPTIONS } from "@/lib/modulos/constants";
+import { validTipoCorralCodigos } from "@/lib/api/tipos-corral-helpers";
 
 export const dynamic = "force-dynamic";
 export async function GET(req: Request) {
@@ -73,10 +74,6 @@ export async function GET(req: Request) {
   }
 }
 
-const VALID_TYPES = new Set(
-  MODULE_TYPE_OPTIONS.map((o) => o.value as string)
-);
-
 type PostBody = {
   name?: string;
   type?: string;
@@ -97,7 +94,12 @@ export async function POST(req: Request) {
     }
 
     const tipo = (body.type ?? "engorda").trim();
-    if (!VALID_TYPES.has(tipo)) {
+    const validTypes = await validTipoCorralCodigos(admin);
+    // Fallback estático si el catálogo DB no tiene filas activas.
+    if (validTypes.size === 0) {
+      for (const o of MODULE_TYPE_OPTIONS) validTypes.add(o.value);
+    }
+    if (!validTypes.has(tipo)) {
       return jsonError(`Tipo de módulo inválido: ${tipo}.`);
     }
 

@@ -81,7 +81,9 @@ export default function CostsPage() {
     [periodRange]
   );
 
+  const costsKey = `costs:${fetchRange.from ?? "all"}:${fetchRange.to ?? "all"}`;
   const { data: costs, loading, error } = useApiQuery(
+    costsKey,
     () => fetchCosts({ from: fetchRange.from, to: fetchRange.to }),
     [fetchRange.from, fetchRange.to]
   );

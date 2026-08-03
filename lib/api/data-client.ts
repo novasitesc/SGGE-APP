@@ -76,6 +76,49 @@ export async function fetchSales(): Promise<Sale[]> {
   return parseJson<Sale[]>(res);
 }
 
+export async function createSale(data: {
+  animalId?: string;
+  tagId?: string;
+  finalWeight: number;
+  pricePerKg: number;
+  saleDate: string;
+  buyer: string;
+}): Promise<Sale> {
+  const res = await fetch("/api/sales", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  return parseJson<Sale>(res);
+}
+
+export async function updateSaleApi(
+  id: string,
+  data: Partial<{
+    finalWeight: number;
+    pricePerKg: number;
+    saleDate: string;
+    buyer: string;
+  }>
+): Promise<Sale> {
+  const res = await fetch(`/api/sales/${id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  return parseJson<Sale>(res);
+}
+
+export async function deleteSaleApi(id: string): Promise<void> {
+  const res = await fetch(`/api/sales/${id}`, { method: "DELETE" });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(
+      (body as { error?: string }).error ?? "Error al eliminar venta"
+    );
+  }
+}
+
 export async function fetchModules(): Promise<Module[]> {
   const res = await fetch("/api/modules", { cache: "no-store" });
   const list = await parseJson<
@@ -572,6 +615,184 @@ export async function updateRazaApi(
     body: JSON.stringify(data),
   });
   return parseJson<RazaAdmin>(res);
+}
+
+// ─── Catálogos de administración ───────────────────────────────────────────
+
+export type CategoriaAnimalAdmin = {
+  id: string;
+  codigo: string;
+  nombre: string;
+  peso_min_kg: number | null;
+  peso_max_kg: number | null;
+  activa: boolean;
+};
+
+export async function fetchCategoriasAnimalesAdmin(): Promise<
+  CategoriaAnimalAdmin[]
+> {
+  const res = await fetch("/api/categorias-animales", { cache: "no-store" });
+  return parseJson<CategoriaAnimalAdmin[]>(res);
+}
+
+export async function createCategoriaAnimal(data: {
+  nombre: string;
+  codigo?: string;
+  peso_min_kg?: number | null;
+  peso_max_kg?: number | null;
+}): Promise<CategoriaAnimalAdmin> {
+  const res = await fetch("/api/categorias-animales", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  return parseJson<CategoriaAnimalAdmin>(res);
+}
+
+export async function updateCategoriaAnimalApi(
+  id: string,
+  data: Partial<{
+    nombre: string;
+    codigo: string;
+    peso_min_kg: number | null;
+    peso_max_kg: number | null;
+    activa: boolean;
+  }>
+): Promise<CategoriaAnimalAdmin> {
+  const res = await fetch(`/api/categorias-animales/${id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  return parseJson<CategoriaAnimalAdmin>(res);
+}
+
+export type EstadoAnimalAdmin = {
+  id: string;
+  codigo: string;
+  nombre: string;
+  activo: boolean;
+};
+
+export async function fetchEstadosAnimalesAdmin(): Promise<EstadoAnimalAdmin[]> {
+  const res = await fetch("/api/estados-animales", { cache: "no-store" });
+  return parseJson<EstadoAnimalAdmin[]>(res);
+}
+
+export async function createEstadoAnimal(data: {
+  nombre: string;
+  codigo?: string;
+}): Promise<EstadoAnimalAdmin> {
+  const res = await fetch("/api/estados-animales", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  return parseJson<EstadoAnimalAdmin>(res);
+}
+
+export async function updateEstadoAnimalApi(
+  id: string,
+  data: Partial<{ nombre: string; codigo: string; activo: boolean }>
+): Promise<EstadoAnimalAdmin> {
+  const res = await fetch(`/api/estados-animales/${id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  return parseJson<EstadoAnimalAdmin>(res);
+}
+
+export type TipoCorralAdmin = {
+  id: string;
+  codigo: string;
+  nombre: string;
+  prefijo: string;
+  activo: boolean;
+};
+
+export async function fetchTiposCorralAdmin(): Promise<{
+  items: TipoCorralAdmin[];
+  fromDb: boolean;
+}> {
+  const res = await fetch("/api/tipos-corral", { cache: "no-store" });
+  return parseJson<{ items: TipoCorralAdmin[]; fromDb: boolean }>(res);
+}
+
+export async function createTipoCorral(data: {
+  nombre: string;
+  codigo?: string;
+  prefijo?: string;
+}): Promise<TipoCorralAdmin> {
+  const res = await fetch("/api/tipos-corral", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  return parseJson<TipoCorralAdmin>(res);
+}
+
+export async function updateTipoCorralApi(
+  id: string,
+  data: Partial<{
+    nombre: string;
+    codigo: string;
+    prefijo: string;
+    activo: boolean;
+  }>
+): Promise<TipoCorralAdmin> {
+  const res = await fetch(`/api/tipos-corral/${id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  return parseJson<TipoCorralAdmin>(res);
+}
+
+export type LoteAdmin = {
+  id: string;
+  codigo: string;
+  nombre: string;
+  estado: string;
+  fecha_apertura: string | null;
+  fecha_cierre: string | null;
+};
+
+export async function fetchLotesAdmin(): Promise<LoteAdmin[]> {
+  const res = await fetch("/api/lotes", { cache: "no-store" });
+  return parseJson<LoteAdmin[]>(res);
+}
+
+export async function createLote(data: {
+  nombre?: string;
+  codigo?: string;
+  estado?: string;
+  fecha_apertura?: string;
+}): Promise<LoteAdmin> {
+  const res = await fetch("/api/lotes", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  return parseJson<LoteAdmin>(res);
+}
+
+export async function updateLoteApi(
+  id: string,
+  data: Partial<{
+    nombre: string;
+    codigo: string;
+    estado: string;
+    fecha_apertura: string;
+    fecha_cierre: string | null;
+  }>
+): Promise<LoteAdmin> {
+  const res = await fetch(`/api/lotes/${id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  return parseJson<LoteAdmin>(res);
 }
 
 /** Agrupa ventas por mes para gráficos. */

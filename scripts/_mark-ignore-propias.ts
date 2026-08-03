@@ -1,5 +1,9 @@
 /**
- * Marca facturas propias de la granja (3101029993) como ignorar.
+ * Marca facturas propias de la granja (3101029993) como VENTA pendiente
+ * (listas para confirmar en Comprobantes / restore-ventas-propias).
+ *
+ * Antes: las marcaba como ignorar. Ya no — son ingresos.
+ *
  *   npx tsx scripts/_mark-ignore-propias.ts
  */
 import { readFileSync, existsSync } from "node:fs";
@@ -23,6 +27,7 @@ loadEnv(join(appRoot, ".env.local"));
 import { createSupabaseAdmin } from "@/lib/supabase/admin";
 import { resolveGranjaId } from "@/lib/api/granja";
 import { CEDULA_GRANJA } from "@/lib/api/pdf/emisores-conocidos";
+import { findClaveCR, parseClaveCR } from "@/lib/api/pdf/clave-cr";
 
 async function main() {
   const admin = createSupabaseAdmin();
@@ -30,7 +35,7 @@ async function main() {
 
   const { data: rows, error } = await admin
     .from("comprobantes")
-    .select("id, archivo_nombre, estado, clasificacion, emisor_identificacion")
+    .select("id, archivo_nombre, estado, clasificacion, emisor_identificacion, fecha_emision")
     .eq("granja_id", granjaId)
     .eq("estado", "pendiente")
     .is("deleted_at", null);
@@ -42,17 +47,23 @@ async function main() {
       r.archivo_nombre.includes(CEDULA_GRANJA) ||
       r.archivo_nombre.includes("003101029993");
     if (!isOwn) continue;
+
+    const clave = findClaveCR(r.archivo_nombre);
+    const info = clave ? parseClaveCR(clave) : null;
+
     const { error: e2 } = await admin
       .from("comprobantes")
       .update({
-        estado: "confirmado",
-        clasificacion: "ignorar",
+        estado: "pendiente",
+        clasificacion: "venta",
         emisor_nombre: "HERMANOS HERRERA PARRALES S.A.",
         emisor_identificacion: CEDULA_GRANJA,
+        fecha_emision: r.fecha_emision ?? info?.fechaEmision ?? null,
+        confianza: 96,
       })
       .eq("id", r.id);
     if (e2) console.log("✗", r.archivo_nombre.slice(0, 50), e2.message);
-    else console.log("⊘", r.archivo_nombre.slice(0, 50));
+    else console.log("↗ venta pendiente", r.archivo_nombre.slice(0, 50));
   }
 }
 

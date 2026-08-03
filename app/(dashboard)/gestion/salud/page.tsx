@@ -16,6 +16,7 @@ import {
   updateHealthAlertApi,
   updateTreatmentApi,
 } from "@/lib/api/data-client";
+import { invalidateApiCacheMany } from "@/lib/hooks/api-cache";
 import { useApiQuery } from "@/lib/hooks/useApiQuery";
 import type { HealthAlert, Treatment } from "@/lib/types/domain";
 import { Badge } from "@/components/ui/badge";
@@ -74,11 +75,16 @@ const priorityVariant = {
 
 export default function GestionSaludPage() {
   const { data: treatments, reload: reloadTreatments, loading: loadingT } =
-    useApiQuery(fetchTreatments);
+    useApiQuery("treatments", fetchTreatments);
   const { data: healthAlerts, reload: reloadAlerts, loading: loadingA } =
-    useApiQuery(fetchHealthAlerts);
+    useApiQuery("health-alerts", fetchHealthAlerts);
   const { data: medicamentos, reload: reloadMeds, loading: loadingM } =
-    useApiQuery(fetchMedicamentos);
+    useApiQuery("medicamentos", fetchMedicamentos);
+
+  const refreshSalud = async () => {
+    invalidateApiCacheMany(["treatments", "health-alerts", "medicamentos", "dashboard"]);
+    await Promise.all([reloadTreatments(), reloadAlerts(), reloadMeds()]);
+  };
 
   const list = treatments ?? [];
   const alerts = healthAlerts ?? [];
@@ -601,6 +607,7 @@ export default function GestionSaludPage() {
           } else {
             await createTreatmentApi(payload);
           }
+          invalidateApiCacheMany(["treatments", "health-alerts", "dashboard"]);
           await reloadTreatments();
           await reloadAlerts();
         }}
@@ -616,6 +623,7 @@ export default function GestionSaludPage() {
           } else {
             await createHealthAlertApi(payload);
           }
+          invalidateApiCacheMany(["health-alerts", "dashboard"]);
           await reloadAlerts();
         }}
       />
@@ -624,8 +632,7 @@ export default function GestionSaludPage() {
         open={pdfOpen}
         onOpenChange={setPdfOpen}
         onSuccess={() => {
-          void reloadTreatments();
-          void reloadAlerts();
+          void refreshSalud();
         }}
       />
 
@@ -657,6 +664,7 @@ export default function GestionSaludPage() {
                 if (!tDeleteId) return;
                 await deleteTreatmentApi(tDeleteId);
                 setTDeleteId(null);
+                invalidateApiCacheMany(["treatments", "dashboard"]);
                 await reloadTreatments();
               }}
               className="px-4 py-2 rounded-xl bg-rose-600 text-white text-sm font-medium"

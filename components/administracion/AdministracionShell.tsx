@@ -18,31 +18,23 @@ import {
   type AdminSectionId,
 } from "@/components/administracion/nav";
 import { RazasAdminPanel } from "@/components/administracion/RazasAdminPanel";
-
-function ComingSoon({ label }: { label: string }) {
-  return (
-    <div className="rounded-2xl border border-dashed bg-muted/30 px-6 py-16 text-center">
-      <p className="text-sm font-medium text-foreground">{label}</p>
-      <p className="text-xs text-muted-foreground mt-2 max-w-sm mx-auto">
-        Esta opción estará disponible pronto. El menú ya está preparado para
-        incorporar más catálogos de administración.
-      </p>
-    </div>
-  );
-}
+import { CategoriasAdminPanel } from "@/components/administracion/CategoriasAdminPanel";
+import { EstadosAdminPanel } from "@/components/administracion/EstadosAdminPanel";
+import { TiposCorralAdminPanel } from "@/components/administracion/TiposCorralAdminPanel";
+import { LotesAdminPanel } from "@/components/administracion/LotesAdminPanel";
 
 function SectionContent({ sectionId }: { sectionId: AdminSectionId }) {
   switch (sectionId) {
     case "razas":
       return <RazasAdminPanel />;
     case "categorias":
-      return <ComingSoon label="Categorías de animales" />;
+      return <CategoriasAdminPanel />;
     case "estados":
-      return <ComingSoon label="Estados de animal" />;
+      return <EstadosAdminPanel />;
     case "corrales":
-      return <ComingSoon label="Tipos de corral" />;
+      return <TiposCorralAdminPanel />;
     case "lotes":
-      return <ComingSoon label="Lotes" />;
+      return <LotesAdminPanel />;
     default:
       return <RazasAdminPanel />;
   }

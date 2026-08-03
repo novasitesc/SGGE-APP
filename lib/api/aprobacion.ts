@@ -9,7 +9,8 @@ export type AprobadorVerificado = {
   rolCodigo: string;
 };
 
-const ROLES_APROBADORES = ["gerente", "admin"] as const;
+/** Solo admin autoriza. Gerencia solicita; no aprueba. */
+const ROLES_APROBADORES = ["admin"] as const;
 
 export function nombreCompleto(ap: AprobadorVerificado): string {
   return [ap.nombre, ap.apellido].filter(Boolean).join(" ") || ap.email;
@@ -68,7 +69,7 @@ async function verificarAprobadorDirecto(
   if (!user || !user.activo) {
     return {
       ok: false,
-      message: "Credenciales inválidas o el usuario no tiene rol de gerente.",
+      message: "Credenciales inválidas o el usuario no tiene rol de administrador.",
     };
   }
 
@@ -79,7 +80,7 @@ async function verificarAprobadorDirecto(
   if (!passwordOk) {
     return {
       ok: false,
-      message: "Credenciales inválidas o el usuario no tiene rol de gerente.",
+      message: "Credenciales inválidas o el usuario no tiene rol de administrador.",
     };
   }
 
@@ -105,7 +106,7 @@ async function verificarAprobadorDirecto(
   if (!rolCodigo) {
     return {
       ok: false,
-      message: "Credenciales inválidas o el usuario no tiene rol de gerente.",
+      message: "Credenciales inválidas o el usuario no tiene rol de administrador.",
     };
   }
 
@@ -132,10 +133,10 @@ export async function verificarAprobadorGerente(
 ): Promise<{ ok: true; aprobador: AprobadorVerificado } | { ok: false; message: string }> {
   const trimmedEmail = email.trim().toLowerCase();
   if (!trimmedEmail) {
-    return { ok: false, message: "El correo del gerente es obligatorio." };
+    return { ok: false, message: "El correo del administrador es obligatorio." };
   }
   if (!password) {
-    return { ok: false, message: "La contraseña del gerente es obligatoria." };
+    return { ok: false, message: "La contraseña del administrador es obligatoria." };
   }
 
   const { data, error } = await admin.rpc("verificar_aprobador", {
@@ -159,7 +160,7 @@ export async function verificarAprobadorGerente(
   if (!ROLES_APROBADORES.includes(rolCodigo as (typeof ROLES_APROBADORES)[number])) {
     return {
       ok: false,
-      message: "Solo un gerente o administrador puede aprobar esta baja.",
+      message: "Solo un administrador puede aprobar esta baja.",
     };
   }
 
@@ -174,7 +175,7 @@ export async function verificarAprobadorGerente(
   return { ok: true, aprobador: mapAprobador(r) };
 }
 
-/** Aprobador a partir de la sesión ya autenticada (roles gerente|admin). */
+/** Aprobador a partir de la sesión ya autenticada (solo rol admin). */
 export function aprobadorDesdeSesion(input: {
   usuarioId: string;
   nombre: string;
@@ -188,7 +189,7 @@ export function aprobadorDesdeSesion(input: {
   if (!rolCodigo) {
     return {
       ok: false,
-      message: "Solo un gerente o administrador puede aprobar esta baja.",
+      message: "Solo un administrador puede autorizar esta acción.",
     };
   }
   return {

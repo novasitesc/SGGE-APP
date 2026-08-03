@@ -385,7 +385,7 @@ export async function DELETE(
   const { id } = await ctx.params;
   if (!isUuid(id)) return jsonError("id de animal inválido.");
   return jsonError(
-    "La baja requiere solicitud con justificación. Use POST /api/animals/{id}/solicitud-baja y la aprobación del gerente en Mensajería.",
+    "La baja requiere solicitud con justificación. Use POST /api/animals/{id}/solicitud-baja y la autorización del administrador en Mensajería.",
     405
   );
 }

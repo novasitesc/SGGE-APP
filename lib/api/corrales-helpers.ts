@@ -34,7 +34,16 @@ export async function nextCodigoForTipo(
     return data.trim().toUpperCase();
   }
 
-  // Fallback si la migración aún no está aplicada.
+  let prefixOverride: string | undefined;
+  const { data: tipoRow } = await admin
+    .from("tipos_corral")
+    .select("prefijo")
+    .eq("codigo", tipo)
+    .is("deleted_at", null)
+    .maybeSingle();
+  if (tipoRow?.prefijo) prefixOverride = String(tipoRow.prefijo);
+
+  // Fallback si la migración/RPC aún no está aplicada.
   let q = admin
     .from("corrales")
     .select("id, codigo")
@@ -46,7 +55,7 @@ export async function nextCodigoForTipo(
   if (e2) throw new Error(error?.message ?? e2.message);
 
   const codigos = (rows ?? []).map((row) => String(row.codigo ?? ""));
-  return nextCodigoFromList(tipo, codigos);
+  return nextCodigoFromList(tipo, codigos, prefixOverride);
 }
 
 export async function getCorralIdByCodigo(

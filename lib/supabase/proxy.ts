@@ -8,7 +8,7 @@ import { NextResponse, type NextRequest } from "next/server";
 export const SGGE_ROUTE_SECTIONS = {
   /** Rutas de autenticación (públicas) */
   auth: ["/login", "/auth"] as const,
-  /** App operativa bajo (dashboard) */
+  /** App operativa bajo (dashboard) — incluye gestión de gerencia */
   app: [
     "/dashboard",
     "/animals",
@@ -18,10 +18,13 @@ export const SGGE_ROUTE_SECTIONS = {
     "/health",
     "/sales",
     "/reports",
-    "/administracion",
+    "/gestion",
   ] as const,
-  /** Administración / gestión */
-  admin: ["/gestion"] as const,
+  /**
+   * Administración (máxima autoridad): catálogos y autorizaciones.
+   * El control fino por rol `admin` se aplica en API + UI.
+   */
+  admin: ["/administracion"] as const,
   /** API Route Handlers */
   api: ["/api"] as const,
 } as const;

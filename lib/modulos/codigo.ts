@@ -35,12 +35,14 @@ export function parseCodigoSequence(
 /**
  * Menor código libre para el tipo (rellena huecos).
  * Solo debe recibir códigos de corrales activos.
+ * `prefixOverride` permite usar el prefijo del catálogo tipos_corral.
  */
 export function nextCodigoFromList(
   type: string,
-  existingCodigos: string[]
+  existingCodigos: string[],
+  prefixOverride?: string
 ): string {
-  const prefix = prefixForModuleType(type);
+  const prefix = (prefixOverride ?? prefixForModuleType(type)).toUpperCase();
   const used = new Set<number>();
   for (const codigo of existingCodigos) {
     const n = parseCodigoSequence(codigo, prefix);

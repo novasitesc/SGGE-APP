@@ -2,7 +2,8 @@
  * Ingresa TODOS los comprobantes pendientes a sus secciones:
  *  - gasto → tabla `gastos` (Costos / estadísticas)
  *  - compra_ganado → compra + detalle + animal(es)
- *  - ignorar → marca confirmado sin egreso (facturas propias)
+ *  - venta → tabla `ventas` + factura ingreso (facturas propias de la granja)
+ *  - ignorar → marca confirmado sin egreso (aceptaciones duplicadas, etc.)
  *
  * Usa clave fiscal del nombre, catálogo de emisores y overrides conocidos.
  *
@@ -60,6 +61,7 @@ async function main() {
 
   let okGasto = 0;
   let okCompra = 0;
+  let okVenta = 0;
   let okIgnorar = 0;
   let skip = 0;
   let fail = 0;
@@ -94,9 +96,12 @@ async function main() {
       ov?.fecha ?? row.fecha_emision ?? claveInfo?.fechaEmision ?? null;
     let pesoKg = ov?.pesoKg ?? null;
     const tipoAdq = ov?.tipoAdquisicion ?? "particular";
+    const buyer = ov?.buyer ?? null;
 
     // Re-clasificar con emisor conocido / propia granja
-    if (emisorId === CEDULA_GRANJA || known?.tipo === "ignorar") {
+    if (emisorId === CEDULA_GRANJA || known?.tipo === "venta") {
+      clasificacion = "venta";
+    } else if (known?.tipo === "ignorar") {
       clasificacion = "ignorar";
     } else if (known?.tipo === "compra_ganado") {
       clasificacion = "compra_ganado";
@@ -110,7 +115,11 @@ async function main() {
     }
 
     // Refinar con classify si tenemos datos mínimos
-    if (clasificacion === "pendiente" || clasificacion === "gasto") {
+    if (
+      clasificacion === "pendiente" ||
+      clasificacion === "gasto" ||
+      clasificacion === "venta"
+    ) {
       const cls = classifyComprobante({
         clave: clave ?? null,
         folioFiscal: row.folio_fiscal ?? claveInfo?.consecutivo ?? null,
@@ -122,9 +131,10 @@ async function main() {
         montoTotal: monto,
         texto: `${name} ${emisorNombre}`,
       });
-      if (cls.clasificacion === "ignorar") clasificacion = "ignorar";
+      if (cls.clasificacion === "venta") clasificacion = "venta";
+      else if (cls.clasificacion === "ignorar") clasificacion = "ignorar";
       else if (cls.clasificacion === "compra_ganado") clasificacion = "compra_ganado";
-      else if (cls.clasificacion === "gasto") {
+      else if (cls.clasificacion === "gasto" && clasificacion !== "venta") {
         clasificacion = "gasto";
         categoria = cls.categoriaSugerida ?? categoria;
       }
@@ -217,20 +227,64 @@ async function main() {
       continue;
     }
 
+    if (clasificacion === "venta") {
+      const res = await confirmComprobante(admin, granjaId, row.id, {
+        classification: "venta",
+        issuer: emisorNombre,
+        issuerId: emisorId,
+        issueDate: fecha,
+        amount: monto,
+        buyer,
+        totalWeightKg: pesoKg,
+        description: ov?.descripcion ?? `Venta — ${name.slice(0, 60)}`,
+      });
+      if (res.ok) {
+        okVenta += 1;
+        console.log(`✓ venta ₡${monto.toLocaleString("es-CR")}  ${name.slice(0, 45)}`);
+      } else {
+        fail += 1;
+        console.log(`✗ venta ${name.slice(0, 40)}: ${res.message}`);
+      }
+      continue;
+    }
+
     skip += 1;
     console.log(`· skip [${clasificacion}] ${name.slice(0, 50)}`);
   }
 
-  const [{ count: nGastos }, { count: nAnim }, { count: nPend }] = await Promise.all([
-    admin.from("gastos").select("id", { count: "exact", head: true }).eq("granja_id", granjaId).is("deleted_at", null),
-    admin.from("animales").select("id", { count: "exact", head: true }).eq("granja_id", granjaId).is("deleted_at", null),
-    admin.from("comprobantes").select("id", { count: "exact", head: true }).eq("granja_id", granjaId).eq("estado", "pendiente").is("deleted_at", null),
-  ]);
+  const [{ count: nGastos }, { count: nAnim }, { count: nPend }, { count: nVentas }] =
+    await Promise.all([
+      admin
+        .from("gastos")
+        .select("id", { count: "exact", head: true })
+        .eq("granja_id", granjaId)
+        .is("deleted_at", null),
+      admin
+        .from("animales")
+        .select("id", { count: "exact", head: true })
+        .eq("granja_id", granjaId)
+        .is("deleted_at", null),
+      admin
+        .from("comprobantes")
+        .select("id", { count: "exact", head: true })
+        .eq("granja_id", granjaId)
+        .eq("estado", "pendiente")
+        .is("deleted_at", null),
+      admin
+        .from("ventas")
+        .select("id", { count: "exact", head: true })
+        .eq("granja_id", granjaId)
+        .is("deleted_at", null),
+    ]);
 
   console.log("\n" + "─".repeat(55));
-  console.log(`Confirmados gasto: ${okGasto} | compra: ${okCompra} | ignorar: ${okIgnorar}`);
+  console.log(
+    `Confirmados gasto: ${okGasto} | compra: ${okCompra} | venta: ${okVenta} | ignorar: ${okIgnorar}`
+  );
   console.log(`Omitidos (sin monto): ${skip} | fallidos: ${fail}`);
-  console.log(`BD ahora → gastos: ${nGastos} | animales: ${nAnim} | comprobantes pendientes: ${nPend}`);
+  console.log(
+    `BD ahora → gastos: ${nGastos} | animales: ${nAnim} | ventas: ${nVentas} | comprobantes pendientes: ${nPend}`
+  );
 }
 
 main().catch((e) => {

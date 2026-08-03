@@ -12,12 +12,9 @@ import {
   snapshotCorral,
 } from "@/lib/api/historial-sistema";
 import { MODULE_TYPE_OPTIONS } from "@/lib/modulos/constants";
+import { validTipoCorralCodigos } from "@/lib/api/tipos-corral-helpers";
 
 export const dynamic = "force-dynamic";
-
-const VALID_TYPES = new Set(
-  MODULE_TYPE_OPTIONS.map((o) => o.value as string)
-);
 
 type PatchBody = Partial<{
   name: string;
@@ -55,7 +52,11 @@ export async function PATCH(
 
     if (body.type != null) {
       const tipo = body.type.trim();
-      if (!VALID_TYPES.has(tipo)) {
+      const validTypes = await validTipoCorralCodigos(admin);
+      if (validTypes.size === 0) {
+        for (const o of MODULE_TYPE_OPTIONS) validTypes.add(o.value);
+      }
+      if (!validTypes.has(tipo)) {
         return jsonError(`Tipo de módulo inválido: ${tipo}.`);
       }
       patch.tipo = tipo;

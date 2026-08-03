@@ -27,6 +27,7 @@ import {
   type FeedingPeriodDays,
   type FeedPurchaseHistoryItem,
 } from "@/lib/api/data-client";
+import { invalidateApiCacheMany } from "@/lib/hooks/api-cache";
 import { useApiQuery } from "@/lib/hooks/useApiQuery";
 import { formatCurrency, formatCurrencyCompact } from "@/lib/utils";
 import { Select } from "@/components/ui/select";
@@ -89,10 +90,18 @@ export default function FeedingPageClient() {
   const [qtySaving, setQtySaving] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
 
+  const feedingKey =
+    periodFilter === "all" ? "feeding:all" : `feeding:${periodFilter}`;
   const { data: feeding, loading, error, reload } = useApiQuery(
+    feedingKey,
     () => fetchFeeding(periodFilter),
     [periodFilter]
   );
+
+  const reloadFeeding = async () => {
+    invalidateApiCacheMany(["feeding", "dashboard"]);
+    await reload();
+  };
 
   // Sync URL
   useEffect(() => {
@@ -281,7 +290,7 @@ export default function FeedingPageClient() {
         cantidad: q,
       });
       setQtyEditId(null);
-      await reload();
+      await reloadFeeding();
     } catch (e) {
       setActionError(e instanceof Error ? e.message : "Error al guardar kg");
     } finally {
@@ -438,7 +447,7 @@ export default function FeedingPageClient() {
         lotes={lotes}
         lastDelivery={lastDelivery}
         duplicateLines={duplicateLines}
-        onSuccess={() => void reload()}
+        onSuccess={() => void reloadFeeding()}
       />
 
       {(error || actionError) && (
@@ -1305,7 +1314,7 @@ export default function FeedingPageClient() {
                                   void (async () => {
                                     try {
                                       await deleteFeedingDeliveryApi(d.id);
-                                      await reload();
+                                      await reloadFeeding();
                                     } catch (e) {
                                       setActionError(
                                         e instanceof Error

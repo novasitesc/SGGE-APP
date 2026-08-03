@@ -31,6 +31,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { formatCurrency, formatDate } from "@/lib/utils";
+import { CEDULA_GRANJA } from "@/lib/api/pdf/emisores-conocidos";
 import {
   ChevronLeft,
   FileText,
@@ -147,10 +148,14 @@ export default function ComprobantesPage() {
 
   const openReview = (c: Comprobante) => {
     setReview(c);
+    const isPropia =
+      c.issuerId === CEDULA_GRANJA ||
+      (c.fileName ?? "").includes(CEDULA_GRANJA) ||
+      (c.fileName ?? "").includes("003101029993");
     const cls: ReviewForm["classification"] =
       c.classification === "compra_ganado"
         ? "compra_ganado"
-        : c.classification === "venta"
+        : c.classification === "venta" || isPropia
           ? "venta"
           : "gasto";
     const sug = c.cantidadAlimSugerida;

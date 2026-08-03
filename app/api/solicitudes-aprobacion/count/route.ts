@@ -1,13 +1,16 @@
 
-import { requireApiContext } from "@/lib/api/auth";
+import { requireAdmin, requireApiContext } from "@/lib/api/auth";
 import { jsonError, jsonOk } from "@/lib/api/http";
 
 export const dynamic = "force-dynamic";
 
+/** Contador de pendientes: solo admin (quien autoriza). */
 export async function GET(req: Request) {
   try {
     const auth = await requireApiContext(req);
     if (!auth.ok) return auth.response;
+    const denied = requireAdmin(auth.ctx.roles);
+    if (denied) return jsonOk({ pending: 0 });
     const { admin, granjaId } = auth.ctx;
     const url = new URL(req.url);
 

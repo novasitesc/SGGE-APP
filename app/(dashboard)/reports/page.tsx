@@ -22,11 +22,23 @@ import { formatCurrency, formatCurrencyCompact, formatNumber } from "@/lib/utils
 import { BarChart3, TrendingUp, TrendingDown, Target, Beef, DollarSign } from "lucide-react";
 
 export default function ReportsPage() {
-  const { data: dashboard, loading: loadingDash } = useApiQuery(fetchDashboard);
-  const { data: monthlyFinancials, loading: loadingFin } = useApiQuery(fetchFinancialReports);
-  const { data: animals, loading: loadingAnimals } = useApiQuery(fetchAnimals);
-  const { data: costs, loading: loadingCosts } = useApiQuery(fetchCosts);
-  const { data: feeding, loading: loadingFeed } = useApiQuery(fetchFeeding);
+  const { data: dashboard, loading: loadingDash } = useApiQuery(
+    "dashboard",
+    fetchDashboard
+  );
+  const { data: monthlyFinancials, loading: loadingFin } = useApiQuery(
+    "reports:financial",
+    fetchFinancialReports
+  );
+  const { data: animals, loading: loadingAnimals } = useApiQuery(
+    "animals",
+    fetchAnimals
+  );
+  const { data: costs, loading: loadingCosts } = useApiQuery("costs", fetchCosts);
+  const { data: feeding, loading: loadingFeed } = useApiQuery(
+    "feeding",
+    fetchFeeding
+  );
 
   const kpi = dashboard?.kpiSummary;
   const list = costs ?? [];
