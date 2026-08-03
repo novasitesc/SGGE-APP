@@ -5,8 +5,8 @@
 
 export type EmisorConocido = {
   nombre: string;
-  /** compra_ganado | gasto | ignorar (factura emitida por la propia granja) */
-  tipo: "compra_ganado" | "gasto" | "ignorar";
+  /** compra_ganado | gasto | venta (factura propia) | ignorar (p. ej. aceptación duplicada) */
+  tipo: "compra_ganado" | "gasto" | "venta" | "ignorar";
   categoria?: string; // codigo categorias_gastos
 };
 
@@ -14,10 +14,10 @@ export type EmisorConocido = {
 export const CEDULA_GRANJA = "3101029993";
 
 export const EMISORES_CONOCIDOS: Record<string, EmisorConocido> = {
-  // Propia granja → no es un gasto/compra a terceros
+  // Propia granja → factura de VENTA (ingreso), no gasto ni compra
   [CEDULA_GRANJA]: {
     nombre: "HERMANOS HERRERA PARRALES S.A.",
-    tipo: "ignorar",
+    tipo: "venta",
   },
 
   // Ganado
@@ -44,6 +44,11 @@ export const EMISORES_CONOCIDOS: Record<string, EmisorConocido> = {
   },
 
   // Materiales / ferretería / lubricentro
+  "3101571453": {
+    nombre: "Ferretería Arce Alfaro de Venecia S.A.",
+    tipo: "gasto",
+    categoria: "MANT",
+  },
   "3102864764": {
     nombre: "Materiales E y S Inversiones Esquivel y Sánchez",
     tipo: "gasto",
@@ -119,10 +124,12 @@ export const EMISORES_CONOCIDOS: Record<string, EmisorConocido> = {
 
 /** Overrides puntuales por nombre de archivo (cuando el PDF no entrega monto). */
 export type FileOverride = {
-  clasificacion: "compra_ganado" | "gasto" | "ignorar";
+  clasificacion: "compra_ganado" | "gasto" | "venta" | "ignorar";
   categoria?: string;
   monto?: number;
   pesoKg?: number;
+  /** Comprador / cliente (solo clasificación venta). */
+  buyer?: string;
   emisorNombre?: string;
   emisorId?: string;
   fecha?: string; // YYYY-MM-DD
@@ -132,6 +139,34 @@ export type FileOverride = {
 
 export function overrideForFileName(fileName: string): FileOverride | null {
   const n = fileName.toUpperCase();
+
+  // Facturas de venta propias (facelcr.com — fuente custom; montos leídos del PDF visual)
+  // Folio 361 — 2026-06-08 — 8 toros canal, 2359.30 kg × ₡2925
+  if (n.includes("50608062600310102999300100001010000000361")) {
+    return {
+      clasificacion: "venta",
+      fecha: "2026-06-08",
+      monto: 6969962.03,
+      pesoKg: 2359.3,
+      buyer: "JIMMY FRANCISCO MATIAS JIMENEZ",
+      emisorNombre: "HERMANOS HERRERA PARRALES S.A.",
+      emisorId: CEDULA_GRANJA,
+      descripcion: "GANADO CANAL 8 TOROS — boleta 97744",
+    };
+  }
+  // Folio 363 — 2026-06-30 — 4 toros canal, 1242.1 kg × ₡2925
+  if (n.includes("50630062600310102999300100001010000000363")) {
+    return {
+      clasificacion: "venta",
+      fecha: "2026-06-30",
+      monto: 3669473.93,
+      pesoKg: 1242.1,
+      buyer: "JIMMY FRANCISCO MATIAS JIMENEZ",
+      emisorNombre: "HERMANOS HERRERA PARRALES S.A.",
+      emisorId: CEDULA_GRANJA,
+      descripcion: "GANADO CANAL 4 TOROS — boleta 98628",
+    };
+  }
 
   // Compra particular de ganado (conocidas del lote PDF/)
   if (n.includes("506180626155818519919") || n.includes("JADER")) {
@@ -167,6 +202,8 @@ export function overrideForFileName(fileName: string): FileOverride | null {
       "38547100387650": { monto: 327567.24, fecha: "2026-06-22" },
       "39116109137559": { monto: 386361.36, fecha: "2026-06-29" },
       "40721171239535": { monto: 356386.58, fecha: "2026-07-20" },
+      // 27-07-2026 — 43 sacos maíz 46 kg + flete zona 2
+      "41242128711310": { monto: 356386.58, fecha: "2026-07-27" },
     };
     for (const [suf, v] of Object.entries(avinByClave)) {
       if (n.includes(suf)) {
@@ -187,6 +224,58 @@ export function overrideForFileName(fileName: string): FileOverride | null {
       emisorNombre: "Alimentos de Avicultores Integrados AVIN S.A.",
       emisorId: "3101383363",
       descripcion: "Alimento AVIN",
+    };
+  }
+
+  // Ferretería Arce Alfaro — disco corte Dewalt (27-07-2026)
+  if (n.includes("3101571453") || n.includes("00008010000032208")) {
+    return {
+      clasificacion: "gasto",
+      categoria: "MANT",
+      monto: 7500,
+      fecha: "2026-07-27",
+      emisorNombre: "Ferretería Arce Alfaro de Venecia S.A.",
+      emisorId: "3101571453",
+      descripcion: "DISCO CORTE FINO 7\" DEWALT ×3",
+    };
+  }
+
+  // Super Mercados Unidos — víveres (27-07-2026)
+  if (n.includes("3102007223") && n.includes("00042010000001594")) {
+    return {
+      clasificacion: "gasto",
+      categoria: "OTRO",
+      monto: 6190,
+      fecha: "2026-07-27",
+      emisorNombre: "Corporación Super Mercados Unidos SRL",
+      emisorId: "3102007223",
+      descripcion: "Víveres supermercado (jugo, queso, verduras, arroz)",
+    };
+  }
+
+  // Estación Muelle — diésel 28.49 L (27-07-2026)
+  if (n.includes("3101197187") && n.includes("00001010000799458")) {
+    return {
+      clasificacion: "gasto",
+      categoria: "COMB",
+      monto: 19459,
+      fecha: "2026-07-27",
+      emisorNombre: "Estación de Servicio Muelle",
+      emisorId: "3101197187",
+      descripcion: "Diésel 28.49 L",
+    };
+  }
+
+  // OSO / tilapia filet (27-07-2026) — comida humana, no ración
+  if (n.includes("3101211148") && (n.includes("0000000658") || n.includes("00400015010000000658"))) {
+    return {
+      clasificacion: "gasto",
+      categoria: "OTRO",
+      monto: 2400,
+      fecha: "2026-07-27",
+      emisorNombre: "Inversiones OSO / Tilapia",
+      emisorId: "3101211148",
+      descripcion: "SC / FILET DE TILAPIA ×1",
     };
   }
 

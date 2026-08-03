@@ -13,6 +13,10 @@ import {
   sincronizarSaludDesdeGastoVet,
   type LineaVeterinaria,
 } from "@/lib/api/vet-from-comprobante";
+import {
+  registrarHistorial,
+  snapshotVenta,
+} from "@/lib/api/historial-sistema";
 
 const BUCKET = "comprobantes";
 
@@ -805,6 +809,25 @@ async function confirmarComoVenta(
     await admin.from("ventas").delete().eq("id", venta.id);
     return { ok: false, message: eFact.message, status: 400 };
   }
+
+  await registrarHistorial(admin, {
+    granjaId,
+    modulo: "ventas",
+    registroId: venta.id,
+    referencia: folio.slice(0, 50),
+    accion: "crear",
+    resumen: `Venta desde comprobante ${row.archivo_nombre}: ₡${data.amount} — ${comprador}.`,
+    datosNuevos: snapshotVenta({
+      arete: "—",
+      comprador,
+      pesoKg: pesoTotalKg,
+      precioKg:
+        pesoTotalKg > 0 ? Math.round((data.amount / pesoTotalKg) * 100) / 100 : 0,
+      total: data.amount,
+      fecha: data.issueDate,
+      folio: folio.slice(0, 50),
+    }),
+  });
 
   return finalizeComprobante(admin, row.id, {
     clasificacion: "venta",

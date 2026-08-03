@@ -1,5 +1,5 @@
 
-import { requireApiContext } from "@/lib/api/auth";
+import { requireAdmin, requireApiContext } from "@/lib/api/auth";
 import { jsonError, jsonOk } from "@/lib/api/http";
 import { findRazaByNombre, type RazaRow } from "@/lib/api/razas-helpers";
 
@@ -19,6 +19,11 @@ export async function PATCH(
     const { id } = await ctx.params;
     const auth = await requireApiContext(req);
     if (!auth.ok) return auth.response;
+    const denied = requireAdmin(
+      auth.ctx.roles,
+      "Solo un administrador puede modificar el catálogo de razas."
+    );
+    if (denied) return denied;
     const { admin, granjaId } = auth.ctx;
     const url = new URL(req.url);
     const body = (await req.json()) as PatchBody;

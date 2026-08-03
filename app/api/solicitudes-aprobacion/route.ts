@@ -1,5 +1,5 @@
 
-import { requireApiContext } from "@/lib/api/auth";
+import { requireAdmin, requireApiContext } from "@/lib/api/auth";
 import { jsonError, jsonOk } from "@/lib/api/http";
 import {
   mapSolicitudToApi,
@@ -10,10 +10,16 @@ export const dynamic = "force-dynamic";
 
 const SELECT = "*";
 
+/** Bandeja de autorizaciones: solo admin. */
 export async function GET(req: Request) {
   try {
     const auth = await requireApiContext(req);
     if (!auth.ok) return auth.response;
+    const denied = requireAdmin(
+      auth.ctx.roles,
+      "Solo un administrador puede ver la bandeja de autorizaciones."
+    );
+    if (denied) return denied;
     const { admin, granjaId } = auth.ctx;
     const url = new URL(req.url);
 

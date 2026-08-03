@@ -29,49 +29,62 @@
 
 ## Secciones que sí hacen falta o están incompletas
 
-### 1. Administración de catálogos (explícitamente incompleta)
+### 1. Administración de catálogos — resuelto
 
-En **Administración** solo funciona **Razas**. Marcadas como “próximamente”:
+En **Administración** ya se pueden mantener desde la UI:
 
-- Categorías de animal
+- Razas
+- Categorías de animal (rangos de peso)
 - Estados de animal
-- Tipos de corral
-- Lotes
+- Tipos de corral (requiere migración `20260803120000_tipos_corral.sql` para persistir altas/ediciones)
+- Lotes (abrir / cerrar)
 
-**Impacto:** no se pueden administrar estos catálogos desde la UI; hoy dependen de datos ya cargados en base.
+**Nota:** tipos de corral muestra el catálogo por defecto hasta aplicar la migración.
 
-### 2. Gestión de ventas (UI incompleta)
+### 2. Gestión de ventas — resuelto
 
-En `/gestion/ventas` los botones de **nueva venta / editar / eliminar** **no guardan en la base** (solo cierran el diálogo).
+En `/gestion/ventas` ya funcionan **nueva venta / editar / eliminar** contra la base:
 
-Sí se puede registrar venta al marcar un animal como **vendido** (ficha del animal) y existe API de soporte.
+- Alta: selecciona animal activo/enfermo → marca vendido y crea `ventas` + `detalle_ventas`
+- Edición: peso, ₡/kg, comprador y fecha
+- Eliminación: revierte el animal a activo y ajusta ocupación del corral
 
-**Impacto:** la pantalla de “Gestión de Ventas” no es un CRUD confiable para el cliente final.
+También se puede registrar venta desde la ficha del animal.
 
-### 3. Búsqueda global del encabezado
+### 3. Búsqueda global del encabezado — resuelto
 
-El buscador “Buscar animal, módulo…” del navbar **no está conectado** a ninguna búsqueda real.
+El buscador del navbar consulta `/api/search` (animales por arete y módulos por código/nombre) y navega al detalle.
 
-### 4. Catálogos de administración vs datos reales
+### 4. Catálogos de administración
 
-Aunque categorías/estados/lotes existen en base de datos (la app los usa), **no hay pantallas** para mantenerlos.
+Las pantallas de Administración permiten mantener categorías, estados, tipos de corral y lotes (además de razas).
 
 ### 5. Documentación y onboarding técnico
 
-| Problema | Por qué importa al cliente |
-|----------|----------------------------|
-| README dice “datos mock” | Genera expectativa equivocada del producto |
-| Schema base español no está versionado en el repo | Dificulta reproducir el entorno o auditar la BD |
-| Falta `.env.example` | Más fricción al desplegar o capacitar |
-| Solo el módulo **Salud** sigue la arquitectura modular formal | El resto funciona, pero es más costoso de mantener/escalar |
+| Problema | Estado |
+|----------|--------|
+| README decía “datos mock” | **Resuelto** — README actualizado a Supabase real |
+| Falta `.env.example` | **Resuelto** — plantilla en la raíz del repo |
+| Schema base español no versionado en el repo | **Pendiente** (backlog) — dificulta reproducir/auditar BD |
+| Solo el módulo **Salud** sigue la arquitectura modular formal | **Pendiente** (ingeniería) |
 
-### 6. Lo que no es un producto “faltante”, pero conviene tener claro
+### 6. Rendimiento de navegación — resuelto (3 ago 2026)
+
+La navegación entre secciones ya no “arranca en blanco” en cada visita:
+
+- Caché cliente **stale-while-revalidate** en `useApiQuery` (`lib/hooks/api-cache.ts`)
+- Hooks de dominio (animales, ventas, módulos, costos) reutilizan la misma caché e invalidan tras mutaciones
+- Sesión (`/api/session`) con **single-flight**: Sidebar/Admin/Mensajería comparten un fetch
+- Datos frescos en segundo plano tras ~45s (`staleTime`)
+
+### 7. Lo que no es un producto “faltante”, pero conviene tener claro
 
 - **Multi-granja / multi-tenant avanzado:** hoy el modelo es **una granja por usuario** (aislamiento correcto), no un SaaS multi-cliente listo para vender a muchas fincas sin trabajo adicional.
 - **App móvil / offline:** no hay.
 - **Notificaciones push / WhatsApp / email:** la “mensajería” es bandeja interna de aprobaciones, no chat ni correo.
 - **Validación formal (Zod) y tipos generados de BD:** pendientes a nivel ingeniería; no bloquean el uso diario, sí la calidad a largo plazo.
-- **Protección de rutas:** requiere activar `AUTH_PROXY_ENFORCE=true` en el entorno.
+- **Protección de rutas:** activar `AUTH_PROXY_ENFORCE=true` (documentado en `.env.example`).
+- **Migración `tipos_corral` en remoto:** aplicar `supabase/migrations/20260803120000_tipos_corral.sql` si aún no está en producción.
 
 ---
 
@@ -79,7 +92,7 @@ Aunque categorías/estados/lotes existen en base de datos (la app los usa), **no
 
 **Operación:** Dashboard · Animales · Módulos · Alimentación · Costos · Salud · Ventas · Reportes
 
-**Administración:** Administración (parcial) · Gestión de Datos (hub) · Mensajería
+**Administración:** Administración · Gestión de Datos (hub) · Mensajería
 
 **Dentro de Gestión de Datos:** animales, historial, módulos, salud, alimentación, costos, ventas, comprobantes, mensajería.
 
@@ -116,7 +129,7 @@ Eso reduce captura manual y conecta finanzas con operación.
 |----------|-----------|
 | ¿Hay un sistema usable para operar la engorda? | **Sí** — núcleo operativo listo |
 | ¿Está completo al 100%? | **No** |
-| ¿Qué falta con más impacto de negocio? | Catálogos de Administración; CRUD real de Ventas en Gestión; búsqueda global |
+| ¿Qué falta con más impacto de negocio? | Documentación/schema versionado; endurecer auth por defecto |
 | ¿Qué ya está fuerte? | Animales, corrales, alimentación, costos, salud, comprobantes PDF, aprobaciones gerenciales, reportes |
 | ¿Riesgo principal? | Documentación/esquema desalineados con la realidad (dificulta soporte, auditoría y expansión) |
 
@@ -124,11 +137,10 @@ Eso reduce captura manual y conecta finanzas con operación.
 
 ## Prioridades sugeridas
 
-1. **Alta:** Completar CRUD de ventas en Gestión (o quitar botones que no hacen nada).
-2. **Alta:** Pantallas de Administración para categorías, estados, tipos de corral y lotes.
-3. **Media:** Conectar búsqueda del navbar.
-4. **Media:** Actualizar README y versionar el schema real de producción.
-5. **Baja/ingeniería:** Modularizar el resto como Salud; Zod + tipos generados; endurecer auth por defecto en todos los entornos.
+1. **Media:** Versionar el schema real de producción en el repo; confirmar migración `tipos_corral` en el remoto.
+2. **Baja/ingeniería:** Modularizar el resto como Salud; Zod + tipos generados; auth enforce por defecto en todos los entornos.
+
+> Completado: catálogos de Administración · CRUD de ventas en Gestión · búsqueda global del navbar · caché de navegación entre secciones · README + `.env.example`.
 
 ---
 

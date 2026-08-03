@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useStore } from "@/store/useStore";
+import { useSessionCapabilities } from "@/lib/hooks/useSessionCapabilities";
 
 const navItems = [
   { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
@@ -32,15 +33,22 @@ const navItems = [
   { label: "Reportes", href: "/reports", icon: BarChart3 },
 ];
 
+/** Gerencia: operación diaria de datos. */
+const gerenciaItems = [
+  { label: "Gestión de Datos", href: "/gestion", icon: Settings2 },
+];
+
+/** Admin: catálogos y autorizaciones. */
 const adminItems = [
   { label: "Administración", href: "/administracion", icon: Tags },
-  { label: "Gestión de Datos", href: "/gestion", icon: Settings2 },
-  { label: "Mensajería", href: "/gestion/mensajeria", icon: MessageSquare },
+  { label: "Autorizaciones", href: "/gestion/mensajeria", icon: MessageSquare },
 ];
 
 export default function Sidebar() {
   const pathname = usePathname();
   const { sidebarOpen, toggleSidebar } = useStore();
+  const { loading, capabilities } = useSessionCapabilities();
+  const showAdmin = !loading && capabilities.isAdmin;
 
   return (
     <aside
@@ -90,18 +98,20 @@ export default function Sidebar() {
           );
         })}
 
-        {/* Separator */}
+        {/* Gerencia: operación de datos */}
         <div className={cn("pt-2 pb-1", sidebarOpen ? "px-3" : "px-1")}>
           <div className="border-t border-sidebar-border" />
           {sidebarOpen && (
             <p className="text-[10px] font-semibold uppercase tracking-widest text-sidebar-foreground/40 mt-2 px-0">
-              Administración
+              Gerencia
             </p>
           )}
         </div>
-
-        {adminItems.map((item) => {
-          const active = pathname === item.href || pathname.startsWith(item.href + "/");
+        {gerenciaItems.map((item) => {
+          const active =
+            pathname === item.href ||
+            (pathname.startsWith(item.href + "/") &&
+              !pathname.startsWith("/gestion/mensajeria"));
           return (
             <Link
               key={item.href}
@@ -120,6 +130,40 @@ export default function Sidebar() {
             </Link>
           );
         })}
+
+        {showAdmin && (
+          <>
+            <div className={cn("pt-2 pb-1", sidebarOpen ? "px-3" : "px-1")}>
+              <div className="border-t border-sidebar-border" />
+              {sidebarOpen && (
+                <p className="text-[10px] font-semibold uppercase tracking-widest text-sidebar-foreground/40 mt-2 px-0">
+                  Administración
+                </p>
+              )}
+            </div>
+            {adminItems.map((item) => {
+              const active =
+                pathname === item.href || pathname.startsWith(item.href + "/");
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  title={!sidebarOpen ? item.label : undefined}
+                  className={cn(
+                    "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors",
+                    active
+                      ? "bg-sidebar-primary text-white"
+                      : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground",
+                    !sidebarOpen && "justify-center px-2"
+                  )}
+                >
+                  <item.icon className={cn("shrink-0", sidebarOpen ? "h-4 w-4" : "h-5 w-5")} />
+                  {sidebarOpen && <span className="truncate">{item.label}</span>}
+                </Link>
+              );
+            })}
+          </>
+        )}
       </nav>
 
       {/* Toggle button */}

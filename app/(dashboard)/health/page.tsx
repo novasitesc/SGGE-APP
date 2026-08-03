@@ -8,6 +8,7 @@ import {
   fetchTreatments,
   updateHealthAlertApi,
 } from "@/lib/api/data-client";
+import { invalidateApiCacheMany } from "@/lib/hooks/api-cache";
 import { useApiQuery } from "@/lib/hooks/useApiQuery";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
@@ -52,9 +53,9 @@ const priorityVariant = {
 
 export default function HealthPage() {
   const { data: treatments, loading: loadingT, reload: reloadT } =
-    useApiQuery(fetchTreatments);
+    useApiQuery("treatments", fetchTreatments);
   const { data: healthAlerts, loading: loadingA, reload: reloadA } =
-    useApiQuery(fetchHealthAlerts);
+    useApiQuery("health-alerts", fetchHealthAlerts);
   const list = treatments ?? [];
   const alerts = healthAlerts ?? [];
 
@@ -95,6 +96,7 @@ export default function HealthPage() {
     setResolvingId(id);
     try {
       await updateHealthAlertApi(id, { status: "resuelta" });
+      invalidateApiCacheMany(["health-alerts", "dashboard"]);
       await reloadA();
     } finally {
       setResolvingId(null);
@@ -114,6 +116,7 @@ export default function HealthPage() {
       nextDue: undefined,
     });
     await updateHealthAlertApi(alertId, { status: "resuelta" });
+    invalidateApiCacheMany(["treatments", "health-alerts", "dashboard"]);
     await Promise.all([reloadT(), reloadA()]);
   };
 

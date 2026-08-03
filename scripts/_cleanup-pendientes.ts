@@ -1,6 +1,8 @@
 /**
- * Soft-delete facturas propias / irrecuperables sin monto, o marca rechazado.
- * La BD no acepta clasificacion='ignorar' (check constraint).
+ * Limpia pendientes irrecuperables (sin monto / sin utilidad).
+ * Las facturas PROPIAS de la granja ya NO se borran: se dejan como
+ * venta pendiente (usar scripts/restore-ventas-propias.ts).
+ *
  *   npx tsx scripts/_cleanup-pendientes.ts
  */
 import { readFileSync, existsSync } from "node:fs";
@@ -24,6 +26,7 @@ loadEnv(join(appRoot, ".env.local"));
 import { createSupabaseAdmin } from "@/lib/supabase/admin";
 import { resolveGranjaId } from "@/lib/api/granja";
 import { CEDULA_GRANJA } from "@/lib/api/pdf/emisores-conocidos";
+import { findClaveCR, parseClaveCR } from "@/lib/api/pdf/clave-cr";
 
 async function main() {
   const admin = createSupabaseAdmin();
@@ -31,7 +34,9 @@ async function main() {
 
   const { data: rows, error } = await admin
     .from("comprobantes")
-    .select("id, archivo_nombre, estado, clasificacion, emisor_identificacion, monto_total")
+    .select(
+      "id, archivo_nombre, estado, clasificacion, emisor_identificacion, monto_total, fecha_emision"
+    )
     .eq("granja_id", granjaId)
     .eq("estado", "pendiente")
     .is("deleted_at", null);
@@ -43,20 +48,23 @@ async function main() {
       r.archivo_nombre.includes(CEDULA_GRANJA) ||
       r.archivo_nombre.includes("003101029993");
 
-    if (!isOwn) continue;
-
-    // Soft-delete: no entra a estadísticas ni bandeja
-    const { error: e2 } = await admin
-      .from("comprobantes")
-      .update({
-        deleted_at: new Date().toISOString(),
-        emisor_nombre: "HERMANOS HERRERA PARRALES S.A. (factura propia)",
-        emisor_identificacion: CEDULA_GRANJA,
-        clasificacion: "pendiente",
-      })
-      .eq("id", r.id);
-    if (e2) console.log("✗ propia", r.archivo_nombre.slice(0, 45), e2.message);
-    else console.log("🗑 propia", r.archivo_nombre.slice(0, 45));
+    if (isOwn) {
+      const clave = findClaveCR(r.archivo_nombre);
+      const info = clave ? parseClaveCR(clave) : null;
+      const { error: e2 } = await admin
+        .from("comprobantes")
+        .update({
+          clasificacion: "venta",
+          emisor_nombre: "HERMANOS HERRERA PARRALES S.A.",
+          emisor_identificacion: CEDULA_GRANJA,
+          fecha_emision: r.fecha_emision ?? info?.fechaEmision ?? null,
+          confianza: 96,
+        })
+        .eq("id", r.id);
+      if (e2) console.log("✗ propia→venta", r.archivo_nombre.slice(0, 45), e2.message);
+      else console.log("↗ propia→venta pendiente", r.archivo_nombre.slice(0, 45));
+      continue;
+    }
   }
 
   const { count: nPend } = await admin

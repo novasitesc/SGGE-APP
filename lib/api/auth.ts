@@ -26,7 +26,12 @@ export type ApiAuthResult =
   | { ok: true; ctx: ApiContext }
   | { ok: false; response: NextResponse };
 
-const ROLES_APROBADORES = ["gerente", "admin"] as const;
+/** Máxima autoridad: autoriza modificaciones y acciones sensibles. */
+export const ROL_ADMIN = "admin" as const;
+/** Operación gerencial: gestiona datos, solicita aprobaciones; no autoriza. */
+export const ROL_GERENTE = "gerente" as const;
+
+const ROLES_APROBADORES = [ROL_ADMIN] as const;
 
 /**
  * Exige sesión Supabase Auth + fila usuarios vinculada (auth_user_id).
@@ -156,9 +161,31 @@ async function loadRoles(
   });
 }
 
-/** True si el usuario tiene rol gerente o admin. */
+/** True si el usuario es administrador (máxima autoridad). */
+export function esAdmin(roles: string[]): boolean {
+  return roles.includes(ROL_ADMIN);
+}
+
+/** True si el usuario tiene rol de gerencia (sin poder de autorización). */
+export function esGerencia(roles: string[]): boolean {
+  return roles.includes(ROL_GERENTE);
+}
+
+/**
+ * True si puede autorizar solicitudes / acciones sensibles.
+ * Solo admin — gerencia solicita, no aprueba.
+ */
 export function esAprobador(roles: string[]): boolean {
   return roles.some((c) =>
     ROLES_APROBADORES.includes(c as (typeof ROLES_APROBADORES)[number])
   );
+}
+
+/** 403 si la sesión no es admin. Usar tras `requireApiContext`. */
+export function requireAdmin(
+  roles: string[],
+  message = "Solo un administrador puede realizar esta acción."
+): NextResponse | null {
+  if (esAdmin(roles)) return null;
+  return jsonError(message, 403);
 }

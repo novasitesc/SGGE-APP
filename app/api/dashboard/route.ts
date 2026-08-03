@@ -17,7 +17,6 @@ export async function GET(req: Request) {
     const auth = await requireApiContext(req);
     if (!auth.ok) return auth.response;
     const { admin, granjaId } = auth.ctx;
-    const url = new URL(req.url);
 
     const desde30 = new Date();
     desde30.setUTCDate(desde30.getUTCDate() - 30);
@@ -27,7 +26,6 @@ export async function GET(req: Request) {
       { data: animals, error: e1 },
       { data: gastos },
       { data: ventas },
-      { data: alimentos },
       { data: alimCab },
     ] = await Promise.all([
       admin
@@ -45,12 +43,6 @@ export async function GET(req: Request) {
         .select("id, monto_total, fecha_venta")
         .eq("granja_id", granjaId)
         .is("deleted_at", null),
-      admin
-        .from("alimentos")
-        .select("costo_unitario")
-        .eq("granja_id", granjaId)
-        .is("deleted_at", null)
-        .eq("activo", true),
       admin
         .from("alimentaciones")
         .select("id, fecha, costo_total, turno")
@@ -169,7 +161,7 @@ export async function GET(req: Request) {
       .from("detalle_ventas")
       .select(
         `
-        id, peso_salida_kg, precio_kg, subtotal,
+        id, peso_salida_kg, precio_kg, subtotal, venta_id, created_at,
         animales ( arete, razas ( nombre ), corrales ( codigo ) ),
         ventas ( fecha_venta, clientes ( razon_social ) )
       `
@@ -178,7 +170,7 @@ export async function GET(req: Request) {
       .order("created_at", { ascending: false })
       .limit(4);
 
-    const recentSales = (salesDetail ?? []).map(
+    const fromDetalle = (salesDetail ?? []).map(
       (row: Record<string, unknown>) => {
         const anim = row.animales as {
           arete: string;
@@ -202,6 +194,48 @@ export async function GET(req: Request) {
         });
       }
     );
+
+    const detalleVentaIds = new Set(
+      (salesDetail ?? []).map((r) => String((r as { venta_id?: string }).venta_id ?? ""))
+    );
+
+    // Ventas por factura (sin detalle de animal) para el bloque de recientes
+    const { data: headerRecent } = await admin
+      .from("ventas")
+      .select(
+        "id, folio, fecha_venta, peso_total_kg, monto_total, clientes ( razon_social )"
+      )
+      .eq("granja_id", granjaId)
+      .is("deleted_at", null)
+      .order("fecha_venta", { ascending: false })
+      .limit(4);
+
+    const fromHeader = (headerRecent ?? [])
+      .filter((v) => !detalleVentaIds.has(String(v.id)))
+      .map((v) => {
+        const peso = Number(v.peso_total_kg) || 0;
+        const monto = Number(v.monto_total) || 0;
+        const clienteRaw = v.clientes as
+          | { razon_social: string }
+          | { razon_social: string }[]
+          | null;
+        const cliente = Array.isArray(clienteRaw) ? clienteRaw[0] : clienteRaw;
+        return mapSaleRow({
+          id: String(v.id),
+          tag_id: v.folio?.slice(0, 20) || "—",
+          breed: "Factura",
+          final_weight: peso,
+          price_per_kg: peso > 0 ? Math.round((monto / peso) * 100) / 100 : 0,
+          total_revenue: monto,
+          sale_date: v.fecha_venta ?? "",
+          buyer: cliente?.razon_social ?? "Cliente (comprobante)",
+          module_code: "—",
+        });
+      });
+
+    const recentSales = [...fromDetalle, ...fromHeader]
+      .sort((a, b) => b.saleDate.localeCompare(a.saleDate))
+      .slice(0, 4);
 
     const labels: Record<string, string> = {
       ALIM: "Alimentación",

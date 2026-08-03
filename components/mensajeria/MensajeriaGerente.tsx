@@ -128,7 +128,7 @@ export function MensajeriaGerente({
             </h1>
             <p className="text-sm text-muted-foreground mt-0.5">
               {subtitle ??
-                "Bandeja del gerente: revise y apruebe o rechace solicitudes sensibles."}
+                "Bandeja del administrador: autorice o rechace solicitudes sensibles."}
             </p>
           </div>
         </div>

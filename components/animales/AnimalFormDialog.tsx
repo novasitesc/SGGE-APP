@@ -43,7 +43,7 @@ export function AnimalFormDialog({
   corralIds,
   lockArete = false,
 }: Props) {
-  const { data: breeds } = useApiQuery(fetchRazas);
+  const { data: breeds } = useApiQuery("razas", fetchRazas);
   const breedList = breeds ?? [];
   const set = (partial: Partial<AnimalFormValues>) =>
     onChange({ ...form, ...partial });

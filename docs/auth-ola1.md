@@ -29,4 +29,21 @@ Sin `auth_user_id`, la API responde **403** aunque el login Auth sea válido.
 
 - UI protegida: proxy redirige a `/login` si no hay sesión (`AUTH_PROXY_ENFORCE`).
 - APIs: **401** sin cookie; **403** si `farmId`/`granjaId` ≠ `usuarios.granja_id`.
-- Aprobaciones: sesión con rol `gerente` o `admin` (sin password en el body).
+- Separación de poderes:
+  - **admin** — máxima autoridad: autoriza solicitudes (aprobar/rechazar) y muta catálogos de `/administracion`.
+  - **gerente** — gerencia: opera `/gestion`, puede solicitar bajas; **no** autoriza.
+- Aprobaciones: sesión con rol `admin` (sin password en el body). Ver `/api/session` para `capabilities`.
+
+## Asignar rol admin
+
+```sql
+INSERT INTO usuario_roles (usuario_id, rol_id)
+SELECT u.id, r.id
+FROM usuarios u
+CROSS JOIN roles r
+WHERE u.email = 'tu@correo.com'
+  AND r.codigo = 'admin'
+ON CONFLICT DO NOTHING;
+```
+
+Aplicar también la migración `20260803140000_separar_poderes_admin_gerencia.sql` (RPC legacy solo acepta `admin`).

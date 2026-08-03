@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useState } from "react";
 import type { Cost } from "@/lib/types/domain";
 import {
   createCost,
@@ -9,42 +9,47 @@ import {
   updateCostApi,
   type FetchCostsParams,
 } from "@/lib/api/data-client";
+import { invalidateApiCacheMany, setCached } from "@/lib/hooks/api-cache";
+import { useApiQuery } from "@/lib/hooks/useApiQuery";
+
+function costsCacheKey(from: string | null, to: string | null) {
+  return `costs:${from ?? "all"}:${to ?? "all"}`;
+}
 
 export function useCosts(params?: FetchCostsParams) {
-  const [costs, setCosts] = useState<Cost[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [mutating, setMutating] = useState(false);
-
   const from = params?.from ?? null;
   const to = params?.to ?? null;
+  const key = costsCacheKey(from, to);
 
-  const reload = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      setCosts(await fetchCosts({ from, to }));
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Error al cargar costos");
-    } finally {
-      setLoading(false);
-    }
-  }, [from, to]);
+  const { data, loading, error, reload, mutate } = useApiQuery(
+    key,
+    () => fetchCosts({ from, to }),
+    [from, to]
+  );
 
-  useEffect(() => {
-    void reload();
-  }, [reload]);
+  const [mutationError, setMutationError] = useState<string | null>(null);
+  const [mutating, setMutating] = useState(false);
 
-  const addCost = async (data: Parameters<typeof createCost>[0]) => {
+  const costs = (data ?? []) as Cost[];
+  const combinedError = mutationError ?? error;
+
+  const afterMutation = (next: Cost[]) => {
+    mutate(next);
+    // Limpia otras vistas de costos + KPIs; re-escribe la key actual
+    invalidateApiCacheMany(["costs", "dashboard", "reports"]);
+    setCached(key, next);
+  };
+
+  const addCost = async (payload: Parameters<typeof createCost>[0]) => {
     setMutating(true);
-    setError(null);
+    setMutationError(null);
     try {
-      const created = await createCost(data);
-      setCosts((prev) => [created, ...prev]);
+      const created = await createCost(payload);
+      afterMutation([created, ...costs]);
       return created;
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Error al crear costo";
-      setError(msg);
+      setMutationError(msg);
       throw e;
     } finally {
       setMutating(false);
@@ -53,17 +58,17 @@ export function useCosts(params?: FetchCostsParams) {
 
   const updateCost = async (
     id: string,
-    data: Parameters<typeof updateCostApi>[1]
+    payload: Parameters<typeof updateCostApi>[1]
   ) => {
     setMutating(true);
-    setError(null);
+    setMutationError(null);
     try {
-      const updated = await updateCostApi(id, data);
-      setCosts((prev) => prev.map((c) => (c.id === id ? updated : c)));
+      const updated = await updateCostApi(id, payload);
+      afterMutation(costs.map((c) => (c.id === id ? updated : c)));
       return updated;
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Error al actualizar costo";
-      setError(msg);
+      setMutationError(msg);
       throw e;
     } finally {
       setMutating(false);
@@ -72,13 +77,13 @@ export function useCosts(params?: FetchCostsParams) {
 
   const removeCost = async (id: string) => {
     setMutating(true);
-    setError(null);
+    setMutationError(null);
     try {
       await deleteCostApi(id);
-      setCosts((prev) => prev.filter((c) => c.id !== id));
+      afterMutation(costs.filter((c) => c.id !== id));
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Error al eliminar costo";
-      setError(msg);
+      setMutationError(msg);
       throw e;
     } finally {
       setMutating(false);
@@ -88,12 +93,12 @@ export function useCosts(params?: FetchCostsParams) {
   return {
     costs,
     loading,
-    error,
+    error: combinedError,
     mutating,
     reload,
     addCost,
     updateCost,
     removeCost,
-    setError,
+    setError: setMutationError,
   };
 }

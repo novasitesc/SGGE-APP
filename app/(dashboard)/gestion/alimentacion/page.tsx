@@ -11,6 +11,7 @@ import {
   type FeedPurchaseHistoryItem,
 } from "@/lib/api/data-client";
 import type { FeedType } from "@/lib/types/domain";
+import { invalidateApiCacheMany } from "@/lib/hooks/api-cache";
 import { useApiQuery } from "@/lib/hooks/useApiQuery";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -67,7 +68,12 @@ function formatFecha(iso: string): string {
 }
 
 export default function GestionAlimentacionPage() {
-  const { data: feeding, loading, reload } = useApiQuery(fetchFeeding);
+  const { data: feeding, loading, reload } = useApiQuery("feeding", fetchFeeding);
+
+  const reloadFeeding = async () => {
+    invalidateApiCacheMany(["feeding", "dashboard"]);
+    await reload();
+  };
   const feedTypes = feeding?.feedTypes ?? [];
   const purchaseHistory = feeding?.purchaseHistory ?? [];
 
@@ -145,7 +151,7 @@ export default function GestionAlimentacionPage() {
         });
       }
       setDialogOpen(false);
-      await reload();
+      await reloadFeeding();
     } catch (err) {
       setFormError(err instanceof Error ? err.message : "Error al guardar");
     } finally {
@@ -161,7 +167,7 @@ export default function GestionAlimentacionPage() {
       await deleteAlimentoApi(deleteId);
       if (selectedId === deleteId) setSelectedId(null);
       setDeleteId(null);
-      await reload();
+      await reloadFeeding();
     } catch (err) {
       setFormError(err instanceof Error ? err.message : "Error al eliminar");
     } finally {
@@ -482,7 +488,7 @@ export default function GestionAlimentacionPage() {
                                             cantidad: q,
                                           });
                                           setQtyEditId(null);
-                                          await reload();
+                                          await reloadFeeding();
                                         } catch (err) {
                                           setFormError(
                                             err instanceof Error

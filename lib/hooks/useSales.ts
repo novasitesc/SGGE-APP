@@ -1,29 +1,22 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
 import type { Sale } from "@/lib/types/domain";
 import { fetchSales } from "@/lib/api/data-client";
+import { invalidateApiCacheMany } from "@/lib/hooks/api-cache";
+import { useApiQuery } from "@/lib/hooks/useApiQuery";
 
 export function useSales() {
-  const [sales, setSales] = useState<Sale[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const { data, loading, error, reload } = useApiQuery("sales", fetchSales);
 
-  const reload = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      setSales(await fetchSales());
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Error al cargar ventas");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  const invalidateRelated = () => {
+    invalidateApiCacheMany(["sales", "dashboard", "animals", "reports", "modules"]);
+  };
 
-  useEffect(() => {
-    void reload();
-  }, [reload]);
-
-  return { sales, loading, error, reload };
+  return {
+    sales: (data ?? []) as Sale[],
+    loading,
+    error,
+    reload,
+    invalidateRelated,
+  };
 }

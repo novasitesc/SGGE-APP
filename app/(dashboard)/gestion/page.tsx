@@ -36,6 +36,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { usePendingSolicitudesCount } from "@/components/mensajeria/MensajeriaGerente";
+import { useSessionCapabilities } from "@/lib/hooks/useSessionCapabilities";
 
 interface SectionCounts {
   animals: number;
@@ -66,6 +67,8 @@ type GestionSection = {
   countKey: CountKey;
   group: string;
   badge?: string;
+  /** Solo visible / contado para rol admin */
+  adminOnly?: boolean;
 };
 
 const sections: GestionSection[] = [
@@ -88,6 +91,7 @@ const sections: GestionSection[] = [
     iconBg: "bg-teal-100 text-teal-700",
     countKey: "razas",
     group: "Animales",
+    adminOnly: true,
   },
   {
     href: "/gestion/historial",
@@ -177,13 +181,15 @@ const sections: GestionSection[] = [
   {
     href: "/gestion/mensajeria",
     icon: MessageSquare,
-    label: "Mensajería",
-    description: "Bandeja del gerente: aprobar o rechazar solicitudes de baja y otras acciones.",
+    label: "Autorizaciones",
+    description:
+      "Bandeja del administrador: autorizar o rechazar solicitudes de baja y otras acciones.",
     color: "border-amber-200 hover:border-amber-400 hover:bg-amber-50/50",
     iconBg: "bg-amber-100 text-amber-800",
     countKey: "mensajeria",
     group: "Administración",
-    badge: "Gerente",
+    badge: "Admin",
+    adminOnly: true,
   },
 ];
 
@@ -270,8 +276,17 @@ function SectionCard({
 
 export default function GestionPage() {
   const { refresh: refreshMensajes } = usePendingSolicitudesCount();
+  const { capabilities } = useSessionCapabilities();
   const [counts, setCounts] = useState<SectionCounts | null>(null);
   const [sortMode, setSortMode] = useState<SortMode>("grupos");
+
+  const visibleSections = useMemo(
+    () =>
+      sections.filter(
+        (s) => !s.adminOnly || capabilities.isAdmin
+      ),
+    [capabilities.isAdmin]
+  );
 
   const syncCounts = useCallback(async () => {
     const results = await Promise.allSettled([
@@ -344,7 +359,7 @@ export default function GestionPage() {
     : 0;
 
   const sortedFlat = useMemo(() => {
-    const withCount = sections.map((section) => ({
+    const withCount = visibleSections.map((section) => ({
       section,
       count: resolveCount(section, counts),
     }));
@@ -366,19 +381,19 @@ export default function GestionPage() {
       return [...withCount].sort((a, b) => a.count - b.count);
     }
     return withCount;
-  }, [counts, sortMode]);
+  }, [counts, sortMode, visibleSections]);
 
   const grouped = useMemo(() => {
     return GROUP_ORDER.map((group) => ({
       group,
-      items: sections
+      items: visibleSections
         .filter((s) => s.group === group)
         .map((section) => ({
           section,
           count: resolveCount(section, counts),
         })),
     })).filter((g) => g.items.length > 0);
-  }, [counts]);
+  }, [counts, visibleSections]);
 
   return (
     <div className="space-y-8">
@@ -391,7 +406,8 @@ export default function GestionPage() {
             <h1 className="text-2xl font-bold tracking-tight">Centro de Gestión</h1>
           </div>
           <p className="text-sm text-muted-foreground ml-11">
-            Administra todos los datos del sistema desde un solo lugar
+            Operación de gerencia: inventarios, costos, ventas y más. Las
+            autorizaciones sensibles las resuelve el administrador.
           </p>
         </div>
         <div className="flex items-center gap-2 text-sm text-muted-foreground bg-card border rounded-xl px-3 py-2 self-start">
