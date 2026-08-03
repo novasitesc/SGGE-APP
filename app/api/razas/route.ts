@@ -1,5 +1,5 @@
-import { createSupabaseAdmin } from "@/lib/supabase/admin";
-import { resolveGranjaId } from "@/lib/api/granja";
+
+import { requireApiContext } from "@/lib/api/auth";
 import { jsonError, jsonOk } from "@/lib/api/http";
 import {
   findRazaByNombre,
@@ -11,9 +11,10 @@ export const dynamic = "force-dynamic";
 
 export async function GET(req: Request) {
   try {
-    const admin = createSupabaseAdmin();
+    const auth = await requireApiContext(req);
+    if (!auth.ok) return auth.response;
+    const { admin, granjaId } = auth.ctx;
     const url = new URL(req.url);
-    const granjaId = await resolveGranjaId(admin, url.searchParams.get("farmId"));
     const full = url.searchParams.get("full") === "1";
 
     const { data, error } = await admin
@@ -43,9 +44,10 @@ type PostBody = {
 
 export async function POST(req: Request) {
   try {
-    const admin = createSupabaseAdmin();
+    const auth = await requireApiContext(req);
+    if (!auth.ok) return auth.response;
+    const { admin, granjaId } = auth.ctx;
     const url = new URL(req.url);
-    const granjaId = await resolveGranjaId(admin, url.searchParams.get("farmId"));
     const body = (await req.json()) as PostBody;
 
     const nombre = body.nombre?.trim();

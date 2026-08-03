@@ -82,12 +82,18 @@ export interface CostByCategory {
 
 // ─── FEEDING ─────────────────────────────────────────────────────────────────
 
+export type FeedPriceBasis = "unit" | "compra" | "none";
+
 export interface FeedType {
   id: string;
   name: string;
   unit: string;
   dailyConsumption: number;
+  /** Promedio: ₡/kg|und (unit) o ₡/compra (compra). */
   pricePerUnit: number;
+  priceBasis?: FeedPriceBasis;
+  /** Nº de facturas/compras en el período (si aplica). */
+  purchaseCount?: number;
   monthlyAmount: number;
   monthlyCost: number;
   percentage: number;
@@ -108,24 +114,30 @@ export interface Treatment {
   type: TreatmentType | string;
   name: string;
   date: string;
+  animalId?: string | null;
   animalCount: number;
   costPerAnimal: number;
   totalCost: number;
   appliedBy: string;
   notes: string;
-  nextDue?: string;
+  nextDue?: string | null;
+  status?: string;
+  origen?: string;
+  medicamentoId?: string | null;
 }
 
 // ─── HEALTH ALERTS ───────────────────────────────────────────────────────────
 
 export interface HealthAlert {
   id: string;
-  animalId?: string;
-  tagId?: string;
+  animalId?: string | null;
+  tagId?: string | null;
   type: "tratamiento" | "revisión" | "urgente" | "programado";
   message: string;
   dueDate: string;
   priority: "alta" | "media" | "baja";
+  status?: "activa" | "resuelta" | "pospuesta";
+  tratamientoId?: string | null;
 }
 
 // ─── SALES ───────────────────────────────────────────────────────────────────

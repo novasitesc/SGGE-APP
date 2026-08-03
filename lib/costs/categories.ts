@@ -95,3 +95,51 @@ export function costCategoryLabel(raw: string | null | undefined): string {
 
 /** Claves usadas en formularios de gestión (orden de visualización). */
 export const COST_CATEGORY_KEYS = Object.keys(COST_CATEGORY_LABEL) as CostCategoryKey[];
+
+/**
+ * Claves para alta/edición: una sola entrada Veterinaria (DB: VET).
+ * Evita vacunas + medicamentos que colapsan al mismo código.
+ */
+export const COST_FORM_CATEGORY_KEYS: CostCategoryKey[] = [
+  "alimentación",
+  "combustible",
+  "mantenimiento",
+  "servicios",
+  "transporte",
+  "mano_de_obra",
+  "vacunas",
+  "otros",
+];
+
+/** Clave UI / legacy → código DB (`categorias_gastos.codigo`). */
+export const CATEGORIA_CODIGO_MAP: Record<string, string> = {
+  alimentación: "ALIM",
+  alimentacion: "ALIM",
+  combustible: "COMB",
+  mantenimiento: "MANT",
+  transporte: "TRANS",
+  mano_de_obra: "MO",
+  vacunas: "VET",
+  medicamentos: "VET",
+  servicios: "SERV",
+  otros: "OTRO",
+  alim: "ALIM",
+  comb: "COMB",
+  mant: "MANT",
+  trans: "TRANS",
+  mo: "MO",
+  vet: "VET",
+  serv: "SERV",
+  otro: "OTRO",
+};
+
+/** Resuelve cualquier entrada de categoría a código DB. */
+export function resolveCategoriaCodigo(category: string): string {
+  const lower = category.trim().toLowerCase();
+  const key = normalizeCostCategoryKey(category);
+  return (
+    CATEGORIA_CODIGO_MAP[lower] ??
+    CATEGORIA_CODIGO_MAP[key] ??
+    category.trim().toUpperCase()
+  );
+}

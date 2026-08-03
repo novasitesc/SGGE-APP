@@ -21,8 +21,19 @@ export async function fetchDashboard(): Promise<DashboardData> {
   return parseJson<DashboardData>(res);
 }
 
-export async function fetchCosts(): Promise<Cost[]> {
-  const res = await fetch("/api/costs", { cache: "no-store" });
+export type FetchCostsParams = {
+  from?: string | null;
+  to?: string | null;
+};
+
+export async function fetchCosts(params?: FetchCostsParams): Promise<Cost[]> {
+  const qs = new URLSearchParams();
+  if (params?.from) qs.set("from", params.from);
+  if (params?.to) qs.set("to", params.to);
+  const q = qs.toString();
+  const res = await fetch(q ? `/api/costs?${q}` : "/api/costs", {
+    cache: "no-store",
+  });
   return parseJson<Cost[]>(res);
 }
 
@@ -152,33 +163,357 @@ export async function deleteModuleApi(uuid: string): Promise<void> {
   }
 }
 
-export async function fetchFeeding(): Promise<{
+export type FeedPurchaseHistoryItem = {
+  id: string;
+  alimentacionId?: string;
+  fecha: string;
+  alimentoId: string;
+  alimentoNombre: string;
+  cantidad: number;
+  unidad: string;
+  costo: number;
+  origen: string;
+};
+
+export type FeedDeliveryLine = {
+  alimentoId: string;
+  nombre: string;
+  cantidad: number;
+  subtotal: number;
+};
+
+export type FeedDeliveryHistoryItem = {
+  id: string;
+  fecha: string;
+  costoTotal: number;
+  observaciones: string | null;
+  lineas: FeedDeliveryLine[];
+};
+
+export type FeedStockRow = {
+  alimentoId: string;
+  nombre: string;
+  entradasKg: number;
+  salidasKg: number;
+  stockKg: number;
+  entradasComprasSinKg: number;
+  diasCobertura: number | null;
+};
+
+export type FeedAlert = {
+  id: string;
+  tone: "warning" | "danger" | "info";
+  title: string;
+  message: string;
+  href?: string;
+};
+
+export type FeedingResponse = {
   activeHeadCount: number;
   feedTypes: FeedType[];
   periodDays: number;
   daysWithRecords: number;
   hasConsumptionRecords: boolean;
   totalDailyConsumption: number;
-}> {
-  const res = await fetch("/api/feeding", { cache: "no-store" });
-  return parseJson<{
-    activeHeadCount: number;
-    feedTypes: FeedType[];
-    periodDays: number;
-    daysWithRecords: number;
-    hasConsumptionRecords: boolean;
-    totalDailyConsumption: number;
-  }>(res);
+  purchaseCount?: number;
+  purchaseCostPeriod?: number;
+  periodFrom?: string;
+  allTime?: boolean;
+  totalsFromAllCompras?: boolean;
+  purchaseHistory?: FeedPurchaseHistoryItem[];
+  costByPurchaseDate?: Record<string, string | number>[];
+  purchaseProductNames?: string[];
+  deliveryHistory?: FeedDeliveryHistoryItem[];
+  lastDelivery?: {
+    fecha: string;
+    lines: { alimentoId: string; cantidad: number }[];
+  } | null;
+  stockByAlimento?: FeedStockRow[];
+  purchasesWithKgCount?: number;
+  purchasesWithoutKgCount?: number;
+  avgCostPerKg?: number;
+  avgCostPerPurchase?: number;
+  coveragePercent?: number | null;
+  previousPurchaseCost?: number;
+  previousCostByAlimento?: { name: string; costo: number }[];
+  alerts?: FeedAlert[];
+  lotes?: { id: string; nombre: string }[];
+  racionCostPeriod?: number;
+  costPerAnimalDayRacion?: number;
+};
+
+export type FeedingPeriodDays = number | "all";
+
+export async function fetchFeeding(
+  days: FeedingPeriodDays = 30
+): Promise<FeedingResponse> {
+  const qs = `?days=${days === "all" ? "all" : days}`;
+  const res = await fetch(`/api/feeding${qs}`, { cache: "no-store" });
+  return parseJson<FeedingResponse>(res);
 }
 
-export async function fetchTreatments(): Promise<Treatment[]> {
-  const res = await fetch("/api/treatments", { cache: "no-store" });
+export async function updateCompraCantidadApi(data: {
+  alimentacionId: string;
+  alimentoId: string;
+  cantidad: number;
+}): Promise<{
+  cantidad: number;
+  costoUnitario: number;
+  subtotal: number;
+  priceBasis: string;
+}> {
+  const res = await fetch("/api/feeding/compras", {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  return parseJson(res);
+}
+
+export async function deleteFeedingDeliveryApi(id: string): Promise<void> {
+  const res = await fetch("/api/feeding", {
+    method: "DELETE",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ id }),
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error((body as { error?: string }).error ?? "Error al anular entrega");
+  }
+}
+
+export async function createAlimentoApi(data: {
+  name: string;
+  unit?: string;
+  type?: string;
+  pricePerUnit: number;
+  code?: string;
+}): Promise<{ id: string; name: string; pricePerUnit: number; unit: string }> {
+  const res = await fetch("/api/alimentos", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  return parseJson(res);
+}
+
+export async function updateAlimentoApi(
+  id: string,
+  data: Partial<{ name: string; unit: string; type: string; pricePerUnit: number }>
+): Promise<{ id: string; name: string; pricePerUnit: number }> {
+  const res = await fetch(`/api/alimentos/${id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  return parseJson(res);
+}
+
+export async function deleteAlimentoApi(id: string): Promise<void> {
+  const res = await fetch(`/api/alimentos/${id}`, { method: "DELETE" });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error((body as { error?: string }).error ?? "Error al eliminar alimento");
+  }
+}
+
+export async function createFeedingDeliveryApi(data: {
+  fecha: string;
+  observaciones?: string;
+  loteId?: string;
+  lines: { alimentoId: string; cantidad: number }[];
+}): Promise<{ id: string; fecha: string; costoTotal: number; lineCount: number }> {
+  const res = await fetch("/api/feeding", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  return parseJson(res);
+}
+
+export type FetchTreatmentsParams = {
+  from?: string | null;
+  to?: string | null;
+  type?: string | null;
+  q?: string | null;
+  animalId?: string | null;
+};
+
+export async function fetchTreatments(
+  params?: FetchTreatmentsParams
+): Promise<Treatment[]> {
+  const qs = new URLSearchParams();
+  if (params?.from) qs.set("from", params.from);
+  if (params?.to) qs.set("to", params.to);
+  if (params?.type) qs.set("type", params.type);
+  if (params?.q) qs.set("q", params.q);
+  if (params?.animalId) qs.set("animalId", params.animalId);
+  const q = qs.toString();
+  const res = await fetch(q ? `/api/treatments?${q}` : "/api/treatments", {
+    cache: "no-store",
+  });
   return parseJson<Treatment[]>(res);
 }
 
-export async function fetchHealthAlerts(): Promise<HealthAlert[]> {
-  const res = await fetch("/api/health-alerts", { cache: "no-store" });
+export async function createTreatmentApi(data: {
+  type: string;
+  name: string;
+  date: string;
+  animalCount: number;
+  costPerAnimal: number;
+  totalCost?: number;
+  appliedBy?: string;
+  notes?: string;
+  nextDue?: string;
+  animalId?: string;
+  animalIds?: string[];
+  medicamentoId?: string;
+  bulk?: boolean;
+}): Promise<Treatment> {
+  const res = await fetch("/api/treatments", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  return parseJson<Treatment>(res);
+}
+
+export async function updateTreatmentApi(
+  id: string,
+  data: Partial<{
+    type: string;
+    name: string;
+    date: string;
+    animalCount: number;
+    costPerAnimal: number;
+    totalCost: number;
+    appliedBy: string;
+    notes: string;
+    nextDue: string;
+    status: string;
+  }>
+): Promise<Treatment> {
+  const res = await fetch(`/api/treatments/${id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  return parseJson<Treatment>(res);
+}
+
+export async function deleteTreatmentApi(id: string): Promise<void> {
+  const res = await fetch(`/api/treatments/${id}`, { method: "DELETE" });
+  await parseJson(res);
+}
+
+export async function fetchHealthAlerts(all = false): Promise<HealthAlert[]> {
+  const res = await fetch(
+    all ? "/api/health-alerts?all=1" : "/api/health-alerts",
+    { cache: "no-store" }
+  );
   return parseJson<HealthAlert[]>(res);
+}
+
+export async function createHealthAlertApi(data: {
+  type: string;
+  message: string;
+  dueDate: string;
+  priority: string;
+  tagId?: string;
+  animalId?: string;
+}): Promise<HealthAlert> {
+  const res = await fetch("/api/health-alerts", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  return parseJson<HealthAlert>(res);
+}
+
+export async function updateHealthAlertApi(
+  id: string,
+  data: Partial<{
+    type: string;
+    message: string;
+    dueDate: string;
+    priority: string;
+    tagId: string;
+    status: string;
+  }>
+): Promise<HealthAlert> {
+  const res = await fetch(`/api/health-alerts/${id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  return parseJson<HealthAlert>(res);
+}
+
+export async function deleteHealthAlertApi(id: string): Promise<void> {
+  const res = await fetch(`/api/health-alerts/${id}`, { method: "DELETE" });
+  await parseJson(res);
+}
+
+export async function fetchMedicamentos(): Promise<
+  {
+    id: string;
+    code: string;
+    name: string;
+    type: string;
+    unit: string;
+    pricePerUnit: number;
+    active: boolean;
+  }[]
+> {
+  const res = await fetch("/api/medicamentos", { cache: "no-store" });
+  return parseJson(res);
+}
+
+export async function createMedicamentoApi(data: {
+  name: string;
+  type?: string;
+  unit?: string;
+  pricePerUnit: number;
+  code?: string;
+}) {
+  const res = await fetch("/api/medicamentos", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  return parseJson(res);
+}
+
+export async function deleteMedicamentoApi(id: string): Promise<void> {
+  const res = await fetch(`/api/medicamentos/${id}`, { method: "DELETE" });
+  await parseJson(res);
+}
+
+export async function syncHealthAlertsApi(): Promise<{ created: number }> {
+  const res = await fetch("/api/health-alerts/sync", { method: "POST" });
+  return parseJson(res);
+}
+
+export async function uploadSaludPdfApi(file: File): Promise<{
+  id: string;
+  parsed: Record<string, unknown>;
+}> {
+  const fd = new FormData();
+  fd.append("file", file);
+  const res = await fetch("/api/salud/import", { method: "POST", body: fd });
+  return parseJson(res);
+}
+
+export async function confirmSaludImportApi(
+  id: string,
+  overrides?: Record<string, unknown>
+): Promise<Treatment> {
+  const res = await fetch(`/api/salud/import/${id}/confirm`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(overrides ?? {}),
+  });
+  return parseJson<Treatment>(res);
 }
 
 export async function fetchWeightHistory(): Promise<WeightRecord[]> {

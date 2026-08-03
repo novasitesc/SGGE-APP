@@ -99,10 +99,11 @@ export const EMISORES_CONOCIDOS: Record<string, EmisorConocido> = {
     tipo: "gasto",
     categoria: "MANT",
   },
+  // Filet de tilapia = comida humana / personal, no ración de ganado.
   "3101211148": {
     nombre: "Inversiones OSO / Tilapia",
     tipo: "gasto",
-    categoria: "ALIM",
+    categoria: "OTRO",
   },
 };
 

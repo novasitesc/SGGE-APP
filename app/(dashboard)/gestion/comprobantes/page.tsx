@@ -83,6 +83,9 @@ type ReviewForm = {
   description: string;
   totalWeightKg: string;
   buyer: string;
+  /** Cantidad ALIM en kg (o und). Vacío = 1 compra/lote. */
+  cantidadAlim: string;
+  cantidadAlimHint: string;
 };
 
 export default function ComprobantesPage() {
@@ -150,6 +153,24 @@ export default function ComprobantesPage() {
         : c.classification === "venta"
           ? "venta"
           : "gasto";
+    const sug = c.cantidadAlimSugerida;
+    const isAlim = (c.suggestedCategory ?? "").toUpperCase() === "ALIM";
+    let cantidadAlim = "";
+    let cantidadAlimHint = "";
+    if (sug) {
+      if (sug.unidad === "kg") {
+        cantidadAlim = String(sug.cantidad);
+        cantidadAlimHint = `Detectado en PDF: ${sug.cantidad} kg («${sug.fuente}»). Puedes corregirlo.`;
+      } else if (sug.unidad === "saco") {
+        cantidadAlimHint = `PDF menciona ${sug.cantidad} saco(s) («${sug.fuente}»). Indica el total en kg.`;
+      } else {
+        cantidadAlim = String(sug.cantidad);
+        cantidadAlimHint = `Detectado en PDF: ${sug.cantidad} und («${sug.fuente}»).`;
+      }
+    } else if (isAlim) {
+      cantidadAlimHint =
+        "Opcional: kg o unidades recibidas. Si lo dejas vacío se registra como 1 compra (sin ₡/kg).";
+    }
     setForm({
       classification: cls,
       issuer: c.issuer ?? "",
@@ -169,6 +190,8 @@ export default function ComprobantesPage() {
               )
             : "",
       buyer: "",
+      cantidadAlim,
+      cantidadAlimHint,
     });
   };
 
@@ -192,6 +215,15 @@ export default function ComprobantesPage() {
       if (form.classification === "gasto") {
         payload.categoryCode = form.categoryCode;
         payload.description = form.description.trim() || null;
+        if (form.categoryCode.toUpperCase() === "ALIM" && form.cantidadAlim.trim()) {
+          const q = Number(form.cantidadAlim);
+          if (!Number.isFinite(q) || q <= 0) {
+            setError("La cantidad ALIM debe ser mayor a 0.");
+            setSaving(false);
+            return;
+          }
+          payload.cantidadAlim = q;
+        }
       } else if (form.classification === "venta") {
         payload.buyer = form.buyer.trim() || null;
         payload.totalWeightKg = form.totalWeightKg ? Number(form.totalWeightKg) : null;
@@ -200,9 +232,16 @@ export default function ComprobantesPage() {
         payload.totalWeightKg = form.totalWeightKg ? Number(form.totalWeightKg) : null;
       }
       await confirmComprobante(review.id, payload);
+      const vetN = review.lineasVetSugeridas?.length ?? 0;
+      const gastoMsg =
+        vetN > 0
+          ? `Gasto registrado. ${vetN} línea(s) veterinaria(s) inscritas en Salud.`
+          : form.categoryCode.toUpperCase() === "VET"
+            ? "Gasto veterinario registrado e inscrito en Salud."
+            : "Gasto registrado desde el comprobante.";
       setNotice(
         form.classification === "gasto"
-          ? "Gasto registrado desde el comprobante."
+          ? gastoMsg
           : form.classification === "venta"
             ? "Venta registrada desde el comprobante."
             : (review.animales?.length ?? 0) > 0
@@ -611,7 +650,14 @@ export default function ComprobantesPage() {
                     <Select
                       id="rv-cat"
                       value={form.categoryCode}
-                      onChange={(e) => setForm({ ...form, categoryCode: e.target.value })}
+                      onChange={(e) => {
+                        const categoryCode = e.target.value;
+                        const hint =
+                          categoryCode.toUpperCase() === "ALIM" && !form.cantidadAlimHint
+                            ? "Opcional: kg o unidades recibidas. Si lo dejas vacío se registra como 1 compra (sin ₡/kg)."
+                            : form.cantidadAlimHint;
+                        setForm({ ...form, categoryCode, cantidadAlimHint: hint });
+                      }}
                     >
                       {CATEGORIAS.map((c) => (
                         <option key={c.code} value={c.code}>
@@ -647,6 +693,65 @@ export default function ComprobantesPage() {
                   </div>
                 )}
               </div>
+
+              {form.classification === "gasto" &&
+                form.categoryCode.toUpperCase() === "ALIM" && (
+                  <div className="space-y-1.5 rounded-xl border border-lime-200 bg-lime-50/50 p-3">
+                    <Label htmlFor="rv-alim-qty">
+                      Cantidad recibida (kg / und) — para ₡/kg real
+                    </Label>
+                    <Input
+                      id="rv-alim-qty"
+                      type="number"
+                      min="0"
+                      step="0.001"
+                      value={form.cantidadAlim}
+                      onChange={(e) =>
+                        setForm({ ...form, cantidadAlim: e.target.value })
+                      }
+                      placeholder="Ej. 12000 (kg) o deja vacío = 1 compra"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      {form.cantidadAlimHint ||
+                        "Con cantidad se calcula el precio promedio ₡/kg. Sin ella queda ₡/compra."}
+                    </p>
+                  </div>
+                )}
+
+              {form.classification === "gasto" &&
+                (review.lineasVetSugeridas?.length ?? 0) > 0 && (
+                  <div className="rounded-xl border border-rose-200 bg-rose-50/40 p-3 space-y-2">
+                    <p className="text-sm font-medium text-rose-900">
+                      Líneas veterinarias detectadas → se inscribirán en Salud
+                    </p>
+                    <ul className="space-y-1.5 text-sm">
+                      {review.lineasVetSugeridas!.map((l, i) => (
+                        <li
+                          key={`${l.codigo ?? l.nombre}-${i}`}
+                          className="flex flex-wrap justify-between gap-2 border-b border-rose-100/80 pb-1 last:border-0"
+                        >
+                          <span>
+                            <span className="font-medium">{l.nombre}</span>
+                            <span className="text-xs text-muted-foreground ml-2 capitalize">
+                              {l.tipo} · x{l.cantidad}
+                            </span>
+                          </span>
+                          <span className="tabular-nums font-semibold">
+                            {l.total > 0
+                              ? `₡${l.total.toLocaleString("es-CR", {
+                                  minimumFractionDigits: 2,
+                                })}`
+                              : "—"}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                    <p className="text-xs text-muted-foreground">
+                      Al confirmar se crean medicamentos y tratamientos (origen
+                      PDF). Aretes / ferretería se omiten.
+                    </p>
+                  </div>
+                )}
 
               {(form.classification === "gasto" || form.classification === "venta") && (
                 <div className="space-y-1.5">

@@ -7,6 +7,7 @@ import {
   Calendar,
   User,
   ChevronDown,
+  LogOut,
   Search,
   Settings2,
 } from "lucide-react";
@@ -14,6 +15,7 @@ import { useEffect, useRef, useState } from "react";
 import { usePendingSolicitudesCount } from "@/components/mensajeria/MensajeriaGerente";
 import { fetchGranjaInfo } from "@/lib/api/data-client";
 import { useApiQuery } from "@/lib/hooks/useApiQuery";
+import { logoutAction } from "@/lib/auth/actions";
 
 export default function Navbar() {
   const today = new Date().toLocaleDateString(SYSTEM_LOCALE, {
@@ -162,6 +164,15 @@ export default function Navbar() {
                   <Settings2 className="h-4 w-4 text-muted-foreground" />
                   Administración
                 </Link>
+                <form action={logoutAction}>
+                  <button
+                    type="submit"
+                    className="flex w-full items-center gap-2.5 px-4 py-2.5 text-sm hover:bg-muted transition-colors text-left"
+                  >
+                    <LogOut className="h-4 w-4 text-muted-foreground" />
+                    Cerrar sesión
+                  </button>
+                </form>
               </div>
             </div>
           )}

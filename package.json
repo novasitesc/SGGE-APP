@@ -10,7 +10,10 @@
     "import:comprobantes": "npx tsx scripts/import-comprobantes.ts",
     "reparse:platanar": "npx tsx scripts/reparse-platanar.ts",
     "generar:animales-platanar": "npx tsx scripts/generar-animales-platanar.ts",
-    "ingest:pendientes": "npx tsx scripts/ingest-pendientes.ts"
+    "ingest:pendientes": "npx tsx scripts/ingest-pendientes.ts",
+    "backfill:alim": "npx tsx --env-file=.env.local scripts/backfill-alim-alimentaciones.ts",
+    "backfill:vet": "npx tsx --env-file=.env.local scripts/backfill-vet-salud.ts",
+    "normalize:alim-qty": "npx tsx --env-file=.env.local scripts/normalize-alim-compra-cantidades.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.4.1",

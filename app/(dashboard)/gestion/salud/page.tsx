@@ -1,11 +1,23 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
-import { fetchHealthAlerts, fetchTreatments } from "@/lib/api/data-client";
+import {
+  createHealthAlertApi,
+  createMedicamentoApi,
+  createTreatmentApi,
+  deleteHealthAlertApi,
+  deleteMedicamentoApi,
+  deleteTreatmentApi,
+  fetchHealthAlerts,
+  fetchMedicamentos,
+  fetchTreatments,
+  syncHealthAlertsApi,
+  updateHealthAlertApi,
+  updateTreatmentApi,
+} from "@/lib/api/data-client";
 import { useApiQuery } from "@/lib/hooks/useApiQuery";
-import type { TreatmentType } from "@/lib/types/domain";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import type { HealthAlert, Treatment } from "@/lib/types/domain";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -21,41 +33,38 @@ import {
 import {
   Dialog,
   DialogContent,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogFooter,
 } from "@/components/ui/dialog";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import {
-  HeartPulse,
-  Plus,
-  Pencil,
-  Trash2,
-  ChevronLeft,
+  AlertaFormDialog,
+  ImportPdfDialog,
+  SaludHelpPanel,
+  TratamientoFormDialog,
+  TREATMENT_TYPE_COLORS,
+  TREATMENT_TYPE_LABELS,
+  TREATMENT_TYPES,
+  type TreatmentType,
+} from "@/modules/salud/client";
+import {
   AlertTriangle,
-  Syringe,
   Bell,
+  BookOpen,
+  ChevronLeft,
+  Download,
+  FileUp,
+  HeartPulse,
+  Pencil,
+  Pill,
+  Plus,
+  RefreshCw,
+  Syringe,
+  Trash2,
 } from "lucide-react";
 
-type TabType = "tratamientos" | "alertas";
-
-const treatmentTypeLabel: Record<TreatmentType, string> = {
-  vacuna: "Vacuna",
-  desparasitante: "Desparasitante",
-  implante: "Implante",
-  anabólico: "Anabólico",
-  vitamina: "Vitamina",
-  antibiótico: "Antibiótico",
-};
-
-const treatmentTypeColor: Record<TreatmentType, string> = {
-  vacuna: "bg-purple-100 text-purple-700",
-  desparasitante: "bg-amber-100 text-amber-700",
-  implante: "bg-blue-100 text-blue-700",
-  anabólico: "bg-cyan-100 text-cyan-700",
-  vitamina: "bg-lime-100 text-lime-700",
-  antibiótico: "bg-red-100 text-red-700",
-};
+type TabType = "tratamientos" | "alertas" | "medicamentos" | "cargas";
 
 const priorityVariant = {
   alta: "destructive" as const,
@@ -63,138 +72,64 @@ const priorityVariant = {
   baja: "secondary" as const,
 };
 
-const emptyTreatmentForm = {
-  type: "vacuna" as TreatmentType,
-  name: "",
-  date: new Date().toISOString().split("T")[0],
-  animalCount: "",
-  costPerAnimal: "",
-  totalCost: "",
-  appliedBy: "",
-  notes: "",
-  nextDue: "",
-};
-
-const emptyAlertForm = {
-  tagId: "",
-  type: "programado" as "tratamiento" | "revisión" | "urgente" | "programado",
-  message: "",
-  dueDate: new Date().toISOString().split("T")[0],
-  priority: "media" as "alta" | "media" | "baja",
-};
-
 export default function GestionSaludPage() {
-  const { data: treatments, reload: reloadTreatments } = useApiQuery(fetchTreatments);
-  const { data: healthAlerts, reload: reloadAlerts } = useApiQuery(fetchHealthAlerts);
+  const { data: treatments, reload: reloadTreatments, loading: loadingT } =
+    useApiQuery(fetchTreatments);
+  const { data: healthAlerts, reload: reloadAlerts, loading: loadingA } =
+    useApiQuery(fetchHealthAlerts);
+  const { data: medicamentos, reload: reloadMeds, loading: loadingM } =
+    useApiQuery(fetchMedicamentos);
+
   const list = treatments ?? [];
   const alerts = healthAlerts ?? [];
+  const meds = medicamentos ?? [];
 
   const [tab, setTab] = useState<TabType>("tratamientos");
+  const [q, setQ] = useState("");
 
-  // Treatment state
-  const [tDialogOpen, setTDialogOpen] = useState(false);
-  const [tEditingId, setTEditingId] = useState<string | null>(null);
-  const [tForm, setTForm] = useState(emptyTreatmentForm);
+  const [tOpen, setTOpen] = useState(false);
+  const [tEditing, setTEditing] = useState<Treatment | null>(null);
   const [tDeleteId, setTDeleteId] = useState<string | null>(null);
 
-  // Alert state
-  const [aDialogOpen, setADialogOpen] = useState(false);
-  const [aEditingId, setAEditingId] = useState<string | null>(null);
-  const [aForm, setAForm] = useState(emptyAlertForm);
+  const [aOpen, setAOpen] = useState(false);
+  const [aEditing, setAEditing] = useState<HealthAlert | null>(null);
   const [aDeleteId, setADeleteId] = useState<string | null>(null);
 
-  // Treatment handlers
-  const openAddTreatment = () => {
-    setTEditingId(null);
-    setTForm(emptyTreatmentForm);
-    setTDialogOpen(true);
-  };
+  const [pdfOpen, setPdfOpen] = useState(false);
+  const [helpOpen, setHelpOpen] = useState(false);
+  const [syncing, setSyncing] = useState(false);
+  const [medForm, setMedForm] = useState({
+    name: "",
+    type: "vacuna",
+    pricePerUnit: "",
+    unit: "dosis",
+  });
+  const [medBusy, setMedBusy] = useState(false);
+  const [medError, setMedError] = useState<string | null>(null);
 
-  const openEditTreatment = (id: string) => {
-    const t = list.find((t) => t.id === id);
-    if (!t) return;
-    setTEditingId(id);
-    setTForm({
-      type: t.type as TreatmentType,
-      name: t.name,
-      date: t.date,
-      animalCount: String(t.animalCount),
-      costPerAnimal: String(t.costPerAnimal),
-      totalCost: String(t.totalCost),
-      appliedBy: t.appliedBy,
-      notes: t.notes,
-      nextDue: t.nextDue ?? "",
-    });
-    setTDialogOpen(true);
-  };
-
-  const handleTreatmentSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    const payload = {
-      type: tForm.type,
-      name: tForm.name,
-      date: tForm.date,
-      animalCount: Number(tForm.animalCount),
-      costPerAnimal: Number(tForm.costPerAnimal),
-      totalCost: Number(tForm.totalCost),
-      appliedBy: tForm.appliedBy,
-      notes: tForm.notes,
-      nextDue: tForm.nextDue || undefined,
-    };
-    if (tEditingId) {
-      // edición vía API en fase salud
-    } else {
-      // registro vía API en fase salud
-    }
-    setTDialogOpen(false);
-    void reloadTreatments();
-  };
-
-  // Alert handlers
-  const openAddAlert = () => {
-    setAEditingId(null);
-    setAForm(emptyAlertForm);
-    setADialogOpen(true);
-  };
-
-  const openEditAlert = (id: string) => {
-    const a = alerts.find((a) => a.id === id);
-    if (!a) return;
-    setAEditingId(id);
-    setAForm({
-      tagId: a.tagId ?? "",
-      type: a.type,
-      message: a.message,
-      dueDate: a.dueDate,
-      priority: a.priority,
-    });
-    setADialogOpen(true);
-  };
-
-  const handleAlertSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    const payload = {
-      tagId: aForm.tagId || undefined,
-      type: aForm.type,
-      message: aForm.message,
-      dueDate: aForm.dueDate,
-      priority: aForm.priority,
-    };
-    if (aEditingId) {
-      // edición vía API en fase salud
-    } else {
-      // registro vía API en fase salud
-    }
-    setADialogOpen(false);
-    void reloadAlerts();
-  };
+  const filteredTreatments = useMemo(() => {
+    if (!q.trim()) return list;
+    const qq = q.toLowerCase();
+    return list.filter(
+      (t) =>
+        t.name.toLowerCase().includes(qq) ||
+        String(t.type).toLowerCase().includes(qq) ||
+        t.appliedBy.toLowerCase().includes(qq)
+    );
+  }, [list, q]);
 
   const totalTreatmentCost = list.reduce((s, t) => s + t.totalCost, 0);
 
+  const tabs: { id: TabType; label: string; icon: typeof Syringe }[] = [
+    { id: "tratamientos", label: "Tratamientos", icon: Syringe },
+    { id: "alertas", label: "Alertas", icon: Bell },
+    { id: "medicamentos", label: "Medicamentos", icon: Pill },
+    { id: "cargas", label: "Cargas", icon: FileUp },
+  ];
+
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
           <Link
             href="/gestion"
@@ -204,300 +139,530 @@ export default function GestionSaludPage() {
           </Link>
           <div>
             <div className="flex items-center gap-2">
-              <HeartPulse className="h-5 w-5 text-red-600" />
-              <h1 className="text-2xl font-bold tracking-tight">Gestión de Salud</h1>
+              <HeartPulse className="h-5 w-5 text-rose-700" />
+              <h1 className="text-2xl font-bold tracking-tight">
+                Gestión de Salud
+              </h1>
             </div>
             <p className="text-sm text-muted-foreground mt-0.5">
-              {list.length} tratamientos · {alerts.length} alertas activas
+              {list.length} tratamientos · {alerts.length} alertas ·{" "}
+              <Link href="/health" className="text-teal-700 hover:underline">
+                Ver dashboard
+              </Link>
             </p>
           </div>
         </div>
-        {tab === "tratamientos" ? (
+        <div className="flex flex-wrap gap-2">
           <button
-            onClick={openAddTreatment}
-            className="flex items-center gap-2 bg-primary text-primary-foreground rounded-xl px-4 py-2 text-sm font-medium hover:bg-primary/90 transition-colors"
+            type="button"
+            onClick={() => setHelpOpen(true)}
+            className="inline-flex items-center gap-1.5 rounded-xl border px-3 py-2 text-sm hover:bg-muted"
           >
-            <Plus className="h-4 w-4" />
-            Nuevo Tratamiento
+            <BookOpen className="h-4 w-4" />
+            Manual
           </button>
-        ) : (
-          <button
-            onClick={openAddAlert}
-            className="flex items-center gap-2 bg-primary text-primary-foreground rounded-xl px-4 py-2 text-sm font-medium hover:bg-primary/90 transition-colors"
-          >
-            <Plus className="h-4 w-4" />
-            Nueva Alerta
-          </button>
-        )}
+          {tab === "tratamientos" && (
+            <button
+              type="button"
+              onClick={() => {
+                setTEditing(null);
+                setTOpen(true);
+              }}
+              className="inline-flex items-center gap-2 bg-primary text-primary-foreground rounded-xl px-4 py-2 text-sm font-medium hover:bg-primary/90"
+            >
+              <Plus className="h-4 w-4" />
+              Nuevo tratamiento
+            </button>
+          )}
+          {tab === "alertas" && (
+            <button
+              type="button"
+              onClick={() => {
+                setAEditing(null);
+                setAOpen(true);
+              }}
+              className="inline-flex items-center gap-2 bg-primary text-primary-foreground rounded-xl px-4 py-2 text-sm font-medium"
+            >
+              <Plus className="h-4 w-4" />
+              Nueva alerta
+            </button>
+          )}
+        </div>
       </div>
 
-      {/* Tabs */}
-      <div className="flex gap-1 p-1 bg-muted rounded-xl w-fit">
-        {(["tratamientos", "alertas"] as TabType[]).map((t) => (
+      <div className="flex gap-1 p-1 bg-muted rounded-xl w-fit flex-wrap">
+        {tabs.map((t) => (
           <button
-            key={t}
-            onClick={() => setTab(t)}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors capitalize ${
-              tab === t
+            key={t.id}
+            type="button"
+            onClick={() => setTab(t.id)}
+            className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+              tab === t.id
                 ? "bg-background text-foreground shadow-sm"
                 : "text-muted-foreground hover:text-foreground"
             }`}
           >
-            {t === "tratamientos" ? <Syringe className="h-3.5 w-3.5" /> : <Bell className="h-3.5 w-3.5" />}
-            {t === "tratamientos" ? "Tratamientos" : "Alertas"}
+            <t.icon className="h-3.5 w-3.5" />
+            {t.label}
           </button>
         ))}
       </div>
 
-      {/* ─── TRATAMIENTOS ─────────────────────────────────────────────── */}
       {tab === "tratamientos" && (
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base flex items-center justify-between">
-              <span className="flex items-center gap-2">
-                <Syringe className="h-4 w-4 text-red-600" />
-                Historial de tratamientos
-              </span>
-              <span className="text-sm font-normal text-muted-foreground">
-                Total invertido: <span className="font-semibold text-foreground">{formatCurrency(totalTreatmentCost)}</span>
-              </span>
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="pt-0">
-            <Table>
-              <TableHeader>
-                <TableRow className="bg-muted/30">
-                  <TableHead>Nombre</TableHead>
-                  <TableHead>Tipo</TableHead>
-                  <TableHead>Fecha</TableHead>
-                  <TableHead className="hidden md:table-cell">Animales</TableHead>
-                  <TableHead className="hidden md:table-cell">Aplicado por</TableHead>
-                  <TableHead className="text-right">Costo total</TableHead>
-                  <TableHead className="text-right">Acciones</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {list.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
-                      No hay tratamientos registrados.
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  list.map((t) => (
-                    <TableRow key={t.id}>
-                      <TableCell className="font-medium text-sm">{t.name}</TableCell>
-                      <TableCell>
-                        <span className={`text-xs px-2 py-0.5 rounded-lg font-medium ${treatmentTypeColor[t.type as TreatmentType] ?? treatmentTypeColor.vacuna}`}>
-                          {treatmentTypeLabel[t.type as TreatmentType] ?? t.type}
-                        </span>
-                      </TableCell>
-                      <TableCell className="text-muted-foreground text-sm">{formatDate(t.date)}</TableCell>
-                      <TableCell className="hidden md:table-cell text-sm">{t.animalCount}</TableCell>
-                      <TableCell className="hidden md:table-cell text-sm text-muted-foreground">{t.appliedBy}</TableCell>
-                      <TableCell className="text-right font-semibold tabular-nums">{formatCurrency(t.totalCost)}</TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex items-center justify-end gap-1">
-                          <button onClick={() => openEditTreatment(t.id)} className="p-1.5 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground" title="Editar">
-                            <Pencil className="h-3.5 w-3.5" />
-                          </button>
-                          <button onClick={() => setTDeleteId(t.id)} className="p-1.5 rounded-lg hover:bg-red-50 transition-colors text-muted-foreground hover:text-red-600" title="Eliminar">
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* ─── ALERTAS ──────────────────────────────────────────────────── */}
-      {tab === "alertas" && (
-        <Card>
-          <CardContent className="pt-6">
-            <Table>
-              <TableHeader>
-                <TableRow className="bg-muted/30">
-                  <TableHead>Mensaje</TableHead>
-                  <TableHead>Tipo</TableHead>
-                  <TableHead className="hidden md:table-cell">Arete</TableHead>
-                  <TableHead>Vencimiento</TableHead>
-                  <TableHead>Prioridad</TableHead>
-                  <TableHead className="text-right">Acciones</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {alerts.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
-                      No hay alertas registradas.
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  alerts.map((a) => (
-                    <TableRow key={a.id}>
-                      <TableCell className="text-sm max-w-xs">{a.message}</TableCell>
-                      <TableCell>
-                        <span className="text-xs bg-muted px-2 py-0.5 rounded-lg capitalize">{a.type}</span>
-                      </TableCell>
-                      <TableCell className="hidden md:table-cell font-mono text-xs">{a.tagId ?? "—"}</TableCell>
-                      <TableCell className="text-muted-foreground text-sm">{formatDate(a.dueDate)}</TableCell>
-                      <TableCell>
-                        <Badge variant={priorityVariant[a.priority]}>{a.priority}</Badge>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex items-center justify-end gap-1">
-                          <button onClick={() => openEditAlert(a.id)} className="p-1.5 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground" title="Editar">
-                            <Pencil className="h-3.5 w-3.5" />
-                          </button>
-                          <button onClick={() => setADeleteId(a.id)} className="p-1.5 rounded-lg hover:bg-red-50 transition-colors text-muted-foreground hover:text-red-600" title="Eliminar">
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Treatment Dialog */}
-      <Dialog open={tDialogOpen} onOpenChange={setTDialogOpen}>
-        <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Syringe className="h-5 w-5 text-red-600" />
-              {tEditingId ? "Editar Tratamiento" : "Nuevo Tratamiento"}
-            </DialogTitle>
-          </DialogHeader>
-          <form onSubmit={handleTreatmentSubmit} className="space-y-4 mt-2">
-            <div className="space-y-1.5">
-              <Label htmlFor="t-name">Nombre *</Label>
-              <Input id="t-name" placeholder="Vacuna Triple Viral" value={tForm.name} onChange={(e) => setTForm({ ...tForm, name: e.target.value })} required />
+        <div className="rounded-2xl border overflow-hidden">
+          <div className="px-4 py-3 border-b flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <p className="font-medium text-sm">Historial de tratamientos</p>
+              <p className="text-xs text-muted-foreground">
+                Total invertido:{" "}
+                <span className="font-semibold text-foreground">
+                  {formatCurrency(totalTreatmentCost)}
+                </span>
+              </p>
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <Input
+              className="max-w-xs"
+              placeholder="Buscar…"
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+            />
+          </div>
+          <Table>
+            <TableHeader>
+              <TableRow className="bg-muted/30">
+                <TableHead>Nombre</TableHead>
+                <TableHead>Tipo</TableHead>
+                <TableHead>Fecha</TableHead>
+                <TableHead className="hidden md:table-cell">Animales</TableHead>
+                <TableHead className="hidden md:table-cell">Aplicado por</TableHead>
+                <TableHead className="text-right">Costo</TableHead>
+                <TableHead className="text-right">Acciones</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {loadingT ? (
+                <TableRow>
+                  <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                    Cargando…
+                  </TableCell>
+                </TableRow>
+              ) : filteredTreatments.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                    No hay tratamientos. Registra uno o importa un PDF.
+                  </TableCell>
+                </TableRow>
+              ) : (
+                filteredTreatments.map((t) => (
+                  <TableRow key={t.id}>
+                    <TableCell className="font-medium text-sm">
+                      <div>{t.name}</div>
+                      {(t.origen === "pdf" ||
+                        t.notes?.includes("comprobante")) && (
+                        <span className="text-[10px] uppercase tracking-wide text-sky-700">
+                          Origen PDF / comprobante
+                        </span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <span
+                        className={`text-xs px-2 py-0.5 rounded-lg font-medium ${
+                          TREATMENT_TYPE_COLORS[t.type as TreatmentType] ??
+                          "bg-muted"
+                        }`}
+                      >
+                        {TREATMENT_TYPE_LABELS[t.type as TreatmentType] ??
+                          t.type}
+                      </span>
+                    </TableCell>
+                    <TableCell className="text-sm text-muted-foreground">
+                      {formatDate(t.date)}
+                    </TableCell>
+                    <TableCell className="hidden md:table-cell text-sm">
+                      {t.animalCount}
+                    </TableCell>
+                    <TableCell className="hidden md:table-cell text-sm text-muted-foreground">
+                      {t.appliedBy || "—"}
+                    </TableCell>
+                    <TableCell className="text-right font-semibold tabular-nums">
+                      {formatCurrency(t.totalCost)}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex items-center justify-end gap-1">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setTEditing(t);
+                            setTOpen(true);
+                          }}
+                          className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground"
+                        >
+                          <Pencil className="h-3.5 w-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setTDeleteId(t.id)}
+                          className="p-1.5 rounded-lg hover:bg-rose-50 text-muted-foreground hover:text-rose-600"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </div>
+      )}
+
+      {tab === "alertas" && (
+        <div className="rounded-2xl border overflow-hidden">
+          <div className="px-4 py-3 border-b flex justify-between items-center">
+            <p className="font-medium text-sm">Alertas sanitarias</p>
+            <button
+              type="button"
+              disabled={syncing}
+              onClick={async () => {
+                setSyncing(true);
+                try {
+                  await syncHealthAlertsApi();
+                  await reloadAlerts();
+                } finally {
+                  setSyncing(false);
+                }
+              }}
+              className="inline-flex items-center gap-1.5 text-xs rounded-lg border px-2.5 py-1.5 hover:bg-muted"
+            >
+              <RefreshCw className={`h-3.5 w-3.5 ${syncing ? "animate-spin" : ""}`} />
+              Sync desde tratamientos
+            </button>
+          </div>
+          <Table>
+            <TableHeader>
+              <TableRow className="bg-muted/30">
+                <TableHead>Mensaje</TableHead>
+                <TableHead>Tipo</TableHead>
+                <TableHead className="hidden md:table-cell">Arete</TableHead>
+                <TableHead>Vencimiento</TableHead>
+                <TableHead>Prioridad</TableHead>
+                <TableHead className="text-right">Acciones</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {loadingA ? (
+                <TableRow>
+                  <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                    Cargando…
+                  </TableCell>
+                </TableRow>
+              ) : alerts.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                    No hay alertas. Crea una o sincroniza desde tratamientos.
+                  </TableCell>
+                </TableRow>
+              ) : (
+                alerts.map((a) => (
+                  <TableRow key={a.id}>
+                    <TableCell className="text-sm max-w-xs">{a.message}</TableCell>
+                    <TableCell>
+                      <span className="text-xs bg-muted px-2 py-0.5 rounded-lg capitalize">
+                        {a.type}
+                      </span>
+                    </TableCell>
+                    <TableCell className="hidden md:table-cell font-mono text-xs">
+                      {a.tagId ?? "—"}
+                    </TableCell>
+                    <TableCell className="text-sm text-muted-foreground">
+                      {formatDate(a.dueDate)}
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={priorityVariant[a.priority]}>
+                        {a.priority}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex items-center justify-end gap-1">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setAEditing(a);
+                            setAOpen(true);
+                          }}
+                          className="p-1.5 rounded-lg hover:bg-muted"
+                        >
+                          <Pencil className="h-3.5 w-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setADeleteId(a.id)}
+                          className="p-1.5 rounded-lg hover:bg-rose-50 text-muted-foreground hover:text-rose-600"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </div>
+      )}
+
+      {tab === "medicamentos" && (
+        <div className="grid lg:grid-cols-3 gap-6">
+          <form
+            className="rounded-2xl border p-4 space-y-3 h-fit"
+            onSubmit={async (e) => {
+              e.preventDefault();
+              setMedBusy(true);
+              setMedError(null);
+              try {
+                await createMedicamentoApi({
+                  name: medForm.name,
+                  type: medForm.type,
+                  unit: medForm.unit,
+                  pricePerUnit: Number(medForm.pricePerUnit) || 0,
+                });
+                setMedForm({
+                  name: "",
+                  type: "vacuna",
+                  pricePerUnit: "",
+                  unit: "dosis",
+                });
+                await reloadMeds();
+              } catch (err) {
+                setMedError(
+                  err instanceof Error ? err.message : "Error al guardar"
+                );
+              } finally {
+                setMedBusy(false);
+              }
+            }}
+          >
+            <p className="font-medium text-sm">Alta de medicamento</p>
+            <div className="space-y-1.5">
+              <Label>Nombre *</Label>
+              <Input
+                required
+                value={medForm.name}
+                onChange={(e) =>
+                  setMedForm({ ...medForm, name: e.target.value })
+                }
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-2">
               <div className="space-y-1.5">
-                <Label htmlFor="t-type">Tipo</Label>
-                <Select id="t-type" value={tForm.type} onChange={(e) => setTForm({ ...tForm, type: e.target.value as TreatmentType })}>
-                  {(Object.keys(treatmentTypeLabel) as TreatmentType[]).map((t) => (
-                    <option key={t} value={t}>{treatmentTypeLabel[t]}</option>
+                <Label>Tipo</Label>
+                <Select
+                  value={medForm.type}
+                  onChange={(e) =>
+                    setMedForm({ ...medForm, type: e.target.value })
+                  }
+                >
+                  {TREATMENT_TYPES.map((t) => (
+                    <option key={t} value={t}>
+                      {TREATMENT_TYPE_LABELS[t]}
+                    </option>
                   ))}
                 </Select>
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="t-date">Fecha *</Label>
-                <Input id="t-date" type="date" value={tForm.date} onChange={(e) => setTForm({ ...tForm, date: e.target.value })} required />
+                <Label>₡ / unidad</Label>
+                <Input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={medForm.pricePerUnit}
+                  onChange={(e) =>
+                    setMedForm({ ...medForm, pricePerUnit: e.target.value })
+                  }
+                />
               </div>
             </div>
-            <div className="grid grid-cols-3 gap-3">
-              <div className="space-y-1.5">
-                <Label htmlFor="t-count">Animales</Label>
-                <Input id="t-count" type="number" min="1" placeholder="18" value={tForm.animalCount} onChange={(e) => setTForm({ ...tForm, animalCount: e.target.value })} />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="t-cpa">₡/animal</Label>
-                <Input id="t-cpa" type="number" min="0" step="0.01" placeholder="200" value={tForm.costPerAnimal} onChange={(e) => setTForm({ ...tForm, costPerAnimal: e.target.value })} />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="t-total">Total (₡)</Label>
-                <Input id="t-total" type="number" min="0" step="0.01" placeholder="3600" value={tForm.totalCost} onChange={(e) => setTForm({ ...tForm, totalCost: e.target.value })} />
-              </div>
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="t-by">Aplicado por</Label>
-              <Input id="t-by" placeholder="Dr. Hernández" value={tForm.appliedBy} onChange={(e) => setTForm({ ...tForm, appliedBy: e.target.value })} />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="t-notes">Notas</Label>
-              <Input id="t-notes" placeholder="Observaciones del tratamiento" value={tForm.notes} onChange={(e) => setTForm({ ...tForm, notes: e.target.value })} />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="t-next">Próxima aplicación (opcional)</Label>
-              <Input id="t-next" type="date" value={tForm.nextDue} onChange={(e) => setTForm({ ...tForm, nextDue: e.target.value })} />
-            </div>
-            <DialogFooter>
-              <button type="button" onClick={() => setTDialogOpen(false)} className="px-4 py-2 rounded-xl border text-sm font-medium hover:bg-muted transition-colors">Cancelar</button>
-              <button type="submit" className="px-4 py-2 rounded-xl bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors">
-                {tEditingId ? "Guardar cambios" : "Registrar"}
-              </button>
-            </DialogFooter>
+            {medError && (
+              <p className="text-sm text-rose-600">{medError}</p>
+            )}
+            <button
+              type="submit"
+              disabled={medBusy}
+              className="w-full rounded-xl bg-primary text-primary-foreground py-2 text-sm font-medium disabled:opacity-60"
+            >
+              {medBusy ? "Guardando…" : "Registrar"}
+            </button>
           </form>
-        </DialogContent>
-      </Dialog>
 
-      {/* Alert Dialog */}
-      <Dialog open={aDialogOpen} onOpenChange={setADialogOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Bell className="h-5 w-5 text-amber-500" />
-              {aEditingId ? "Editar Alerta" : "Nueva Alerta"}
-            </DialogTitle>
-          </DialogHeader>
-          <form onSubmit={handleAlertSubmit} className="space-y-4 mt-2">
-            <div className="space-y-1.5">
-              <Label htmlFor="a-msg">Mensaje *</Label>
-              <Input id="a-msg" placeholder="Describir la alerta..." value={aForm.message} onChange={(e) => setAForm({ ...aForm, message: e.target.value })} required />
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label htmlFor="a-type">Tipo</Label>
-                <Select id="a-type" value={aForm.type} onChange={(e) => setAForm({ ...aForm, type: e.target.value as typeof aForm.type })}>
-                  <option value="urgente">Urgente</option>
-                  <option value="programado">Programado</option>
-                  <option value="revisión">Revisión</option>
-                  <option value="tratamiento">Tratamiento</option>
-                </Select>
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="a-priority">Prioridad</Label>
-                <Select id="a-priority" value={aForm.priority} onChange={(e) => setAForm({ ...aForm, priority: e.target.value as typeof aForm.priority })}>
-                  <option value="alta">Alta</option>
-                  <option value="media">Media</option>
-                  <option value="baja">Baja</option>
-                </Select>
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label htmlFor="a-due">Fecha límite *</Label>
-                <Input id="a-due" type="date" value={aForm.dueDate} onChange={(e) => setAForm({ ...aForm, dueDate: e.target.value })} required />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="a-tag">Arete (opcional)</Label>
-                <Input id="a-tag" placeholder="BV-006" value={aForm.tagId} onChange={(e) => setAForm({ ...aForm, tagId: e.target.value })} />
-              </div>
-            </div>
-            <DialogFooter>
-              <button type="button" onClick={() => setADialogOpen(false)} className="px-4 py-2 rounded-xl border text-sm font-medium hover:bg-muted transition-colors">Cancelar</button>
-              <button type="submit" className="px-4 py-2 rounded-xl bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors">
-                {aEditingId ? "Guardar cambios" : "Crear alerta"}
-              </button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
+          <div className="lg:col-span-2 rounded-2xl border overflow-hidden">
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-muted/30">
+                  <TableHead>Código</TableHead>
+                  <TableHead>Nombre</TableHead>
+                  <TableHead>Tipo</TableHead>
+                  <TableHead className="text-right">Costo</TableHead>
+                  <TableHead className="text-right">Acciones</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {loadingM ? (
+                  <TableRow>
+                    <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                      Cargando…
+                    </TableCell>
+                  </TableRow>
+                ) : meds.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                      Catálogo vacío.
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  meds.map((m) => (
+                    <TableRow key={m.id}>
+                      <TableCell className="font-mono text-xs">{m.code}</TableCell>
+                      <TableCell className="text-sm font-medium">{m.name}</TableCell>
+                      <TableCell className="text-sm capitalize">{m.type}</TableCell>
+                      <TableCell className="text-right tabular-nums text-sm">
+                        {formatCurrency(m.pricePerUnit)}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            await deleteMedicamentoApi(m.id);
+                            await reloadMeds();
+                          }}
+                          className="p-1.5 rounded-lg hover:bg-rose-50 text-muted-foreground hover:text-rose-600"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </div>
+        </div>
+      )}
 
-      {/* Delete Confirms */}
+      {tab === "cargas" && (
+        <div className="grid md:grid-cols-2 gap-4">
+          <button
+            type="button"
+            onClick={() => setPdfOpen(true)}
+            className="rounded-2xl border p-6 text-left hover:bg-muted/30 transition-colors space-y-2"
+          >
+            <FileUp className="h-6 w-6 text-sky-700" />
+            <p className="font-semibold">Importar PDF sanitario</p>
+            <p className="text-sm text-muted-foreground">
+              Extrae texto, revisa campos y confirma la inscripción.
+            </p>
+          </button>
+          <a
+            href="/templates/salud-carga.csv"
+            download
+            className="rounded-2xl border p-6 hover:bg-muted/30 transition-colors space-y-2 block"
+          >
+            <Download className="h-6 w-6 text-emerald-700" />
+            <p className="font-semibold">Plantilla CSV manual</p>
+            <p className="text-sm text-muted-foreground">
+              Columnas: nombre, tipo, fecha, animales, costo_por_animal,
+              aplicado_por, proxima, notas.
+            </p>
+          </a>
+          <button
+            type="button"
+            onClick={() => {
+              setTEditing(null);
+              setTOpen(true);
+            }}
+            className="rounded-2xl border p-6 text-left hover:bg-muted/30 transition-colors space-y-2 md:col-span-2"
+          >
+            <Syringe className="h-6 w-6 text-rose-700" />
+            <p className="font-semibold">Wizard de inscripción manual</p>
+            <p className="text-sm text-muted-foreground">
+              Formulario completo de tratamiento con generación de alerta por
+              próxima dosis.
+            </p>
+          </button>
+        </div>
+      )}
+
+      <TratamientoFormDialog
+        open={tOpen}
+        onOpenChange={setTOpen}
+        editing={tEditing}
+        onSubmit={async (payload) => {
+          if (tEditing) {
+            await updateTreatmentApi(tEditing.id, payload);
+          } else {
+            await createTreatmentApi(payload);
+          }
+          await reloadTreatments();
+          await reloadAlerts();
+        }}
+      />
+
+      <AlertaFormDialog
+        open={aOpen}
+        onOpenChange={setAOpen}
+        editing={aEditing}
+        onSubmit={async (payload) => {
+          if (aEditing) {
+            await updateHealthAlertApi(aEditing.id, payload);
+          } else {
+            await createHealthAlertApi(payload);
+          }
+          await reloadAlerts();
+        }}
+      />
+
+      <ImportPdfDialog
+        open={pdfOpen}
+        onOpenChange={setPdfOpen}
+        onSuccess={() => {
+          void reloadTreatments();
+          void reloadAlerts();
+        }}
+      />
+
+      <SaludHelpPanel open={helpOpen} onOpenChange={setHelpOpen} />
+
       <Dialog open={tDeleteId !== null} onOpenChange={(o) => !o && setTDeleteId(null)}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-red-600">
+            <DialogTitle className="flex items-center gap-2 text-rose-600">
               <AlertTriangle className="h-5 w-5" />
               Eliminar tratamiento
             </DialogTitle>
           </DialogHeader>
-          <p className="text-sm text-muted-foreground">¿Seguro que deseas eliminar este tratamiento?</p>
+          <p className="text-sm text-muted-foreground">
+            ¿Seguro que deseas eliminar este tratamiento? Quedará registrado en
+            el historial del sistema.
+          </p>
           <DialogFooter>
-            <button onClick={() => setTDeleteId(null)} className="px-4 py-2 rounded-xl border text-sm font-medium hover:bg-muted transition-colors">Cancelar</button>
-            <button onClick={() => { setTDeleteId(null); void reloadTreatments(); }} className="px-4 py-2 rounded-xl bg-red-600 text-white text-sm font-medium hover:bg-red-700 transition-colors">Eliminar</button>
+            <button
+              type="button"
+              onClick={() => setTDeleteId(null)}
+              className="px-4 py-2 rounded-xl border text-sm"
+            >
+              Cancelar
+            </button>
+            <button
+              type="button"
+              onClick={async () => {
+                if (!tDeleteId) return;
+                await deleteTreatmentApi(tDeleteId);
+                setTDeleteId(null);
+                await reloadTreatments();
+              }}
+              className="px-4 py-2 rounded-xl bg-rose-600 text-white text-sm font-medium"
+            >
+              Eliminar
+            </button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -505,15 +670,34 @@ export default function GestionSaludPage() {
       <Dialog open={aDeleteId !== null} onOpenChange={(o) => !o && setADeleteId(null)}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-red-600">
+            <DialogTitle className="flex items-center gap-2 text-rose-600">
               <AlertTriangle className="h-5 w-5" />
               Eliminar alerta
             </DialogTitle>
           </DialogHeader>
-          <p className="text-sm text-muted-foreground">¿Seguro que deseas eliminar esta alerta?</p>
+          <p className="text-sm text-muted-foreground">
+            ¿Seguro que deseas eliminar esta alerta?
+          </p>
           <DialogFooter>
-            <button onClick={() => setADeleteId(null)} className="px-4 py-2 rounded-xl border text-sm font-medium hover:bg-muted transition-colors">Cancelar</button>
-            <button onClick={() => { setADeleteId(null); void reloadAlerts(); }} className="px-4 py-2 rounded-xl bg-red-600 text-white text-sm font-medium hover:bg-red-700 transition-colors">Eliminar</button>
+            <button
+              type="button"
+              onClick={() => setADeleteId(null)}
+              className="px-4 py-2 rounded-xl border text-sm"
+            >
+              Cancelar
+            </button>
+            <button
+              type="button"
+              onClick={async () => {
+                if (!aDeleteId) return;
+                await deleteHealthAlertApi(aDeleteId);
+                setADeleteId(null);
+                await reloadAlerts();
+              }}
+              className="px-4 py-2 rounded-xl bg-rose-600 text-white text-sm font-medium"
+            >
+              Eliminar
+            </button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

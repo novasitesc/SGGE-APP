@@ -1,5 +1,5 @@
-import { createSupabaseAdmin } from "@/lib/supabase/admin";
-import { resolveGranjaId, isUuid, getSystemUserId } from "@/lib/api/granja";
+import { isUuid, getSystemUserId } from "@/lib/api/granja";
+import { requireApiContext } from "@/lib/api/auth";
 import { jsonError, jsonOk } from "@/lib/api/http";
 import { registrarHistorialAnimal } from "@/lib/api/historial-animal";
 import { normalizeWeightKg } from "@/lib/api/weight-utils";
@@ -20,12 +20,10 @@ export async function GET(
     const { id: animalId } = await ctx.params;
     if (!isUuid(animalId)) return jsonError("id de animal inválido.");
 
-    const admin = createSupabaseAdmin();
+    const auth = await requireApiContext(req);
+    if (!auth.ok) return auth.response;
+    const { admin, granjaId } = auth.ctx;
     const url = new URL(req.url);
-    const granjaId = await resolveGranjaId(
-      admin,
-      url.searchParams.get("farmId") ?? url.searchParams.get("granjaId")
-    );
 
     const { data: animal, error: e0 } = await admin
       .from("animales")
@@ -67,12 +65,10 @@ export async function POST(
     const { id: animalId } = await ctx.params;
     if (!isUuid(animalId)) return jsonError("id de animal inválido.");
 
-    const admin = createSupabaseAdmin();
+    const auth = await requireApiContext(req);
+    if (!auth.ok) return auth.response;
+    const { admin, granjaId } = auth.ctx;
     const url = new URL(req.url);
-    const granjaId = await resolveGranjaId(
-      admin,
-      url.searchParams.get("farmId") ?? url.searchParams.get("granjaId")
-    );
     const body = (await req.json()) as PostBody;
 
     if (body.weightKg == null || body.weightKg <= 0) {

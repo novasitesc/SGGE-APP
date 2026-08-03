@@ -1,5 +1,6 @@
-import { createSupabaseAdmin } from "@/lib/supabase/admin";
-import { resolveGranjaId, isUuid } from "@/lib/api/granja";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import { isUuid } from "@/lib/api/granja";
+import { requireApiContext } from "@/lib/api/auth";
 import { jsonError, jsonOk } from "@/lib/api/http";
 import {
   getEstadoIdByCodigo,
@@ -30,12 +31,10 @@ export async function PATCH(
 ) {
   try {
     const { id } = await ctx.params;
-    const admin = createSupabaseAdmin();
+    const auth = await requireApiContext(req);
+    if (!auth.ok) return auth.response;
+    const { admin, granjaId } = auth.ctx;
     const url = new URL(req.url);
-    const granjaId = await resolveGranjaId(
-      admin,
-      url.searchParams.get("farmId") ?? url.searchParams.get("granjaId")
-    );
     const body = (await req.json()) as PatchBody;
 
     const { data: current, error: e0 } = await admin
@@ -129,12 +128,10 @@ export async function DELETE(
 ) {
   try {
     const { id } = await ctx.params;
-    const admin = createSupabaseAdmin();
+    const auth = await requireApiContext(req);
+    if (!auth.ok) return auth.response;
+    const { admin, granjaId } = auth.ctx;
     const url = new URL(req.url);
-    const granjaId = await resolveGranjaId(
-      admin,
-      url.searchParams.get("farmId") ?? url.searchParams.get("granjaId")
-    );
 
     const { data: current, error: e0 } = await admin
       .from("corrales")
@@ -193,7 +190,7 @@ export async function DELETE(
 
 /** Resolver corral por UUID o código (M1, CQ, etc.) */
 export async function resolveCorralId(
-  admin: ReturnType<typeof createSupabaseAdmin>,
+  admin: SupabaseClient,
   granjaId: string,
   idOrCode: string
 ): Promise<string | null> {

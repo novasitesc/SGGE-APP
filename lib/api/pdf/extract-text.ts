@@ -59,7 +59,7 @@ export async function extractPdfTextAsync(buffer: Buffer): Promise<string> {
     const { extractText, getDocumentProxy } = await import("unpdf");
     const pdf = await getDocumentProxy(new Uint8Array(buffer));
     const { text } = await extractText(pdf, { mergePages: true });
-    const joined = typeof text === "string" ? text : text.join("\n");
+    const joined = text;
     const cleaned = sanitizeText(
       joined.replace(/[ \t]+/g, " ").replace(/\s*\n\s*/g, "\n").trim()
     );

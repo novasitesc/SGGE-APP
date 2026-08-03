@@ -121,6 +121,10 @@ async function verificarAprobadorDirecto(
   };
 }
 
+/**
+ * @deprecated Ola 1: las aprobaciones usan sesión Supabase Auth
+ * (`aprobadorDesdeSesion`). No exponer email/password en endpoints.
+ */
 export async function verificarAprobadorGerente(
   admin: SupabaseClient,
   email: string,
@@ -168,6 +172,35 @@ export async function verificarAprobadorGerente(
   };
 
   return { ok: true, aprobador: mapAprobador(r) };
+}
+
+/** Aprobador a partir de la sesión ya autenticada (roles gerente|admin). */
+export function aprobadorDesdeSesion(input: {
+  usuarioId: string;
+  nombre: string;
+  apellido: string | null;
+  email: string;
+  roles: string[];
+}): { ok: true; aprobador: AprobadorVerificado } | { ok: false; message: string } {
+  const rolCodigo = input.roles.find((c) =>
+    ROLES_APROBADORES.includes(c as (typeof ROLES_APROBADORES)[number])
+  );
+  if (!rolCodigo) {
+    return {
+      ok: false,
+      message: "Solo un gerente o administrador puede aprobar esta baja.",
+    };
+  }
+  return {
+    ok: true,
+    aprobador: {
+      usuarioId: input.usuarioId,
+      nombre: input.nombre,
+      apellido: input.apellido,
+      email: input.email,
+      rolCodigo,
+    },
+  };
 }
 
 export function validarJustificacionEliminacion(texto: string): string | null {

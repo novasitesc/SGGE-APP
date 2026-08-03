@@ -1,37 +1,17 @@
-import { createSupabaseAdmin } from "@/lib/supabase/admin";
-import { resolveGranjaId } from "@/lib/api/granja";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import { requireApiContext } from "@/lib/api/auth";
 import { jsonError, jsonOk } from "@/lib/api/http";
-import { mapCostRow } from "@/lib/api/mappers";
+import { mapCostRow, type CostRowExtras } from "@/lib/api/mappers";
 import {
   registrarHistorial,
   snapshotGasto,
 } from "@/lib/api/historial-sistema";
+import { resolveCategoriaCodigo } from "@/lib/costs/categories";
 
 export const dynamic = "force-dynamic";
 
-const CATEGORIA_MAP: Record<string, string> = {
-  alimentación: "ALIM",
-  alimentacion: "ALIM",
-  combustible: "COMB",
-  mantenimiento: "MANT",
-  transporte: "TRANS",
-  mano_de_obra: "MO",
-  vacunas: "VET",
-  medicamentos: "VET",
-  servicios: "SERV",
-  otros: "OTRO",
-  alim: "ALIM",
-  comb: "COMB",
-  mant: "MANT",
-  trans: "TRANS",
-  mo: "MO",
-  vet: "VET",
-  serv: "SERV",
-  otro: "OTRO",
-};
-
-async function getCategoriaId(admin: ReturnType<typeof createSupabaseAdmin>, category: string) {
-  const catCodigo = CATEGORIA_MAP[category.toLowerCase()] ?? category.toUpperCase();
+async function getCategoriaId(admin: SupabaseClient, category: string) {
+  const catCodigo = resolveCategoriaCodigo(category);
   const { data, error } = await admin
     .from("categorias_gastos")
     .select("id, codigo, nombre")
@@ -39,6 +19,28 @@ async function getCategoriaId(admin: ReturnType<typeof createSupabaseAdmin>, cat
     .maybeSingle();
   if (error) throw new Error(error.message);
   return { categoria: data, catCodigo };
+}
+
+async function origenExtrasForGasto(
+  admin: SupabaseClient,
+  granjaId: string,
+  gastoId: string
+): Promise<CostRowExtras> {
+  const { data, error } = await admin
+    .from("comprobantes")
+    .select("id, emisor_nombre, archivo_nombre")
+    .eq("granja_id", granjaId)
+    .eq("gasto_id", gastoId)
+    .is("deleted_at", null)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  if (!data) return { source: "manual" };
+  return {
+    source: "comprobante",
+    issuer: data.emisor_nombre,
+    comprobanteId: data.id,
+    fileName: data.archivo_nombre,
+  };
 }
 
 type PatchBody = Partial<{
@@ -54,12 +56,9 @@ export async function PATCH(
 ) {
   try {
     const { id } = await ctx.params;
-    const admin = createSupabaseAdmin();
-    const url = new URL(req.url);
-    const granjaId = await resolveGranjaId(
-      admin,
-      url.searchParams.get("farmId") ?? url.searchParams.get("granjaId")
-    );
+    const auth = await requireApiContext(req);
+    if (!auth.ok) return auth.response;
+    const { admin, granjaId } = auth.ctx;
     const body = (await req.json()) as PatchBody;
 
     const { data: current, error: e0 } = await admin
@@ -99,7 +98,8 @@ export async function PATCH(
       .single();
     if (error) return jsonError(error.message, 400);
 
-    const mapped = mapCostRow(data as Record<string, unknown>);
+    const extras = await origenExtrasForGasto(admin, granjaId, id);
+    const mapped = mapCostRow(data as Record<string, unknown>, extras);
     const catNewRaw = (data as Record<string, unknown>).categorias_gastos;
     const catNew = Array.isArray(catNewRaw) ? catNewRaw[0] : catNewRaw;
 
@@ -132,12 +132,9 @@ export async function DELETE(
 ) {
   try {
     const { id } = await ctx.params;
-    const admin = createSupabaseAdmin();
-    const url = new URL(req.url);
-    const granjaId = await resolveGranjaId(
-      admin,
-      url.searchParams.get("farmId") ?? url.searchParams.get("granjaId")
-    );
+    const auth = await requireApiContext(req);
+    if (!auth.ok) return auth.response;
+    const { admin, granjaId } = auth.ctx;
 
     const { data: current, error: e0 } = await admin
       .from("gastos")
@@ -163,6 +160,14 @@ export async function DELETE(
       .update({ deleted_at: new Date().toISOString() })
       .eq("id", id);
     if (error) return jsonError(error.message, 400);
+
+    // Liberar enlace en comprobantes para no dejar facturas huérfanas
+    const { error: eUnlink } = await admin
+      .from("comprobantes")
+      .update({ gasto_id: null })
+      .eq("granja_id", granjaId)
+      .eq("gasto_id", id);
+    if (eUnlink) throw new Error(eUnlink.message);
 
     await registrarHistorial(admin, {
       granjaId,

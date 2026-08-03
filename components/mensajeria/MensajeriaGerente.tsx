@@ -9,7 +9,6 @@ import {
 } from "@/lib/api/solicitudes-client";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   Dialog,
@@ -56,8 +55,6 @@ export function MensajeriaGerente({
   const [selected, setSelected] = useState<SolicitudAprobacion | null>(null);
   const [resolveOpen, setResolveOpen] = useState(false);
   const [resolveAction, setResolveAction] = useState<"aprobar" | "rechazar">("aprobar");
-  const [approverEmail, setApproverEmail] = useState("");
-  const [approverPassword, setApproverPassword] = useState("");
   const [notes, setNotes] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [resolveError, setResolveError] = useState<string | null>(null);
@@ -82,8 +79,6 @@ export function MensajeriaGerente({
   const openResolve = (item: SolicitudAprobacion, action: "aprobar" | "rechazar") => {
     setSelected(item);
     setResolveAction(action);
-    setApproverEmail("");
-    setApproverPassword("");
     setNotes("");
     setResolveError(null);
     setResolveOpen(true);
@@ -97,8 +92,6 @@ export function MensajeriaGerente({
     try {
       await resolveSolicitudApi(selected.id, {
         action: resolveAction,
-        approverEmail,
-        approverPassword,
         notes: notes.trim() || undefined,
       });
       setResolveOpen(false);
@@ -301,32 +294,11 @@ export function MensajeriaGerente({
                 )}
               </p>
 
-              <div className="rounded-xl border border-indigo-200 bg-indigo-50/80 p-3 space-y-3">
-                <p className="text-xs font-semibold text-indigo-900 flex items-center gap-1.5">
+              <div className="rounded-xl border border-stone-200 bg-stone-50 p-3">
+                <p className="text-xs font-semibold text-stone-800 flex items-center gap-1.5">
                   <ShieldCheck className="h-3.5 w-3.5" />
-                  Credenciales del gerente
+                  Se usará su sesión actual (rol gerente o administrador)
                 </p>
-                <div className="space-y-1.5">
-                  <Label htmlFor="approverEmail">Correo *</Label>
-                  <Input
-                    id="approverEmail"
-                    type="email"
-                    value={approverEmail}
-                    onChange={(e) => setApproverEmail(e.target.value)}
-                    placeholder="gerente@srrg.demo"
-                    required
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="approverPassword">Contraseña *</Label>
-                  <Input
-                    id="approverPassword"
-                    type="password"
-                    value={approverPassword}
-                    onChange={(e) => setApproverPassword(e.target.value)}
-                    required
-                  />
-                </div>
               </div>
 
               <div className="space-y-1.5">

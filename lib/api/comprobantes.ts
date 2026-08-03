@@ -3,6 +3,16 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { parseComprobanteAsync } from "@/lib/api/pdf/parse-comprobante";
 import { classifyComprobante, type Clasificacion } from "@/lib/api/pdf/classify";
 import { generarAnimalesDesdeCompra } from "@/lib/api/generar-animales-compra";
+import {
+  extractCantidadAlimentoFromText,
+  sincronizarAlimentacionDesdeGastoAlim,
+  type CantidadAlimDetectada,
+} from "@/lib/api/alim-from-comprobante";
+import {
+  extractLineasVeterinarias,
+  sincronizarSaludDesdeGastoVet,
+  type LineaVeterinaria,
+} from "@/lib/api/vet-from-comprobante";
 
 const BUCKET = "comprobantes";
 
@@ -28,6 +38,7 @@ export type ComprobanteRow = {
   factura_id: string | null;
   created_at: string;
   datos_parseados?: unknown;
+  texto_extraido?: string | null;
 };
 
 export type ComprobanteAnimalLine = {
@@ -64,32 +75,50 @@ export type ComprobanteApi = {
   animales: ComprobanteAnimalLine[];
   pesoTotalKg: number | null;
   parseReason: string | null;
+  /** Cantidad ALIM sugerida desde el texto del PDF (kg/sacos). */
+  cantidadAlimSugerida?: CantidadAlimDetectada | null;
+  /** Líneas veterinarias detectadas en el PDF (para Salud). */
+  lineasVetSugeridas?: LineaVeterinaria[] | null;
 };
 
 export const COMPROBANTE_SELECT =
-  "id, archivo_nombre, archivo_path, archivo_mime, clave_fiscal, folio_fiscal, tipo_documento, emisor_nombre, emisor_identificacion, fecha_emision, moneda, monto_total, clasificacion, categoria_sugerida, confianza, estado, compra_id, gasto_id, factura_id, created_at, datos_parseados";
+  "id, archivo_nombre, archivo_path, archivo_mime, clave_fiscal, folio_fiscal, tipo_documento, emisor_nombre, emisor_identificacion, fecha_emision, moneda, monto_total, clasificacion, categoria_sugerida, confianza, estado, compra_id, gasto_id, factura_id, created_at, datos_parseados, texto_extraido";
 
 function extractParsedExtras(datos: unknown): {
   animales: ComprobanteAnimalLine[];
   pesoTotalKg: number | null;
   parseReason: string | null;
+  cantidadAlimSugerida: CantidadAlimDetectada | null;
+  lineasVetSugeridas: LineaVeterinaria[];
+  texto: string | null;
 } {
   const root = (datos ?? {}) as {
     parsed?: {
       animales?: ComprobanteAnimalLine[];
       pesoTotalKg?: number | null;
+      texto?: string;
     };
     classification?: { motivo?: string };
+    alimCantidad?: CantidadAlimDetectada | null;
   };
   const animales = Array.isArray(root.parsed?.animales) ? root.parsed!.animales! : [];
   const pesoTotalKg =
     root.parsed?.pesoTotalKg != null && Number.isFinite(Number(root.parsed.pesoTotalKg))
       ? Number(root.parsed.pesoTotalKg)
       : null;
+  let cantidadAlimSugerida = root.alimCantidad ?? null;
+  const texto = root.parsed?.texto ?? null;
+  if (!cantidadAlimSugerida && texto) {
+    cantidadAlimSugerida = extractCantidadAlimentoFromText(texto);
+  }
+  const lineasVetSugeridas = texto ? extractLineasVeterinarias(texto) : [];
   return {
     animales,
     pesoTotalKg,
     parseReason: root.classification?.motivo ?? null,
+    cantidadAlimSugerida,
+    lineasVetSugeridas,
+    texto,
   };
 }
 
@@ -99,6 +128,11 @@ export async function mapComprobanteToApi(
 ): Promise<ComprobanteApi> {
   const fileUrl = await createSignedUrl(admin, row.archivo_path);
   const extras = extractParsedExtras(row.datos_parseados);
+  const textoFallback = row.texto_extraido ?? extras.texto ?? "";
+  const lineasVet =
+    extras.lineasVetSugeridas.length > 0
+      ? extras.lineasVetSugeridas
+      : extractLineasVeterinarias(textoFallback);
   return {
     id: row.id,
     fileName: row.archivo_nombre,
@@ -123,6 +157,8 @@ export async function mapComprobanteToApi(
     animales: extras.animales,
     pesoTotalKg: extras.pesoTotalKg,
     parseReason: extras.parseReason,
+    cantidadAlimSugerida: extras.cantidadAlimSugerida,
+    lineasVetSugeridas: lineasVet,
   };
 }
 
@@ -228,7 +264,14 @@ export async function uploadComprobante(
       confianza: cls.confianza,
       estado: "pendiente",
       texto_extraido: parsed.texto.slice(0, 20000),
-      datos_parseados: { parsed, classification: cls },
+      datos_parseados: {
+        parsed,
+        classification: cls,
+        alimCantidad: extractCantidadAlimentoFromText(
+          parsed.texto,
+          parsed.montoTotal
+        ),
+      },
       created_by: createdBy ?? null,
     })
     .select(COMPROBANTE_SELECT)
@@ -308,6 +351,8 @@ export type ConfirmInput = {
   // Para gasto
   categoryCode?: string | null;
   description?: string | null;
+  /** Kg/und reales de la compra ALIM (manual o sugerido del PDF). */
+  cantidadAlim?: number | null;
   // Para compra de ganado
   totalWeightKg?: number | null;
   tipoAdquisicion?: "subasta" | "particular" | "contrato";
@@ -377,6 +422,7 @@ export async function confirmComprobante(
       issuer,
       categoryCode: input.categoryCode ?? row.categoria_sugerida ?? "OTRO",
       description: input.description,
+      cantidadAlim: input.cantidadAlim ?? null,
     });
   }
 
@@ -444,6 +490,7 @@ async function confirmarComoGasto(
     issuer: string | null;
     categoryCode: string;
     description?: string | null;
+    cantidadAlim?: number | null;
   }
 ): Promise<ConfirmResult> {
   const { data: categoria, error: eCat } = await admin
@@ -473,6 +520,58 @@ async function confirmarComoGasto(
     .select("id")
     .single();
   if (eGasto) return { ok: false, message: eGasto.message, status: 400 };
+
+  // Compras ALIM de ganado → catálogo + alimentaciones (no comida humana / tilapia).
+  if (data.categoryCode.toUpperCase() === "ALIM") {
+    try {
+      const cantidad =
+        data.cantidadAlim != null && Number(data.cantidadAlim) > 0
+          ? Number(data.cantidadAlim)
+          : null;
+
+      await sincronizarAlimentacionDesdeGastoAlim(admin, {
+        granjaId,
+        gastoId: gasto.id,
+        fecha: data.issueDate,
+        monto: data.amount,
+        cantidad,
+        emisorId: row.emisor_identificacion,
+        emisorNombre: data.issuer ?? row.emisor_nombre,
+        concepto,
+        archivoNombre: row.archivo_nombre,
+      });
+    } catch {
+      // El gasto ya quedó; la sync se puede reintentar con el script de backfill.
+    }
+  }
+
+  // Insumos veterinarios → catálogo medicamentos + tratamientos (Salud).
+  // Corre si la categoría es VET o si el PDF trae líneas veterinarias (facturas mixtas).
+  {
+    const extras = extractParsedExtras(row.datos_parseados);
+    const texto = extras.texto || row.texto_extraido || "";
+    const lineasVet =
+      extras.lineasVetSugeridas.length > 0
+        ? extras.lineasVetSugeridas
+        : extractLineasVeterinarias(texto);
+    const isVet = data.categoryCode.toUpperCase() === "VET";
+    if (isVet || lineasVet.length > 0) {
+      try {
+        await sincronizarSaludDesdeGastoVet(admin, {
+          granjaId,
+          gastoId: gasto.id,
+          fecha: data.issueDate,
+          monto: data.amount,
+          texto,
+          concepto,
+          archivoNombre: row.archivo_nombre,
+          fallbackTotal: isVet && lineasVet.length === 0,
+        });
+      } catch {
+        // El gasto ya quedó; reintentar con scripts/backfill-vet-salud.ts
+      }
+    }
+  }
 
   const updated = await finalizeComprobante(admin, row.id, {
     clasificacion: "gasto",
