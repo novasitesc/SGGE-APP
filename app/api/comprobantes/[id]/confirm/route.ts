@@ -1,5 +1,5 @@
-import { createSupabaseAdmin } from "@/lib/supabase/admin";
-import { resolveGranjaId } from "@/lib/api/granja";
+
+import { requireApiContext } from "@/lib/api/auth";
 import { jsonError, jsonOk } from "@/lib/api/http";
 import { confirmComprobante } from "@/lib/api/comprobantes";
 import type { Clasificacion } from "@/lib/api/pdf/classify";
@@ -15,6 +15,7 @@ type ConfirmBody = {
   amount?: number | null;
   categoryCode?: string | null;
   description?: string | null;
+  cantidadAlim?: number | null;
   totalWeightKg?: number | null;
   buyer?: string | null;
 };
@@ -25,12 +26,10 @@ export async function POST(
 ) {
   try {
     const { id } = await ctx.params;
-    const admin = createSupabaseAdmin();
+    const auth = await requireApiContext(req);
+    if (!auth.ok) return auth.response;
+    const { admin, granjaId } = auth.ctx;
     const url = new URL(req.url);
-    const granjaId = await resolveGranjaId(
-      admin,
-      url.searchParams.get("farmId") ?? url.searchParams.get("granjaId")
-    );
     const body = (await req.json()) as ConfirmBody;
 
     if (
@@ -49,6 +48,7 @@ export async function POST(
       amount: body.amount,
       categoryCode: body.categoryCode,
       description: body.description,
+      cantidadAlim: body.cantidadAlim,
       totalWeightKg: body.totalWeightKg,
       buyer: body.buyer,
     });

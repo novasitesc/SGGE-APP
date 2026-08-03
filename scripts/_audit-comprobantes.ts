@@ -87,7 +87,11 @@ async function main() {
     .order("fecha", { ascending: false });
   console.log(`\n=== GASTOS EN BD (${gastos?.length ?? 0}) ===`);
   for (const gsto of gastos ?? []) {
-    const cat = gsto.categorias_gastos as { codigo: string; nombre: string } | null;
+    const rawCat = gsto.categorias_gastos as
+      | { codigo: string; nombre: string }
+      | { codigo: string; nombre: string }[]
+      | null;
+    const cat = Array.isArray(rawCat) ? rawCat[0] ?? null : rawCat;
     console.log(
       `  ${(cat?.codigo ?? "?").padEnd(5)} ₡${Number(gsto.monto).toLocaleString("es-CR").padStart(12)}  ${gsto.fecha}  ${(gsto.concepto ?? "").slice(0, 60)}`
     );

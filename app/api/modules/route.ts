@@ -1,5 +1,5 @@
-import { createSupabaseAdmin } from "@/lib/supabase/admin";
-import { resolveGranjaId } from "@/lib/api/granja";
+
+import { requireApiContext } from "@/lib/api/auth";
 import { jsonError, jsonOk } from "@/lib/api/http";
 import {
   getEstadoIdByCodigo,
@@ -15,12 +15,10 @@ import { MODULE_TYPE_OPTIONS } from "@/lib/modulos/constants";
 export const dynamic = "force-dynamic";
 export async function GET(req: Request) {
   try {
-    const admin = createSupabaseAdmin();
+    const auth = await requireApiContext(req);
+    if (!auth.ok) return auth.response;
+    const { admin, granjaId } = auth.ctx;
     const url = new URL(req.url);
-    const granjaId = await resolveGranjaId(
-      admin,
-      url.searchParams.get("farmId") ?? url.searchParams.get("granjaId")
-    );
 
     const estadoActivo = await getEstadoIdByCodigo(admin, "activo");
 
@@ -87,12 +85,10 @@ type PostBody = {
 
 export async function POST(req: Request) {
   try {
-    const admin = createSupabaseAdmin();
+    const auth = await requireApiContext(req);
+    if (!auth.ok) return auth.response;
+    const { admin, granjaId } = auth.ctx;
     const url = new URL(req.url);
-    const granjaId = await resolveGranjaId(
-      admin,
-      url.searchParams.get("farmId") ?? url.searchParams.get("granjaId")
-    );
     const body = (await req.json()) as PostBody;
 
     if (!body.name?.trim()) return jsonError("name es obligatorio.");

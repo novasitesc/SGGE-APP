@@ -1,5 +1,5 @@
-import { createSupabaseAdmin } from "@/lib/supabase/admin";
-import { resolveGranjaId } from "@/lib/api/granja";
+
+import { requireApiContext } from "@/lib/api/auth";
 import { jsonError, jsonOk } from "@/lib/api/http";
 import { nextCodigoForTipo } from "@/lib/api/corrales-helpers";
 import { MODULE_TYPE_OPTIONS } from "@/lib/modulos/constants";
@@ -13,12 +13,10 @@ const VALID_TYPES = new Set(
 /** Vista previa del siguiente código único para un tipo de módulo. */
 export async function GET(req: Request) {
   try {
-    const admin = createSupabaseAdmin();
+    const auth = await requireApiContext(req);
+    if (!auth.ok) return auth.response;
+    const { admin, granjaId } = auth.ctx;
     const url = new URL(req.url);
-    const granjaId = await resolveGranjaId(
-      admin,
-      url.searchParams.get("farmId") ?? url.searchParams.get("granjaId")
-    );
     const tipo = (url.searchParams.get("type") ?? "engorda").trim();
     if (!VALID_TYPES.has(tipo)) {
       return jsonError(`Tipo de módulo inválido: ${tipo}.`);

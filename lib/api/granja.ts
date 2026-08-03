@@ -1,7 +1,8 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+/** Formato UUID hex 8-4-4-4-12 (incluye seeds demo tipo aaaaaaaa-… / 33333333-…). */
 const UUID_RE =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export function isUuid(value: string): boolean {
   return UUID_RE.test(value);
@@ -15,16 +16,35 @@ export function getSystemUserId(): string {
 }
 
 /**
- * Resuelve granja_id: ?farmId= / ?granjaId=, env SRRG_DEFAULT_GRANJA_ID o SGGE_DEFAULT_FARM_ID.
+ * Resuelve granja_id para scripts/CLI (env o primera granja).
+ * En Route Handlers usar `requireApiContext` (lib/api/auth.ts): membership por sesión.
+ * No aceptar un UUID arbitrario del cliente sin autorización.
  */
 export async function resolveGranjaId(
   admin: SupabaseClient,
   param?: string | null
 ): Promise<string> {
-  if (param && isUuid(param)) return param;
   for (const key of ["SRRG_DEFAULT_GRANJA_ID", "SGGE_DEFAULT_FARM_ID"]) {
     const env = process.env[key];
-    if (env && isUuid(env)) return env;
+    if (env && isUuid(env)) {
+      if (param && isUuid(param) && param !== env) {
+        throw new Error(
+          "farmId/granjaId no coincide con la granja configurada en el entorno."
+        );
+      }
+      return env;
+    }
+  }
+  if (param && isUuid(param)) {
+    const { data, error } = await admin
+      .from("granjas")
+      .select("id")
+      .eq("id", param)
+      .is("deleted_at", null)
+      .maybeSingle();
+    if (error) throw new Error(error.message);
+    if (!data?.id) throw new Error("Granja no encontrada.");
+    return data.id;
   }
   const { data, error } = await admin
     .from("granjas")

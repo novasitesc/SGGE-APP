@@ -1,17 +1,15 @@
-import { createSupabaseAdmin } from "@/lib/supabase/admin";
-import { resolveGranjaId } from "@/lib/api/granja";
+
+import { requireApiContext } from "@/lib/api/auth";
 import { jsonError, jsonOk } from "@/lib/api/http";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(req: Request) {
   try {
-    const admin = createSupabaseAdmin();
+    const auth = await requireApiContext(req);
+    if (!auth.ok) return auth.response;
+    const { admin, granjaId } = auth.ctx;
     const url = new URL(req.url);
-    const granjaId = await resolveGranjaId(
-      admin,
-      url.searchParams.get("farmId") ?? url.searchParams.get("granjaId")
-    );
 
     const { count, error } = await admin
       .from("solicitudes_aprobacion")

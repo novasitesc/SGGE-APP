@@ -7,7 +7,7 @@ import { NextResponse, type NextRequest } from "next/server";
  */
 export const SGGE_ROUTE_SECTIONS = {
   /** Rutas de autenticación (públicas) */
-  auth: ["/login", "/auth", "/callback"] as const,
+  auth: ["/login", "/auth"] as const,
   /** App operativa bajo (dashboard) */
   app: [
     "/dashboard",

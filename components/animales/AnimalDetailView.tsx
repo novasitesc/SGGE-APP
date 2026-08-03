@@ -5,6 +5,7 @@ import { formatCurrency, formatDate } from "@/lib/utils";
 import { TrendingDown, TrendingUp } from "lucide-react";
 import type { AnimalDetail } from "@/components/animales/types";
 import { ACQUISITION_OPTIONS, STATUS_CONFIG } from "@/components/animales/types";
+import { AnimalSaludSection } from "@/modules/salud/client";
 
 const ACQUISITION_LABEL: Record<string, string> = Object.fromEntries(
   ACQUISITION_OPTIONS.map((o) => [o.value, o.label])
@@ -176,6 +177,8 @@ export function AnimalDetailView({ detail }: Props) {
           )}
         </div>
       </div>
+
+      <AnimalSaludSection animalId={detail.id} />
     </div>
   );
 }

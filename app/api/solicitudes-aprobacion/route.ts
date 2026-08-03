@@ -1,5 +1,5 @@
-import { createSupabaseAdmin } from "@/lib/supabase/admin";
-import { resolveGranjaId } from "@/lib/api/granja";
+
+import { requireApiContext } from "@/lib/api/auth";
 import { jsonError, jsonOk } from "@/lib/api/http";
 import {
   mapSolicitudToApi,
@@ -12,12 +12,10 @@ const SELECT = "*";
 
 export async function GET(req: Request) {
   try {
-    const admin = createSupabaseAdmin();
+    const auth = await requireApiContext(req);
+    if (!auth.ok) return auth.response;
+    const { admin, granjaId } = auth.ctx;
     const url = new URL(req.url);
-    const granjaId = await resolveGranjaId(
-      admin,
-      url.searchParams.get("farmId") ?? url.searchParams.get("granjaId")
-    );
 
     const estado = url.searchParams.get("estado")?.trim() ?? "pendiente";
     const registroId = url.searchParams.get("registroId")?.trim();

@@ -1,5 +1,5 @@
-import { createSupabaseAdmin } from "@/lib/supabase/admin";
-import { resolveGranjaId, getSystemUserId } from "@/lib/api/granja";
+import { getSystemUserId } from "@/lib/api/granja";
+import { requireApiContext } from "@/lib/api/auth";
 import { jsonError, jsonOk } from "@/lib/api/http";
 import { mapAnimalToApi } from "@/lib/api/mappers";
 import {
@@ -33,12 +33,10 @@ export const dynamic = "force-dynamic";
 
 export async function GET(req: Request) {
   try {
-    const admin = createSupabaseAdmin();
+    const auth = await requireApiContext(req);
+    if (!auth.ok) return auth.response;
+    const { admin, granjaId } = auth.ctx;
     const url = new URL(req.url);
-    const granjaId = await resolveGranjaId(
-      admin,
-      url.searchParams.get("farmId") ?? url.searchParams.get("granjaId")
-    );
 
     const { data, error } = await admin
       .from("animales")
@@ -87,12 +85,10 @@ type PostBody = {
 
 export async function POST(req: Request) {
   try {
-    const admin = createSupabaseAdmin();
+    const auth = await requireApiContext(req);
+    if (!auth.ok) return auth.response;
+    const { admin, granjaId } = auth.ctx;
     const url = new URL(req.url);
-    const granjaId = await resolveGranjaId(
-      admin,
-      url.searchParams.get("farmId") ?? url.searchParams.get("granjaId")
-    );
     const body = (await req.json()) as PostBody;
 
     if (!body.tagId?.trim()) return jsonError("tagId es obligatorio.");

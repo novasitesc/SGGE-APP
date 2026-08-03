@@ -11,7 +11,7 @@ async function main() {
 
   const pdf = await getDocumentProxy(new Uint8Array(buf));
   const { text, totalPages } = await extractText(pdf, { mergePages: true });
-  const t = typeof text === "string" ? text : text.join("\n");
+  const t = text;
   console.log("unpdf pages", totalPages, "len", t.length);
   console.log("unpdf sample:\n", t.slice(0, 500));
   console.log("TOTAL?", t.match(/TOTAL COMPROBANTE[^\n]*/i)?.[0]);
