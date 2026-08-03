@@ -10,6 +10,21 @@ export type ComprobanteAnimalLine = {
   monto: number;
 };
 
+export type CantidadAlimSugerida = {
+  cantidad: number;
+  unidad: "kg" | "saco" | "und";
+  fuente: string;
+};
+
+export type LineaVetSugerida = {
+  codigo: string | null;
+  nombre: string;
+  cantidad: number;
+  precioUnitario: number;
+  total: number;
+  tipo: string;
+};
+
 export type Comprobante = {
   id: string;
   fileName: string;
@@ -34,6 +49,8 @@ export type Comprobante = {
   animales?: ComprobanteAnimalLine[];
   pesoTotalKg?: number | null;
   parseReason?: string | null;
+  cantidadAlimSugerida?: CantidadAlimSugerida | null;
+  lineasVetSugeridas?: LineaVetSugerida[] | null;
 };
 
 export type UploadResult = {
@@ -62,6 +79,8 @@ export type ConfirmPayload = {
   amount?: number | null;
   categoryCode?: string | null;
   description?: string | null;
+  /** Kg/und de alimento (ALIM). Si se omite → 1 compra/lote. */
+  cantidadAlim?: number | null;
   totalWeightKg?: number | null;
   buyer?: string | null;
 };

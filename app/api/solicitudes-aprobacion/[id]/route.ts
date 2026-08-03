@@ -1,11 +1,11 @@
-import { createSupabaseAdmin } from "@/lib/supabase/admin";
-import { resolveGranjaId, isUuid } from "@/lib/api/granja";
+import { isUuid } from "@/lib/api/granja";
+import { requireApiContext } from "@/lib/api/auth";
 import { jsonError, jsonOk } from "@/lib/api/http";
 import {
   mapSolicitudToApi,
   resolverSolicitud,
 } from "@/lib/api/solicitudes-aprobacion";
-import { verificarAprobadorGerente } from "@/lib/api/aprobacion";
+import { aprobadorDesdeSesion } from "@/lib/api/aprobacion";
 
 export const dynamic = "force-dynamic";
 
@@ -17,17 +17,12 @@ export async function PATCH(
     const { id } = await ctx.params;
     if (!isUuid(id)) return jsonError("id de solicitud inválido.");
 
-    const admin = createSupabaseAdmin();
-    const url = new URL(req.url);
-    const granjaId = await resolveGranjaId(
-      admin,
-      url.searchParams.get("farmId") ?? url.searchParams.get("granjaId")
-    );
+    const auth = await requireApiContext(req);
+    if (!auth.ok) return auth.response;
+    const { admin, granjaId, usuario, roles } = auth.ctx;
 
     const body = (await req.json()) as {
       action?: string;
-      approverEmail?: string;
-      approverPassword?: string;
       notes?: string;
     };
 
@@ -36,11 +31,13 @@ export async function PATCH(
       return jsonError("Acción inválida. Use 'aprobar' o 'rechazar'.", 400);
     }
 
-    const aprobacion = await verificarAprobadorGerente(
-      admin,
-      body.approverEmail ?? "",
-      body.approverPassword ?? ""
-    );
+    const aprobacion = aprobadorDesdeSesion({
+      usuarioId: usuario.id,
+      nombre: usuario.nombre,
+      apellido: usuario.apellido,
+      email: usuario.email,
+      roles,
+    });
     if (!aprobacion.ok) {
       return jsonError(aprobacion.message, 403);
     }

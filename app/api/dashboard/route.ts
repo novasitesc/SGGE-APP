@@ -1,5 +1,5 @@
-import { createSupabaseAdmin } from "@/lib/supabase/admin";
-import { resolveGranjaId } from "@/lib/api/granja";
+
+import { requireApiContext } from "@/lib/api/auth";
 import { jsonError, jsonOk } from "@/lib/api/http";
 import { mapAnimalToApi, mapSaleRow } from "@/lib/api/mappers";
 import { ANIMAL_SELECT, normalizeAnimalRow } from "@/lib/api/animales-query";
@@ -14,18 +14,21 @@ function daysBetween(startIso: string, end: Date): number {
 
 export async function GET(req: Request) {
   try {
-    const admin = createSupabaseAdmin();
+    const auth = await requireApiContext(req);
+    if (!auth.ok) return auth.response;
+    const { admin, granjaId } = auth.ctx;
     const url = new URL(req.url);
-    const granjaId = await resolveGranjaId(
-      admin,
-      url.searchParams.get("farmId") ?? url.searchParams.get("granjaId")
-    );
+
+    const desde30 = new Date();
+    desde30.setUTCDate(desde30.getUTCDate() - 30);
+    const desde30Iso = desde30.toISOString().slice(0, 10);
 
     const [
       { data: animals, error: e1 },
       { data: gastos },
       { data: ventas },
       { data: alimentos },
+      { data: alimCab },
     ] = await Promise.all([
       admin
         .from("animales")
@@ -34,7 +37,7 @@ export async function GET(req: Request) {
         .is("deleted_at", null),
       admin
         .from("gastos")
-        .select("monto, categorias_gastos(codigo)")
+        .select("monto, fecha, categorias_gastos(codigo)")
         .eq("granja_id", granjaId)
         .is("deleted_at", null),
       admin
@@ -48,6 +51,12 @@ export async function GET(req: Request) {
         .eq("granja_id", granjaId)
         .is("deleted_at", null)
         .eq("activo", true),
+      admin
+        .from("alimentaciones")
+        .select("id, fecha, costo_total, turno")
+        .eq("granja_id", granjaId)
+        .is("deleted_at", null)
+        .gte("fecha", desde30Iso),
     ]);
     if (e1) throw new Error(e1.message);
 
@@ -87,20 +96,48 @@ export async function GET(req: Request) {
       0
     );
 
-    const avgFeedPrice =
-      (alimentos ?? []).length > 0
-        ? (alimentos ?? []).reduce(
-            (s: number, r: { costo_unitario: number }) =>
-              s + Number(r.costo_unitario),
-            0
-          ) / (alimentos ?? []).length
-        : 0;
-    const feedCostApproxDay = avgFeedPrice * 12 * activeAnimals;
+    // Costos ALIM reales (gastos 30d) — prioriza comprobantes confirmados.
+    const alimGastos30 = (gastos ?? []).reduce((s, c) => {
+      const cat = c.categorias_gastos as
+        | { codigo: string }
+        | { codigo: string }[]
+        | null;
+      const codigo = Array.isArray(cat) ? cat[0]?.codigo : cat?.codigo;
+      if (codigo !== "ALIM") return s;
+      const fecha = (c as { fecha?: string }).fecha;
+      if (fecha && fecha < desde30Iso) return s;
+      return s + Number(c.monto);
+    }, 0);
+
+    // Solo raciones (excluye turno=compra = facturas ALIM sincronizadas).
+    const racionCabs = (alimCab ?? []).filter(
+      (r: { turno?: string | null }) => r.turno !== "compra"
+    );
+    const alimIds = racionCabs.map((r: { id: string }) => r.id);
+    let feedKg30 = 0;
+    if (alimIds.length > 0) {
+      const { data: dets } = await admin
+        .from("detalle_alimentaciones")
+        .select("cantidad")
+        .in("alimentacion_id", alimIds);
+      feedKg30 = (dets ?? []).reduce(
+        (s, d) => s + Number((d as { cantidad: number }).cantidad),
+        0
+      );
+    }
+
+    const alimCostoEntregas30 = racionCabs.reduce(
+      (s, r: { costo_total: number }) => s + Number(r.costo_total),
+      0
+    );
+
+    // Preferir gasto ALIM contabilizado; si no hay, usar entregas sincronizadas.
+    const feedCost30 =
+      alimGastos30 > 0 ? alimGastos30 : alimCostoEntregas30;
+    const feedCostApproxDay = feedCost30 / 30;
 
     const feedConversionRatio =
-      totalGainKg > 0 && activeAnimals > 0
-        ? (12 * activeAnimals * 30) / totalGainKg
-        : 0;
+      totalGainKg > 0 && feedKg30 > 0 ? feedKg30 / totalGainKg : 0;
 
     const costPerKg = totalGainKg > 0 ? totalCost / totalGainKg : totalCost;
     const netProfit = totalRevenue - totalCost;
@@ -205,11 +242,27 @@ export async function GET(req: Request) {
       })
     );
 
+    let healthAlerts: {
+      id: string;
+      animalId?: string | null;
+      tagId?: string | null;
+      type: string;
+      message: string;
+      dueDate: string;
+      priority: string;
+    }[] = [];
+    try {
+      const { listAlertas } = await import("@/modules/salud");
+      healthAlerts = await listAlertas(admin, granjaId, { limit: 8 });
+    } catch {
+      healthAlerts = [];
+    }
+
     return jsonOk({
       kpiSummary,
       recentAnimals,
       recentSales,
-      healthAlerts: [],
+      healthAlerts,
       costsByCategory,
     });
   } catch (e) {

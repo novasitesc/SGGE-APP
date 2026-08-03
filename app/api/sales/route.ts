@@ -1,5 +1,5 @@
-import { createSupabaseAdmin } from "@/lib/supabase/admin";
-import { resolveGranjaId, isUuid } from "@/lib/api/granja";
+import { isUuid } from "@/lib/api/granja";
+import { requireApiContext } from "@/lib/api/auth";
 import { jsonError, jsonOk } from "@/lib/api/http";
 import { mapSaleRow } from "@/lib/api/mappers";
 import { ANIMAL_SELECT, normalizeAnimalRow } from "@/lib/api/animales-query";
@@ -32,12 +32,10 @@ function mapDetalleVenta(row: Record<string, unknown>) {
 
 export async function GET(req: Request) {
   try {
-    const admin = createSupabaseAdmin();
+    const auth = await requireApiContext(req);
+    if (!auth.ok) return auth.response;
+    const { admin, granjaId } = auth.ctx;
     const url = new URL(req.url);
-    const granjaId = await resolveGranjaId(
-      admin,
-      url.searchParams.get("farmId") ?? url.searchParams.get("granjaId")
-    );
 
     const { data, error } = await admin
       .from("detalle_ventas")
@@ -68,12 +66,10 @@ type PostBody = {
 
 export async function POST(req: Request) {
   try {
-    const admin = createSupabaseAdmin();
+    const auth = await requireApiContext(req);
+    if (!auth.ok) return auth.response;
+    const { admin, granjaId } = auth.ctx;
     const url = new URL(req.url);
-    const granjaId = await resolveGranjaId(
-      admin,
-      url.searchParams.get("farmId") ?? url.searchParams.get("granjaId")
-    );
     const body = (await req.json()) as PostBody;
 
     if (!body.animalId || !isUuid(body.animalId)) {

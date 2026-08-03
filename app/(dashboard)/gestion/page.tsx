@@ -134,7 +134,8 @@ const sections: GestionSection[] = [
     href: "/gestion/alimentacion",
     icon: Wheat,
     label: "Alimentación",
-    description: "Gestionar catálogo de insumos: consumo diario, precio y porcentaje.",
+    description:
+      "Productos del catálogo, compras PDF por insumo, precios y totales.",
     color: "border-lime-200 hover:border-lime-400 hover:bg-lime-50/50",
     iconBg: "bg-lime-100 text-lime-700",
     countKey: "feedTypes",

@@ -1,5 +1,5 @@
-import { createSupabaseAdmin } from "@/lib/supabase/admin";
-import { resolveGranjaId, isUuid } from "@/lib/api/granja";
+import { isUuid } from "@/lib/api/granja";
+import { requireApiContext } from "@/lib/api/auth";
 import { jsonError, jsonOk } from "@/lib/api/http";
 import {
   registrarHistorial,
@@ -23,12 +23,10 @@ export async function PATCH(
     const { id } = await ctx.params;
     if (!isUuid(id)) return jsonError("id inválido.");
 
-    const admin = createSupabaseAdmin();
+    const auth = await requireApiContext(req);
+    if (!auth.ok) return auth.response;
+    const { admin, granjaId } = auth.ctx;
     const url = new URL(req.url);
-    const granjaId = await resolveGranjaId(
-      admin,
-      url.searchParams.get("farmId") ?? url.searchParams.get("granjaId")
-    );
     const body = (await req.json()) as PatchBody;
 
     const { data: current, error: e0 } = await admin
@@ -87,12 +85,10 @@ export async function DELETE(
     const { id } = await ctx.params;
     if (!isUuid(id)) return jsonError("id inválido.");
 
-    const admin = createSupabaseAdmin();
+    const auth = await requireApiContext(req);
+    if (!auth.ok) return auth.response;
+    const { admin, granjaId } = auth.ctx;
     const url = new URL(req.url);
-    const granjaId = await resolveGranjaId(
-      admin,
-      url.searchParams.get("farmId") ?? url.searchParams.get("granjaId")
-    );
 
     const { data: current, error: e0 } = await admin
       .from("alimentos")

@@ -65,8 +65,6 @@ export async function resolveSolicitudApi(
   id: string,
   data: {
     action: "aprobar" | "rechazar";
-    approverEmail: string;
-    approverPassword: string;
     notes?: string;
   }
 ): Promise<SolicitudAprobacion> {

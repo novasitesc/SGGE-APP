@@ -47,9 +47,14 @@ type CategoriaRule = { codigo: string; keywords: string[] };
 
 // Orden importa: la primera regla que haga match gana.
 const CATEGORIA_RULES: CategoriaRule[] = [
-  { codigo: "ALIM", keywords: ["alimento", "concentrado", "tilapia", "filet", "melaza", "pastura", "forraje", "sal mineral", "racion", "maiz", "maíz", "engorde", "avin", "avicultor"] },
+  // Nota: tilapia/filet NO van aquí (comida humana → OTRO vía emisor OSO).
+  { codigo: "ALIM", keywords: ["alimento", "concentrado", "melaza", "pastura", "forraje", "sal mineral", "racion", "maiz", "maíz", "engorde", "avin", "avicultor", "grofactor"] },
   { codigo: "COMB", keywords: ["diesel", "diésel", "gasolina", "combustible", "estacion de servicio", "estación de servicio", "gas "] },
-  { codigo: "VET", keywords: ["medicamento", "vacuna", "desparasit", "antibiotico", "antibiótico", "veterinar", "farmacia"] },
+  { codigo: "VET", keywords: [
+    "medicamento", "vacuna", "desparasit", "antibiotico", "antibiótico", "veterinar", "farmacia",
+    "baytril", "partovet", "histaminex", "carbolina", "ivermect", "draxxin", "cydectin",
+    "baycox", "doramect", "moxidect", "albendaz", "ceftiofur", "flunixin",
+  ] },
   { codigo: "MANT", keywords: ["cemento", "varilla", "arena", "soldadura", "hierro", "materiales", "ferreter", "contenedor", "esquivel", "tornillo", "pintura", "tuberia", "tubería", "lubricentro", "repuesto", "motosierra", "disco", "angular", "platina"] },
   { codigo: "TRANS", keywords: ["transporte", "flete", "acarreo", "porteo"] },
   { codigo: "SERV", keywords: ["contabilidad", "honorarios", "servicios profesionales", "asesoria", "asesoría", "legal", "auditoria", "auditoría"] },
@@ -95,6 +100,14 @@ export function classifyComprobante(parsed: ParsedComprobante): ClassificationRe
     };
   }
 
+  // Productos veterinarios fuertes (facturas mixtas Dos Pinos, etc.)
+  const vetStrong = [
+    "baytril", "partovet", "histaminex", "carbolina", "ivermect",
+    "draxxin", "cydectin", "baycox", "doramect", "antibiot", "antibiótico",
+    "medicamento", "vacuna", "desparasit", "farmacia",
+  ];
+  const vetHit = vetStrong.find((k) => text.includes(k));
+
   // 1) Emisor conocido de ganado / gasto por cédula.
   if (emisorKnown?.tipo === "compra_ganado") {
     return {
@@ -105,6 +118,15 @@ export function classifyComprobante(parsed: ParsedComprobante): ClassificationRe
     };
   }
   if (emisorKnown?.tipo === "gasto") {
+    // Factura Dos Pinos (ALIM) con Baytril/Partovet → priorizar VET
+    if (vetHit && (emisorKnown.categoria === "ALIM" || !emisorKnown.categoria)) {
+      return {
+        clasificacion: "gasto",
+        categoriaSugerida: "VET",
+        confianza: 90,
+        motivo: `Emisor ${emisorKnown.nombre} con producto veterinario "${vetHit}" → VET.`,
+      };
+    }
     return {
       clasificacion: "gasto",
       categoriaSugerida: emisorKnown.categoria ?? "OTRO",
@@ -133,8 +155,19 @@ export function classifyComprobante(parsed: ParsedComprobante): ClassificationRe
     };
   }
 
-  // 3) Categoría de gasto por palabras clave.
+  // 3a) Productos veterinarios fuertes (emisores no conocidos).
+  if (vetHit) {
+    return {
+      clasificacion: "gasto",
+      categoriaSugerida: "VET",
+      confianza: 82,
+      motivo: `Gasto (VET) por término "${vetHit}".`,
+    };
+  }
+
+  // 3b) Resto de categorías de gasto por palabras clave.
   for (const rule of CATEGORIA_RULES) {
+    if (rule.codigo === "VET") continue; // ya evaluado arriba
     const hit = rule.keywords.find((k) => text.includes(k));
     if (hit) {
       return {

@@ -1,5 +1,5 @@
-import { createSupabaseAdmin } from "@/lib/supabase/admin";
-import { resolveGranjaId, isUuid } from "@/lib/api/granja";
+import { isUuid } from "@/lib/api/granja";
+import { requireApiContext } from "@/lib/api/auth";
 import { jsonError, jsonOk } from "@/lib/api/http";
 import {
   mapHistorialToApi,
@@ -63,12 +63,10 @@ function normalizeRow(raw: Record<string, unknown>): HistorialRow {
 
 export async function GET(req: Request) {
   try {
-    const admin = createSupabaseAdmin();
+    const auth = await requireApiContext(req);
+    if (!auth.ok) return auth.response;
+    const { admin, granjaId } = auth.ctx;
     const url = new URL(req.url);
-    const granjaId = await resolveGranjaId(
-      admin,
-      url.searchParams.get("farmId") ?? url.searchParams.get("granjaId")
-    );
 
     const referencia = url.searchParams.get("referencia") ?? url.searchParams.get("arete");
     const modulo = url.searchParams.get("modulo")?.trim() as HistorialModulo | undefined;

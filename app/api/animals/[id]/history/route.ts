@@ -1,5 +1,6 @@
-import { createSupabaseAdmin } from "@/lib/supabase/admin";
-import { resolveGranjaId, isUuid } from "@/lib/api/granja";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import { isUuid } from "@/lib/api/granja";
+import { requireApiContext } from "@/lib/api/auth";
 import { jsonError, jsonOk } from "@/lib/api/http";
 import {
   mapHistorialToApi,
@@ -44,7 +45,7 @@ function normalizeRow(raw: Record<string, unknown>): HistorialRow {
 }
 
 async function fetchForAnimal(
-  admin: ReturnType<typeof createSupabaseAdmin>,
+  admin: SupabaseClient,
   granjaId: string,
   animalId: string
 ) {
@@ -94,12 +95,10 @@ export async function GET(
     const { id: animalId } = await ctx.params;
     if (!isUuid(animalId)) return jsonError("id de animal inválido.");
 
-    const admin = createSupabaseAdmin();
+    const auth = await requireApiContext(req);
+    if (!auth.ok) return auth.response;
+    const { admin, granjaId } = auth.ctx;
     const url = new URL(req.url);
-    const granjaId = await resolveGranjaId(
-      admin,
-      url.searchParams.get("farmId") ?? url.searchParams.get("granjaId")
-    );
 
     const items = await fetchForAnimal(admin, granjaId, animalId);
     return jsonOk(items);

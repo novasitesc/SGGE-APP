@@ -111,3 +111,21 @@ export async function getDefaultLoteId(
   if (error) throw new Error(error.message);
   return data?.id ?? null;
 }
+
+export async function listOpenLotes(
+  admin: SupabaseClient,
+  granjaId: string
+): Promise<{ id: string; nombre: string }[]> {
+  const { data, error } = await admin
+    .from("lotes")
+    .select("id, codigo")
+    .eq("granja_id", granjaId)
+    .eq("estado", "abierto")
+    .is("deleted_at", null)
+    .order("fecha_apertura", { ascending: true });
+  if (error) throw new Error(error.message);
+  return (data ?? []).map((l, i) => ({
+    id: l.id as string,
+    nombre: String(l.codigo || `Lote ${i + 1}`),
+  }));
+}

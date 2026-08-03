@@ -1,52 +1,38 @@
-import { createSupabaseAdmin } from "@/lib/supabase/admin";
-import { resolveGranjaId } from "@/lib/api/granja";
+import { requireApiContext } from "@/lib/api/auth";
 import { jsonError, jsonOk } from "@/lib/api/http";
 import { mapCostRow } from "@/lib/api/mappers";
 import {
   registrarHistorial,
   snapshotGasto,
 } from "@/lib/api/historial-sistema";
-import { normalizeCostCategoryKey, costCategoryLabel } from "@/lib/costs/categories";
+import { costCategoryLabel, resolveCategoriaCodigo } from "@/lib/costs/categories";
 
 export const dynamic = "force-dynamic";
 
-/** Clave UI / legacy → código DB. */
-const CATEGORIA_MAP: Record<string, string> = {
-  alimentación: "ALIM",
-  alimentacion: "ALIM",
-  combustible: "COMB",
-  mantenimiento: "MANT",
-  transporte: "TRANS",
-  mano_de_obra: "MO",
-  vacunas: "VET",
-  medicamentos: "VET",
-  servicios: "SERV",
-  otros: "OTRO",
-  alim: "ALIM",
-  comb: "COMB",
-  mant: "MANT",
-  trans: "TRANS",
-  mo: "MO",
-  vet: "VET",
-  serv: "SERV",
-  otro: "OTRO",
-};
+function isValidISODate(value: string | null): value is string {
+  return !!value && /^\d{4}-\d{2}-\d{2}$/.test(value);
+}
 
 export async function GET(req: Request) {
   try {
-    const admin = createSupabaseAdmin();
+    const auth = await requireApiContext(req);
+    if (!auth.ok) return auth.response;
+    const { admin, granjaId } = auth.ctx;
     const url = new URL(req.url);
-    const granjaId = await resolveGranjaId(
-      admin,
-      url.searchParams.get("farmId") ?? url.searchParams.get("granjaId")
-    );
+    const from = url.searchParams.get("from");
+    const to = url.searchParams.get("to");
 
-    const { data, error } = await admin
+    let query = admin
       .from("gastos")
       .select("id, fecha, concepto, monto, categorias_gastos(codigo, nombre)")
       .eq("granja_id", granjaId)
       .is("deleted_at", null)
       .order("fecha", { ascending: false });
+
+    if (isValidISODate(from)) query = query.gte("fecha", from);
+    if (isValidISODate(to)) query = query.lte("fecha", to);
+
+    const { data, error } = await query;
     if (error) throw new Error(error.message);
 
     const rows = data ?? [];
@@ -106,12 +92,9 @@ type PostBody = {
 
 export async function POST(req: Request) {
   try {
-    const admin = createSupabaseAdmin();
-    const url = new URL(req.url);
-    const granjaId = await resolveGranjaId(
-      admin,
-      url.searchParams.get("farmId") ?? url.searchParams.get("granjaId")
-    );
+    const auth = await requireApiContext(req);
+    if (!auth.ok) return auth.response;
+    const { admin, granjaId } = auth.ctx;
     const body = (await req.json()) as PostBody;
 
     if (!body.category) return jsonError("category es obligatorio.");
@@ -121,11 +104,7 @@ export async function POST(req: Request) {
     }
     if (!body.date) return jsonError("date es obligatorio.");
 
-    const key = normalizeCostCategoryKey(body.category);
-    const catCodigo =
-      CATEGORIA_MAP[body.category.toLowerCase()] ??
-      CATEGORIA_MAP[key] ??
-      body.category.toUpperCase();
+    const catCodigo = resolveCategoriaCodigo(body.category);
 
     const { data: categoria, error: e0 } = await admin
       .from("categorias_gastos")
