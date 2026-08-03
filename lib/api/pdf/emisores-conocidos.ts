@@ -105,6 +105,16 @@ export const EMISORES_CONOCIDOS: Record<string, EmisorConocido> = {
     tipo: "gasto",
     categoria: "OTRO",
   },
+
+  // Compra particular de ganado
+  "203640613": {
+    nombre: "Carlos Enrique Herrera Salas",
+    tipo: "compra_ganado",
+  },
+  "0203640613": {
+    nombre: "Carlos Enrique Herrera Salas",
+    tipo: "compra_ganado",
+  },
 };
 
 /** Overrides puntuales por nombre de archivo (cuando el PDF no entrega monto). */
@@ -156,6 +166,7 @@ export function overrideForFileName(fileName: string): FileOverride | null {
       "37931111605510": { monto: 335966.4, fecha: "2026-06-15" },
       "38547100387650": { monto: 327567.24, fecha: "2026-06-22" },
       "39116109137559": { monto: 386361.36, fecha: "2026-06-29" },
+      "40721171239535": { monto: 356386.58, fecha: "2026-07-20" },
     };
     for (const [suf, v] of Object.entries(avinByClave)) {
       if (n.includes(suf)) {
@@ -186,11 +197,59 @@ export function overrideForFileName(fileName: string): FileOverride | null {
 
   // Tilapia / OSO / Dos Pinos melaza — el monto se re-extrae del PDF
   if (n.includes("003004045002") || n.includes("FC-51") || n.includes("NC-51")) {
+    if (n.includes("00402995")) {
+      return {
+        clasificacion: "gasto",
+        categoria: "ALIM",
+        monto: 47614.29,
+        fecha: "2026-07-21",
+        emisorNombre: "Cooperativa Dos Pinos R.L.",
+        emisorId: "3004045002",
+        descripcion: "REVALOR H — Dos Pinos",
+      };
+    }
+    if (n.includes("00402769")) {
+      return {
+        clasificacion: "gasto",
+        categoria: "VET",
+        monto: 42925.67,
+        fecha: "2026-07-20",
+        emisorNombre: "Cooperativa Dos Pinos R.L.",
+        emisorId: "3004045002",
+        descripcion: "Sal ganadera y medicamentos Dos Pinos",
+      };
+    }
     return {
       clasificacion: "gasto",
       categoria: "ALIM",
       emisorNombre: "Cooperativa Dos Pinos R.L.",
       emisorId: "3004045002",
+    };
+  }
+
+  // Herresal transporte jul-24 (fuente CID)
+  if (n.includes("00000375100008081")) {
+    return {
+      clasificacion: "gasto",
+      categoria: "TRANS",
+      monto: 940500,
+      fecha: "2026-07-24",
+      emisorNombre: "Seis Hermanos Herresal S.A.",
+      emisorId: "3101533933",
+      descripcion: "Transporte / flete ganado (FE 00000375)",
+    };
+  }
+
+  // Carlos E. Herrera Salas — ganado en pie
+  if (n.includes("203640613") || n.includes("00161180614014")) {
+    return {
+      clasificacion: "compra_ganado",
+      monto: 3052000,
+      fecha: "2026-07-21",
+      emisorNombre: "Carlos Enrique Herrera Salas",
+      emisorId: "203640613",
+      tipoAdquisicion: "particular",
+      descripcion: "Compra 1 ganado en pie",
     };
   }
 
