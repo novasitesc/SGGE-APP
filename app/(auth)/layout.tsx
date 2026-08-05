@@ -19,7 +19,7 @@ export default function AuthLayout({
 }) {
   return (
     <div
-      className={`${fraunces.variable} ${outfit.variable} min-h-full bg-[#0c1a12]`}
+      className={`${fraunces.variable} ${outfit.variable} min-h-full bg-[#120c08]`}
     >
       {children}
     </div>

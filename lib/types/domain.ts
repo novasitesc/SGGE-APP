@@ -13,6 +13,8 @@ export interface Animal {
   initialWeight: number;
   currentWeight: number;
   moduleId: string;
+  /** Nombre legible del corral/módulo (corrales.nombre). */
+  moduleName?: string;
   status: AnimalStatus;
   sex: "M" | "H";
   age: number;

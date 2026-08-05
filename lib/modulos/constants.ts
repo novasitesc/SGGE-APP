@@ -27,3 +27,15 @@ export function moduleTypeLabel(type: string): string {
 export function moduleTypeColor(type: string): string {
   return MODULE_TYPE_COLORS[type] ?? "bg-slate-100 text-slate-700";
 }
+
+/** Etiqueta legible: "M1 — Engorda Norte" (o solo el código si no hay nombre). */
+export function formatModuleLabel(
+  code: string,
+  name?: string | null
+): string {
+  const codigo = code?.trim() ?? "";
+  const nombre = name?.trim() ?? "";
+  if (!codigo) return nombre || "—";
+  if (!nombre || nombre === codigo) return codigo;
+  return `${codigo} — ${nombre}`;
+}

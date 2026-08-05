@@ -12,6 +12,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { fetchAnimals } from "@/lib/api/animals-client";
 import type { Animal } from "@/lib/types/domain";
+import { formatModuleLabel } from "@/lib/modulos/constants";
 import { Loader2 } from "lucide-react";
 
 interface TableAnimalsProps {
@@ -76,7 +77,9 @@ export default function TableAnimals({ limit = 8, showAll = false }: TableAnimal
               <TableCell>{animal.breed}</TableCell>
               <TableCell>{animal.currentWeight} kg</TableCell>
               <TableCell>
-                <span className="text-xs bg-muted px-2 py-0.5 rounded-lg">{animal.moduleId}</span>
+                <span className="text-xs bg-muted px-2 py-0.5 rounded-lg">
+                  {formatModuleLabel(animal.moduleId, animal.moduleName)}
+                </span>
               </TableCell>
               <TableCell>
                 <Badge variant={status.variant}>{status.label}</Badge>
