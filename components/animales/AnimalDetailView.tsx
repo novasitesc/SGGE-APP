@@ -6,6 +6,7 @@ import { TrendingDown, TrendingUp } from "lucide-react";
 import type { AnimalDetail } from "@/components/animales/types";
 import { ACQUISITION_OPTIONS, STATUS_CONFIG } from "@/components/animales/types";
 import { AnimalSaludSection } from "@/modules/salud/client";
+import { formatModuleLabel } from "@/lib/modulos/constants";
 
 const ACQUISITION_LABEL: Record<string, string> = Object.fromEntries(
   ACQUISITION_OPTIONS.map((o) => [o.value, o.label])
@@ -38,8 +39,8 @@ export function AnimalDetailView({ detail }: Props) {
             {status.label}
           </Badge>
           {detail.moduleId && (
-            <Badge variant="outline" className="font-mono text-sm px-2.5 py-0.5">
-              Corral {detail.moduleId}
+            <Badge variant="outline" className="text-sm px-2.5 py-0.5">
+              {formatModuleLabel(detail.moduleId, detail.moduleName)}
             </Badge>
           )}
         </div>
@@ -55,7 +56,10 @@ export function AnimalDetailView({ detail }: Props) {
               <Info label="Ganancia" value={`+${detail.metrics.gainKg} kg`} highlight="gain" />
               <Info label="ADG" value={`${detail.metrics.adg} kg/día`} />
               <Info label="Días engorda" value={String(detail.metrics.daysInFeedlot)} />
-              <Info label="Corral" value={detail.moduleId || "—"} />
+              <Info
+                label="Corral"
+                value={formatModuleLabel(detail.moduleId, detail.moduleName)}
+              />
               <Info label="Edad" value={detail.age ? `${detail.age} meses` : "—"} />
             </div>
           </Section>

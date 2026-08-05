@@ -15,6 +15,7 @@ import {
 import { useAnimals } from "@/lib/hooks/useAnimals";
 import { fetchCorrales } from "@/lib/api/animals-client";
 import { formatDate, formatCurrency } from "@/lib/utils";
+import { formatModuleLabel } from "@/lib/modulos/constants";
 import {
   Plus,
   Search,
@@ -70,7 +71,7 @@ export function AnimalesInventory({
     getAnimalDetail,
   } = useAnimals();
 
-  const [corrales, setCorrales] = useState<string[]>(["M1", "M2", "M3"]);
+  const [corrales, setCorrales] = useState<{ id: string; name: string }[]>([]);
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState("todos");
 
@@ -101,7 +102,7 @@ export function AnimalesInventory({
 
   useEffect(() => {
     fetchCorrales()
-      .then((list) => setCorrales(list.map((c) => c.id)))
+      .then((list) => setCorrales(list))
       .catch(() => {});
     loadPendingDeletes();
 
@@ -115,8 +116,13 @@ export function AnimalesInventory({
 
   const filtered = animals.filter((a) => {
     const q = search.toLowerCase();
+    const moduleLabel = formatModuleLabel(a.moduleId, a.moduleName).toLowerCase();
     const matchSearch =
-      a.tagId.toLowerCase().includes(q) || a.breed.toLowerCase().includes(q);
+      a.tagId.toLowerCase().includes(q) ||
+      a.breed.toLowerCase().includes(q) ||
+      a.moduleId.toLowerCase().includes(q) ||
+      (a.moduleName?.toLowerCase().includes(q) ?? false) ||
+      moduleLabel.includes(q);
     const matchStatus = filterStatus === "todos" || a.status === filterStatus;
     return matchSearch && matchStatus;
   });
@@ -127,7 +133,7 @@ export function AnimalesInventory({
   const openCreate = () => {
     setFormMode("create");
     setEditingId(null);
-    setForm({ ...EMPTY_ANIMAL_FORM, moduleId: corrales[0] ?? "M1" });
+    setForm({ ...EMPTY_ANIMAL_FORM, moduleId: corrales[0]?.id ?? "M1" });
     setFormError(null);
     setFormOpen(true);
   };
@@ -359,8 +365,11 @@ export function AnimalesInventory({
                             : "—"}
                         </TableCell>
                         <TableCell className="hidden md:table-cell">
-                          <span className="text-xs bg-muted px-2 py-0.5 rounded-lg">
-                            {animal.moduleId}
+                          <span
+                            className="text-xs bg-muted px-2 py-0.5 rounded-lg"
+                            title={formatModuleLabel(animal.moduleId, animal.moduleName)}
+                          >
+                            {formatModuleLabel(animal.moduleId, animal.moduleName)}
                           </span>
                         </TableCell>
                         <TableCell>
@@ -425,7 +434,7 @@ export function AnimalesInventory({
         onSubmit={handleSubmit}
         submitting={submitting}
         error={formError}
-        corralIds={corrales}
+        corrales={corrales}
         lockArete={lockArete}
       />
 

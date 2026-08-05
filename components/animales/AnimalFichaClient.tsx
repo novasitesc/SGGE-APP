@@ -32,7 +32,7 @@ export function AnimalFichaClient({ animalId, backHref = "/gestion/animales" }: 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const [corrales, setCorrales] = useState<string[]>(["M1", "M2", "M3"]);
+  const [corrales, setCorrales] = useState<{ id: string; name: string }[]>([]);
   const [formOpen, setFormOpen] = useState(false);
   const [form, setForm] = useState<AnimalFormValues>(EMPTY_ANIMAL_FORM);
   const [formError, setFormError] = useState<string | null>(null);
@@ -62,7 +62,7 @@ export function AnimalFichaClient({ animalId, backHref = "/gestion/animales" }: 
 
   useEffect(() => {
     fetchCorrales()
-      .then((list) => setCorrales(list.map((c) => c.id)))
+      .then((list) => setCorrales(list))
       .catch(() => {});
   }, []);
 
@@ -213,7 +213,7 @@ export function AnimalFichaClient({ animalId, backHref = "/gestion/animales" }: 
             onSubmit={handleSubmit}
             submitting={submitting}
             error={formError}
-            corralIds={corrales}
+            corrales={corrales}
             lockArete={lockArete}
           />
 

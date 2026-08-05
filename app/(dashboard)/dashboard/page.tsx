@@ -6,6 +6,7 @@ import ChartCosts from "@/components/ChartCosts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { formatCurrency, formatDate } from "@/lib/utils";
+import { formatModuleLabel } from "@/lib/modulos/constants";
 import { AlertTriangle, Beef, ShoppingCart, Activity } from "lucide-react";
 import { fetchDashboard, fetchWeightHistory } from "@/lib/api/data-client";
 import { useApiQuery } from "@/lib/hooks/useApiQuery";
@@ -82,7 +83,9 @@ export default function DashboardPage() {
                   <div key={animal.id} className="flex items-center justify-between py-1.5 border-b last:border-0">
                     <div>
                       <p className="text-sm font-semibold font-mono">{animal.tagId}</p>
-                      <p className="text-xs text-muted-foreground">{animal.breed} – {animal.moduleId}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {animal.breed} – {formatModuleLabel(animal.moduleId, animal.moduleName)}
+                      </p>
                     </div>
                     <div className="text-right">
                       <p className="text-sm font-bold">{animal.currentWeight} kg</p>

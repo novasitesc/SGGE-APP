@@ -32,6 +32,11 @@ export const EMISORES_CONOCIDOS: Record<string, EmisorConocido> = {
     tipo: "gasto",
     categoria: "COMB",
   },
+  "3101028782": {
+    nombre: "Petróleos Delta Costa Rica S.A.",
+    tipo: "gasto",
+    categoria: "COMB",
+  },
   "3101383363": {
     nombre: "Alimentos de Avicultores Integrados AVIN S.A.",
     tipo: "gasto",

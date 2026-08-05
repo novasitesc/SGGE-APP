@@ -17,6 +17,9 @@ import { ACQUISITION_OPTIONS } from "@/components/animales/types";
 import type { AnimalStatus } from "@/lib/types/domain";
 import { fetchRazas } from "@/lib/api/data-client";
 import { useApiQuery } from "@/lib/hooks/useApiQuery";
+import { formatModuleLabel } from "@/lib/modulos/constants";
+
+type CorralOption = { id: string; name: string };
 
 type Props = {
   open: boolean;
@@ -27,7 +30,7 @@ type Props = {
   onSubmit: (e: React.FormEvent) => void;
   submitting: boolean;
   error: string | null;
-  corralIds: string[];
+  corrales: CorralOption[];
   lockArete?: boolean;
 };
 
@@ -40,7 +43,7 @@ export function AnimalFormDialog({
   onSubmit,
   submitting,
   error,
-  corralIds,
+  corrales,
   lockArete = false,
 }: Props) {
   const { data: breeds } = useApiQuery("razas", fetchRazas);
@@ -158,9 +161,9 @@ export function AnimalFormDialog({
                 value={form.moduleId}
                 onChange={(e) => set({ moduleId: e.target.value })}
               >
-                {corralIds.map((m) => (
-                  <option key={m} value={m}>
-                    {m}
+                {corrales.map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {formatModuleLabel(m.id, m.name)}
                   </option>
                 ))}
               </Select>

@@ -129,55 +129,26 @@
   }
 }
 
-/* Login — atmósfera de pastizal al amanecer */
-.login-sky {
+/* Login — foto de ganado a pantalla completa */
+.login-hero-img {
+  animation: login-hero-ken 18s ease-in-out infinite alternate;
+}
+
+.login-hero-shade {
   background:
-    radial-gradient(ellipse 80% 55% at 70% 18%, #f0c56a 0%, transparent 55%),
-    radial-gradient(ellipse 60% 45% at 20% 30%, #4a7a52 0%, transparent 60%),
-    linear-gradient(180deg, #1e3d2a 0%, #2f5a3c 28%, #6b8f52 52%, #c9a45c 72%, #e8c978 100%);
-}
-
-@media (min-width: 1024px) {
-  .login-sky {
-    background:
-      radial-gradient(ellipse 55% 50% at 28% 22%, #f2c96e 0%, transparent 50%),
-      radial-gradient(ellipse 50% 40% at 8% 40%, #3f6e48 0%, transparent 55%),
-      linear-gradient(165deg, #163224 0%, #2a5236 32%, #5f8550 55%, #b99655 78%, #e2c57a 100%);
-  }
-}
-
-.login-sun {
-  background: radial-gradient(
-    circle,
-    #fff1b8 0%,
-    #f0c05a 28%,
-    rgba(240, 176, 70, 0.35) 55%,
-    transparent 72%
-  );
-  animation: login-sun-pulse 8s ease-in-out infinite;
-}
-
-.login-haze {
-  background: linear-gradient(
-    180deg,
-    transparent 0%,
-    rgba(232, 220, 170, 0.28) 40%,
-    rgba(200, 180, 120, 0.12) 100%
-  );
-  animation: login-haze-drift 14s ease-in-out infinite alternate;
-}
-
-.login-mist {
-  background: linear-gradient(
-    180deg,
-    transparent 0%,
-    rgba(12, 26, 18, 0.35) 45%,
-    rgba(12, 26, 18, 0.85) 100%
-  );
-}
-
-.login-hills {
-  animation: login-hills-rise 1.4s cubic-bezier(0.22, 1, 0.36, 1) both;
+    linear-gradient(
+      105deg,
+      rgba(18, 10, 6, 0.72) 0%,
+      rgba(18, 10, 6, 0.28) 42%,
+      rgba(18, 10, 6, 0.45) 68%,
+      rgba(18, 10, 6, 0.78) 100%
+    ),
+    linear-gradient(
+      180deg,
+      rgba(12, 8, 5, 0.35) 0%,
+      transparent 38%,
+      rgba(12, 8, 5, 0.55) 100%
+    );
 }
 
 .login-grain {
@@ -229,44 +200,17 @@
   }
 }
 
-@keyframes login-hills-rise {
+@keyframes login-hero-ken {
   from {
-    opacity: 0;
-    transform: translateY(28px);
+    transform: scale(1.04) translate3d(0, 0, 0);
   }
   to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@keyframes login-sun-pulse {
-  0%,
-  100% {
-    transform: scale(1);
-    opacity: 0.88;
-  }
-  50% {
-    transform: scale(1.06);
-    opacity: 1;
-  }
-}
-
-@keyframes login-haze-drift {
-  from {
-    transform: translateX(-2%);
-    opacity: 0.7;
-  }
-  to {
-    transform: translateX(2%);
-    opacity: 1;
+    transform: scale(1.1) translate3d(-1.5%, 1%, 0);
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .login-sun,
-  .login-haze,
-  .login-hills,
+  .login-hero-img,
   .login-panel,
   .login-fade-in {
     animation: none !important;
