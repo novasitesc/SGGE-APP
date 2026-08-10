@@ -1,11 +1,15 @@
 import { requireApiContext } from "@/lib/api/auth";
 import { jsonError, jsonOk } from "@/lib/api/http";
-import { listTratamientos } from "@/modules/salud";
+import {
+  listTratamientos,
+  syncCarenciaYNotificaciones,
+} from "@/modules/salud";
 
 export const dynamic = "force-dynamic";
 
 /**
- * Regenera alertas activas a partir de tratamientos con proxima_aplicacion futura.
+ * Regenera alertas desde proxima_aplicacion y sincroniza carencias
+ * (listo_traslado + notificaciones a usuarios).
  */
 export async function POST(req: Request) {
   try {
@@ -25,6 +29,7 @@ export async function POST(req: Request) {
         .select("id")
         .eq("granja_id", granjaId)
         .eq("tratamiento_id", t.id)
+        .eq("tipo", "tratamiento")
         .eq("estado", "activa")
         .is("deleted_at", null)
         .maybeSingle();
@@ -54,7 +59,18 @@ export async function POST(req: Request) {
       if (!error) created += 1;
     }
 
-    return jsonOk({ created });
+    const carencia = await syncCarenciaYNotificaciones(
+      admin,
+      granjaId,
+      treatments
+    );
+
+    return jsonOk({
+      created,
+      carenciaUpdated: carencia.updated,
+      carenciaNotified: carencia.notified,
+      carenciaAlerts: carencia.alerts,
+    });
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Error desconocido";
     return jsonError(msg, 500);

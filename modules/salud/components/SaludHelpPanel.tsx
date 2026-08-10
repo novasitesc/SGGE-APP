@@ -27,9 +27,23 @@ export function SaludHelpPanel({ open, onOpenChange }: Props) {
           <section>
             <h3 className="font-semibold text-foreground mb-1">Inscripción manual</h3>
             <p>
-              En Gestión de Salud → Nuevo tratamiento. Indica medicamento, tipo,
-              fecha, animales y costos. Si defines “próxima aplicación”, el
-              sistema crea una alerta automática.
+              En Gestión de Salud → Nuevo tratamiento. Elige el destino:
+              <strong> Hato</strong> (cantidad), <strong>Módulo</strong> (todos
+              los animales del corral) o <strong>Animales</strong> (aretes
+              concretos). También puedes aplicar desde la ficha de un animal.
+              Si defines “próxima aplicación”, se crea una alerta automática.
+            </p>
+          </section>
+          <section>
+            <h3 className="font-semibold text-foreground mb-1">
+              Carencia y traslado a subasta
+            </h3>
+            <p>
+              En el catálogo de medicamentos registra los días de carencia del
+              manual de uso. Al aplicar un tratamiento se calcula la fecha de
+              fin de carencia (aplicación + días). Mientras esté en carencia el
+              animal no debe trasladarse; al vencer, se marca “Listo traslado” y
+              se notifica a los usuarios de la granja (campana del navbar).
             </p>
           </section>
           <section>
@@ -53,7 +67,7 @@ export function SaludHelpPanel({ open, onOpenChange }: Props) {
             <h3 className="font-semibold text-foreground mb-1">Tipos</h3>
             <ul className="list-disc pl-5 space-y-0.5">
               <li>vacuna · desparasitante · implante</li>
-              <li>anabólico · vitamina · antibiótico</li>
+              <li>anabólico · estimulante · vitamina · antibiótico</li>
             </ul>
           </section>
           <section>

@@ -108,6 +108,7 @@ export type TreatmentType =
   | "desparasitante"
   | "implante"
   | "anabólico"
+  | "estimulante"
   | "vitamina"
   | "antibiótico";
 
@@ -126,6 +127,9 @@ export interface Treatment {
   status?: string;
   origen?: string;
   medicamentoId?: string | null;
+  fechaFinCarencia?: string | null;
+  listoTraslado?: boolean;
+  diasCarencia?: number | null;
 }
 
 // ─── HEALTH ALERTS ───────────────────────────────────────────────────────────
@@ -134,7 +138,7 @@ export interface HealthAlert {
   id: string;
   animalId?: string | null;
   tagId?: string | null;
-  type: "tratamiento" | "revisión" | "urgente" | "programado";
+  type: "tratamiento" | "revisión" | "urgente" | "programado" | "carencia";
   message: string;
   dueDate: string;
   priority: "alta" | "media" | "baja";

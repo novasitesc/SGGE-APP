@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { registrarHistorial } from "@/lib/api/historial-sistema";
+import { computeCarencia } from "../lib/carencia";
 import { mapTreatment, snapshotTratamiento } from "../queries/mappers";
 import { findOrCreateMedicamento } from "../queries/medicamentos";
 import type {
@@ -7,6 +8,24 @@ import type {
   TreatmentRecord,
   UpdateTreatmentInput,
 } from "../types/salud.types";
+import { notifyCarenciaInscrita } from "./notificaciones";
+
+async function resolveDiasCarencia(
+  admin: SupabaseClient,
+  medicamentoId: string | null,
+  override?: number
+): Promise<number> {
+  if (override != null && Number.isFinite(override)) {
+    return Math.max(0, Math.floor(override));
+  }
+  if (!medicamentoId) return 0;
+  const { data } = await admin
+    .from("medicamentos")
+    .select("periodo_carencia_dias")
+    .eq("id", medicamentoId)
+    .maybeSingle();
+  return Math.max(0, Math.floor(Number(data?.periodo_carencia_dias ?? 0) || 0));
+}
 
 async function syncAlertFromNextDue(
   admin: SupabaseClient,
@@ -21,6 +40,7 @@ async function syncAlertFromNextDue(
     .select("id")
     .eq("granja_id", granjaId)
     .eq("tratamiento_id", treatment.id)
+    .eq("tipo", "tratamiento")
     .eq("estado", "activa")
     .is("deleted_at", null)
     .maybeSingle();
@@ -76,9 +96,17 @@ export async function createTratamiento(
       ? input.animalIds[0]
       : null);
 
+  const diasCarencia = await resolveDiasCarencia(
+    admin,
+    medicamentoId,
+    input.diasCarencia
+  );
+  const carencia = computeCarencia(input.date, diasCarencia);
+
+  // animal_id es opcional (tratamientos a nivel de hato / stock).
+  // Solo se incluye cuando hay UUID concreto.
   const insertRow: Record<string, unknown> = {
     granja_id: granjaId,
-    animal_id: primaryAnimalId,
     lote_id: input.loteId ?? null,
     medicamento_id: medicamentoId,
     tipo: input.type,
@@ -92,26 +120,51 @@ export async function createTratamiento(
     aplicado_por: input.appliedBy ?? "",
     observaciones: input.notes ?? "",
     origen: input.origen ?? "manual",
+    fecha_fin_carencia: carencia.fechaFinCarencia,
+    listo_traslado: carencia.listoTraslado,
     created_by: usuarioId ?? null,
   };
+  if (primaryAnimalId) {
+    insertRow.animal_id = primaryAnimalId;
+  }
 
-  const fullInsert = await admin
+  let fullInsert = await admin
     .from("tratamientos")
     .insert(insertRow)
     .select(
       `id, animal_id, medicamento_id, tipo, nombre, fecha_inicio, proxima_aplicacion,
        animal_count, costo_por_animal, costo_total, estado, aplicado_por, observaciones, origen,
-       medicamentos(nombre)`
+       fecha_fin_carencia, listo_traslado,
+       medicamentos(nombre, periodo_carencia_dias)`
     )
     .single();
+
+  // Remoto sin columnas de carencia: reintentar sin ellas
+  if (
+    fullInsert.error &&
+    (fullInsert.error.message.includes("fecha_fin_carencia") ||
+      fullInsert.error.message.includes("listo_traslado") ||
+      fullInsert.error.message.includes("periodo_carencia"))
+  ) {
+    const { fecha_fin_carencia: _f, listo_traslado: _l, ...withoutCarencia } =
+      insertRow;
+    fullInsert = await admin
+      .from("tratamientos")
+      .insert(withoutCarencia)
+      .select(
+        `id, animal_id, medicamento_id, tipo, nombre, fecha_inicio, proxima_aplicacion,
+         animal_count, costo_por_animal, costo_total, estado, aplicado_por, observaciones, origen,
+         medicamentos(nombre)`
+      )
+      .single();
+  }
 
   let row = fullInsert.data as Record<string, unknown> | null;
 
   // Fallback mínimo si el remoto aún no tiene columnas nuevas
   if (fullInsert.error || !row) {
     const firstError = fullInsert.error?.message ?? "insert falló";
-    const minimal = {
-      animal_id: primaryAnimalId,
+    const minimal: Record<string, unknown> = {
       medicamento_id: medicamentoId,
       fecha_inicio: input.date,
       costo_total: totalCost,
@@ -122,10 +175,16 @@ export async function createTratamiento(
         `tipo:${input.type}`,
         `nombre:${input.name}`,
         input.nextDue ? `proxima:${input.nextDue}` : "",
+        carencia.fechaFinCarencia
+          ? `carencia_hasta:${carencia.fechaFinCarencia}`
+          : "",
       ]
         .filter(Boolean)
         .join(" | "),
     };
+    if (primaryAnimalId) {
+      minimal.animal_id = primaryAnimalId;
+    }
     const retry = await admin
       .from("tratamientos")
       .insert(minimal)
@@ -156,7 +215,12 @@ export async function createTratamiento(
     }
   }
 
+  mapped.fechaFinCarencia = mapped.fechaFinCarencia ?? carencia.fechaFinCarencia;
+  mapped.listoTraslado = mapped.listoTraslado ?? carencia.listoTraslado;
+  mapped.diasCarencia = diasCarencia;
+
   await syncAlertFromNextDue(admin, granjaId, mapped);
+  await notifyCarenciaInscrita(admin, granjaId, mapped, carencia);
 
   await registrarHistorial(admin, {
     granjaId,
@@ -164,7 +228,11 @@ export async function createTratamiento(
     registroId: mapped.id,
     referencia: mapped.name,
     accion: "crear",
-    resumen: `Tratamiento registrado: ${mapped.name} (${mapped.animalCount} animales) — ₡${mapped.totalCost}.`,
+    resumen: `Tratamiento registrado: ${mapped.name} (${mapped.animalCount} animales) — ₡${mapped.totalCost}${
+      carencia.fechaFinCarencia
+        ? ` · carencia hasta ${carencia.fechaFinCarencia}`
+        : ""
+    }.`,
     datosNuevos: snapshotTratamiento(mapped),
     usuarioId,
   });
@@ -208,6 +276,22 @@ export async function updateTratamiento(
     patch.costo_total = Math.round(count * cpa * 100) / 100;
   }
 
+  if (
+    input.date != null ||
+    input.diasCarencia != null ||
+    input.medicamentoId !== undefined
+  ) {
+    const medId =
+      input.medicamentoId !== undefined
+        ? input.medicamentoId ?? null
+        : previous?.medicamentoId ?? null;
+    const dias = await resolveDiasCarencia(admin, medId, input.diasCarencia);
+    const fecha = input.date ?? previous?.date ?? new Date().toISOString().slice(0, 10);
+    const carencia = computeCarencia(fecha, dias);
+    patch.fecha_fin_carencia = carencia.fechaFinCarencia;
+    patch.listo_traslado = carencia.listoTraslado;
+  }
+
   let { data, error } = await admin
     .from("tratamientos")
     .update(patch)
@@ -217,7 +301,8 @@ export async function updateTratamiento(
     .select(
       `id, animal_id, medicamento_id, tipo, nombre, fecha_inicio, proxima_aplicacion,
        animal_count, costo_por_animal, costo_total, estado, aplicado_por, observaciones, origen,
-       medicamentos(nombre)`
+       fecha_fin_carencia, listo_traslado,
+       medicamentos(nombre, periodo_carencia_dias)`
     )
     .single();
 

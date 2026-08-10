@@ -1,0 +1,8 @@
+{
+  "search.exclude": {
+    "**/tools/pgsql-*/**": true
+  },
+  "files.watcherExclude": {
+    "**/tools/pgsql-*/**": true
+  }
+}

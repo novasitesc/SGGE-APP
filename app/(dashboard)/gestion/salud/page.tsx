@@ -109,6 +109,8 @@ export default function GestionSaludPage() {
     type: "vacuna",
     pricePerUnit: "",
     unit: "dosis",
+    periodoCarenciaDias: "",
+    manualUso: "",
   });
   const [medBusy, setMedBusy] = useState(false);
   const [medError, setMedError] = useState<string | null>(null);
@@ -239,8 +241,8 @@ export default function GestionSaludPage() {
                 <TableHead>Nombre</TableHead>
                 <TableHead>Tipo</TableHead>
                 <TableHead>Fecha</TableHead>
+                <TableHead className="hidden lg:table-cell">Carencia / traslado</TableHead>
                 <TableHead className="hidden md:table-cell">Animales</TableHead>
-                <TableHead className="hidden md:table-cell">Aplicado por</TableHead>
                 <TableHead className="text-right">Costo</TableHead>
                 <TableHead className="text-right">Acciones</TableHead>
               </TableRow>
@@ -284,11 +286,41 @@ export default function GestionSaludPage() {
                     <TableCell className="text-sm text-muted-foreground">
                       {formatDate(t.date)}
                     </TableCell>
-                    <TableCell className="hidden md:table-cell text-sm">
-                      {t.animalCount}
+                    <TableCell className="hidden lg:table-cell text-sm">
+                      {t.fechaFinCarencia ? (
+                        <div className="space-y-0.5">
+                          <span
+                            className={`text-xs px-2 py-0.5 rounded-lg font-medium ${
+                              t.listoTraslado
+                                ? "bg-emerald-100 text-emerald-800"
+                                : "bg-amber-100 text-amber-900"
+                            }`}
+                          >
+                            {t.listoTraslado
+                              ? "Listo traslado"
+                              : "En carencia"}
+                          </span>
+                          <p className="text-xs text-muted-foreground">
+                            Hasta {formatDate(t.fechaFinCarencia)}
+                          </p>
+                        </div>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">Sin carencia</span>
+                      )}
                     </TableCell>
-                    <TableCell className="hidden md:table-cell text-sm text-muted-foreground">
-                      {t.appliedBy || "—"}
+                    <TableCell className="hidden md:table-cell text-sm">
+                      <div className="space-y-0.5">
+                        <span className="font-medium">{t.animalCount}</span>
+                        <p className="text-[11px] text-muted-foreground">
+                          {(() => {
+                            const mod = t.notes?.match(/\[módulo:([^\]]+)\]/);
+                            if (mod) return `Módulo ${mod[1]}`;
+                            if (t.animalId || t.notes?.includes("arete"))
+                              return "Por animal";
+                            return "Hato";
+                          })()}
+                        </p>
+                      </div>
                     </TableCell>
                     <TableCell className="text-right font-semibold tabular-nums">
                       {formatCurrency(t.totalCost)}
@@ -431,12 +463,17 @@ export default function GestionSaludPage() {
                   type: medForm.type,
                   unit: medForm.unit,
                   pricePerUnit: Number(medForm.pricePerUnit) || 0,
+                  periodoCarenciaDias:
+                    Number(medForm.periodoCarenciaDias) || 0,
+                  manualUso: medForm.manualUso.trim() || undefined,
                 });
                 setMedForm({
                   name: "",
                   type: "vacuna",
                   pricePerUnit: "",
                   unit: "dosis",
+                  periodoCarenciaDias: "",
+                  manualUso: "",
                 });
                 await reloadMeds();
               } catch (err) {
@@ -488,6 +525,35 @@ export default function GestionSaludPage() {
                 />
               </div>
             </div>
+            <div className="space-y-1.5">
+              <Label>Días de carencia (manual de uso)</Label>
+              <Input
+                type="number"
+                min="0"
+                placeholder="Ej. 14"
+                value={medForm.periodoCarenciaDias}
+                onChange={(e) =>
+                  setMedForm({
+                    ...medForm,
+                    periodoCarenciaDias: e.target.value,
+                  })
+                }
+              />
+              <p className="text-[11px] text-muted-foreground">
+                Días tras la aplicación hasta que el animal pueda ir a
+                subasta/traslado.
+              </p>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Nota del manual</Label>
+              <Input
+                placeholder="Referencia ficha técnica…"
+                value={medForm.manualUso}
+                onChange={(e) =>
+                  setMedForm({ ...medForm, manualUso: e.target.value })
+                }
+              />
+            </div>
             {medError && (
               <p className="text-sm text-rose-600">{medError}</p>
             )}
@@ -507,6 +573,7 @@ export default function GestionSaludPage() {
                   <TableHead>Código</TableHead>
                   <TableHead>Nombre</TableHead>
                   <TableHead>Tipo</TableHead>
+                  <TableHead className="hidden sm:table-cell">Carencia</TableHead>
                   <TableHead className="text-right">Costo</TableHead>
                   <TableHead className="text-right">Acciones</TableHead>
                 </TableRow>
@@ -514,13 +581,13 @@ export default function GestionSaludPage() {
               <TableBody>
                 {loadingM ? (
                   <TableRow>
-                    <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
                       Cargando…
                     </TableCell>
                   </TableRow>
                 ) : meds.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
                       Catálogo vacío.
                     </TableCell>
                   </TableRow>
@@ -528,8 +595,20 @@ export default function GestionSaludPage() {
                   meds.map((m) => (
                     <TableRow key={m.id}>
                       <TableCell className="font-mono text-xs">{m.code}</TableCell>
-                      <TableCell className="text-sm font-medium">{m.name}</TableCell>
+                      <TableCell className="text-sm font-medium">
+                        <div>{m.name}</div>
+                        {m.manualUso ? (
+                          <p className="text-[11px] text-muted-foreground truncate max-w-[180px]">
+                            {m.manualUso}
+                          </p>
+                        ) : null}
+                      </TableCell>
                       <TableCell className="text-sm capitalize">{m.type}</TableCell>
+                      <TableCell className="hidden sm:table-cell text-sm tabular-nums">
+                        {m.periodoCarenciaDias > 0
+                          ? `${m.periodoCarenciaDias} días`
+                          : "—"}
+                      </TableCell>
                       <TableCell className="text-right tabular-nums text-sm">
                         {formatCurrency(m.pricePerUnit)}
                       </TableCell>
@@ -603,9 +682,34 @@ export default function GestionSaludPage() {
         editing={tEditing}
         onSubmit={async (payload) => {
           if (tEditing) {
-            await updateTreatmentApi(tEditing.id, payload);
+            await updateTreatmentApi(tEditing.id, {
+              type: payload.type,
+              name: payload.name,
+              date: payload.date,
+              animalCount: payload.animalCount,
+              costPerAnimal: payload.costPerAnimal,
+              totalCost: payload.totalCost,
+              appliedBy: payload.appliedBy,
+              notes: payload.notes,
+              nextDue: payload.nextDue,
+              diasCarencia: payload.diasCarencia,
+            });
           } else {
-            await createTreatmentApi(payload);
+            await createTreatmentApi({
+              type: payload.type,
+              name: payload.name,
+              date: payload.date,
+              animalCount: payload.animalCount,
+              costPerAnimal: payload.costPerAnimal,
+              totalCost: payload.totalCost,
+              appliedBy: payload.appliedBy,
+              notes: payload.notes,
+              nextDue: payload.nextDue,
+              diasCarencia: payload.diasCarencia,
+              animalId: payload.animalId,
+              animalIds: payload.animalIds,
+              bulk: Boolean(payload.animalIds && payload.animalIds.length > 1),
+            });
           }
           invalidateApiCacheMany(["treatments", "health-alerts", "dashboard"]);
           await reloadTreatments();

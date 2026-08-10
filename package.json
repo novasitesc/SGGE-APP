@@ -13,7 +13,9 @@
     "ingest:pendientes": "npx tsx scripts/ingest-pendientes.ts",
     "backfill:alim": "npx tsx --env-file=.env.local scripts/backfill-alim-alimentaciones.ts",
     "backfill:vet": "npx tsx --env-file=.env.local scripts/backfill-vet-salud.ts",
-    "normalize:alim-qty": "npx tsx --env-file=.env.local scripts/normalize-alim-compra-cantidades.ts"
+    "normalize:alim-qty": "npx tsx --env-file=.env.local scripts/normalize-alim-compra-cantidades.ts",
+    "db:backup": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/backup-db.ps1",
+    "db:backup:sql": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/backup-db.ps1 -Format sql"
   },
   "dependencies": {
     "@base-ui/react": "^1.4.1",

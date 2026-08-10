@@ -13,7 +13,12 @@ export async function createMedicamento(
     input.code?.trim().toUpperCase() ||
     `MED-${input.name.slice(0, 8).toUpperCase().replace(/\s/g, "")}`;
 
-  const { data, error } = await admin
+  const periodoCarenciaDias = Math.max(
+    0,
+    Math.floor(input.periodoCarenciaDias ?? 0)
+  );
+
+  let { data, error } = await admin
     .from("medicamentos")
     .insert({
       granja_id: granjaId,
@@ -22,14 +27,43 @@ export async function createMedicamento(
       tipo: input.type ?? "vacuna",
       unidad_medida: input.unit ?? "dosis",
       costo_unitario: input.pricePerUnit,
+      periodo_carencia_dias: periodoCarenciaDias,
+      manual_uso: input.manualUso?.trim() || null,
       activo: true,
       created_by: usuarioId ?? null,
     })
     .select("*")
     .single();
 
+  // Remoto sin columnas de carencia aún
+  if (
+    error &&
+    (error.message.includes("periodo_carencia") ||
+      error.message.includes("manual_uso"))
+  ) {
+    const retry = await admin
+      .from("medicamentos")
+      .insert({
+        granja_id: granjaId,
+        codigo,
+        nombre: input.name,
+        tipo: input.type ?? "vacuna",
+        unidad_medida: input.unit ?? "dosis",
+        costo_unitario: input.pricePerUnit,
+        activo: true,
+        created_by: usuarioId ?? null,
+      })
+      .select("*")
+      .single();
+    data = retry.data;
+    error = retry.error;
+  }
+
   if (error) throw new Error(error.message);
   const mapped = mapMedicamento(data as Record<string, unknown>);
+  if (!mapped.periodoCarenciaDias && periodoCarenciaDias > 0) {
+    mapped.periodoCarenciaDias = periodoCarenciaDias;
+  }
 
   await registrarHistorial(admin, {
     granjaId,
@@ -37,12 +71,17 @@ export async function createMedicamento(
     registroId: mapped.id,
     referencia: mapped.name,
     accion: "crear",
-    resumen: `Medicamento registrado: ${mapped.name} — ₡${mapped.pricePerUnit}/${mapped.unit}.`,
+    resumen: `Medicamento registrado: ${mapped.name} — ₡${mapped.pricePerUnit}/${mapped.unit}${
+      periodoCarenciaDias > 0
+        ? ` · carencia ${periodoCarenciaDias} días`
+        : ""
+    }.`,
     datosNuevos: {
       codigo: mapped.code,
       nombre: mapped.name,
       tipo: mapped.type,
       costo: mapped.pricePerUnit,
+      periodo_carencia_dias: mapped.periodoCarenciaDias,
     },
     usuarioId,
   });

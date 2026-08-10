@@ -411,6 +411,8 @@ export async function createTreatmentApi(data: {
   animalId?: string;
   animalIds?: string[];
   medicamentoId?: string;
+  loteId?: string;
+  diasCarencia?: number;
   bulk?: boolean;
 }): Promise<Treatment> {
   const res = await fetch("/api/treatments", {
@@ -434,6 +436,7 @@ export async function updateTreatmentApi(
     notes: string;
     nextDue: string;
     status: string;
+    diasCarencia: number;
   }>
 ): Promise<Treatment> {
   const res = await fetch(`/api/treatments/${id}`, {
@@ -506,6 +509,8 @@ export async function fetchMedicamentos(): Promise<
     unit: string;
     pricePerUnit: number;
     active: boolean;
+    periodoCarenciaDias: number;
+    manualUso?: string | null;
   }[]
 > {
   const res = await fetch("/api/medicamentos", { cache: "no-store" });
@@ -518,6 +523,8 @@ export async function createMedicamentoApi(data: {
   unit?: string;
   pricePerUnit: number;
   code?: string;
+  periodoCarenciaDias?: number;
+  manualUso?: string;
 }) {
   const res = await fetch("/api/medicamentos", {
     method: "POST",
@@ -532,9 +539,55 @@ export async function deleteMedicamentoApi(id: string): Promise<void> {
   await parseJson(res);
 }
 
-export async function syncHealthAlertsApi(): Promise<{ created: number }> {
+export async function syncHealthAlertsApi(): Promise<{
+  created: number;
+  carenciaUpdated?: number;
+  carenciaNotified?: number;
+  carenciaAlerts?: number;
+}> {
   const res = await fetch("/api/health-alerts/sync", { method: "POST" });
   return parseJson(res);
+}
+
+export type NotificacionInboxItem = {
+  id: string;
+  tipo: string;
+  titulo: string;
+  mensaje: string;
+  tratamientoId?: string | null;
+  animalId?: string | null;
+  fechaEvento?: string | null;
+  leidaAt?: string | null;
+  createdAt: string;
+};
+
+export async function fetchNotificacionesApi(unreadOnly = false): Promise<{
+  items: NotificacionInboxItem[];
+  unreadCount: number;
+}> {
+  const res = await fetch(
+    unreadOnly ? "/api/notificaciones?unread=1" : "/api/notificaciones",
+    { cache: "no-store" }
+  );
+  return parseJson(res);
+}
+
+export async function markNotificacionLeidaApi(id: string): Promise<void> {
+  const res = await fetch(`/api/notificaciones/${id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({}),
+  });
+  await parseJson(res);
+}
+
+export async function markAllNotificacionesLeidasApi(): Promise<void> {
+  const res = await fetch("/api/notificaciones", {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ all: true }),
+  });
+  await parseJson(res);
 }
 
 export async function uploadSaludPdfApi(file: File): Promise<{

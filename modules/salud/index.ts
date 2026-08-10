@@ -38,3 +38,13 @@ export {
   createMedicamento,
   softDeleteMedicamento,
 } from "./actions/medicamentos";
+export {
+  syncCarenciaYNotificaciones,
+  notifyCarenciaInscrita,
+  listNotificacionesUsuario,
+  countNotificacionesNoLeidas,
+  markNotificacionLeida,
+  markAllNotificacionesLeidas,
+} from "./actions/notificaciones";
+export type { NotificacionUsuario } from "./actions/notificaciones";
+export { computeCarencia, addDaysIso, CARENCIA_AVISO_DIAS } from "./lib/carencia";

@@ -1,0 +1,69 @@
+# Backup diario de Postgres (Supabase) vía pg_dump.
+# Guarda el dump como artifact de Actions (retención 30 días).
+#
+# Secrets requeridos (repo → Settings → Secrets and variables → Actions):
+#   SUPABASE_DB_URL  — URI directa :5432 (NO pooler)
+#
+# Ejecución:
+#   - Cron diario 06:00 UTC
+#   - Manual: Actions → "Database backup" → Run workflow
+
+name: Database backup
+
+on:
+  schedule:
+    - cron: "0 6 * * *"
+  workflow_dispatch:
+    inputs:
+      format:
+        description: "Formato del dump"
+        required: true
+        default: custom
+        type: choice
+        options:
+          - custom
+          - sql
+
+permissions:
+  contents: read
+
+concurrency:
+  group: db-backup
+  cancel-in-progress: false
+
+jobs:
+  backup:
+    name: pg_dump → artifact
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install PostgreSQL client
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client
+
+      - name: Run backup
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          set -euo pipefail
+          if [ -z "${SUPABASE_DB_URL:-}" ]; then
+            echo "Falta el secret SUPABASE_DB_URL." >&2
+            exit 1
+          fi
+          FORMAT="${{ github.event.inputs.format || 'custom' }}"
+          chmod +x scripts/backup-db.sh
+          ./scripts/backup-db.sh --format "$FORMAT" --out-dir backups --keep 0
+          ls -lh backups/
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: sgge-db-backup-${{ github.run_id }}
+          path: backups/sgge-*
+          if-no-files-found: error
+          retention-days: 30

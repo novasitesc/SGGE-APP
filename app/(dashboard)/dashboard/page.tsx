@@ -16,6 +16,7 @@ const alertTypeConfig = {
   programado: { variant: "info" as const, icon: "🔵" },
   revisión: { variant: "secondary" as const, icon: "⚪" },
   tratamiento: { variant: "warning" as const, icon: "🟡" },
+  carencia: { variant: "warning" as const, icon: "🟠" },
 };
 
 export default function DashboardPage() {

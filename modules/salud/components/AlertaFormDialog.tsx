@@ -115,6 +115,7 @@ export function AlertaFormDialog({
                 <option value="programado">Programado</option>
                 <option value="revisión">Revisión</option>
                 <option value="tratamiento">Tratamiento</option>
+                <option value="carencia">Carencia / traslado</option>
               </Select>
             </div>
             <div className="space-y-1.5">
