@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import type { Module } from "@/lib/types/domain";
+import { useActiveLote } from "@/components/lotes/LoteProvider";
 import {
   createModule,
   deleteModuleApi,
@@ -16,7 +17,12 @@ function invalidateModuleRelated() {
 }
 
 export function useModules() {
-  const { data, loading, error, reload } = useApiQuery("modules", fetchModules);
+  const { loteId, loading: loteLoading } = useActiveLote();
+  const cacheKey = loteId ? `modules:${loteId}` : "modules";
+  const loader = useCallback(() => fetchModules(loteId), [loteId]);
+  const { data, loading, error, reload } = useApiQuery(cacheKey, loader, [
+    loteId,
+  ], { enabled: !!loteId });
   const modules = (data ?? []) as Module[];
 
   const [mutating, setMutating] = useState(false);
@@ -85,7 +91,7 @@ export function useModules() {
 
   return {
     modules,
-    loading,
+    loading: loteLoading || loading,
     error,
     mutating,
     actionError,

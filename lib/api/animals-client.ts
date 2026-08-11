@@ -2,8 +2,9 @@ import type { Animal } from "@/lib/types/domain";
 import type { AnimalDetail, ActaRecord, PesajeRecord } from "@/components/animales/types";
 import { parseJson } from "@/lib/api/parse-json";
 
-export async function fetchAnimals(): Promise<Animal[]> {
-  const res = await fetch("/api/animals", { cache: "no-store" });
+export async function fetchAnimals(loteId?: string | null): Promise<Animal[]> {
+  const qs = loteId ? `?loteId=${encodeURIComponent(loteId)}` : "";
+  const res = await fetch(`/api/animals${qs}`, { cache: "no-store" });
   return parseJson<Animal[]>(res);
 }
 
@@ -53,6 +54,8 @@ export async function createAnimal(data: {
   invoiceFolio?: string;
   invoiceOrAuctionDate?: string;
   auctionLotNumber?: string;
+  /** Lote de engorda; si se omite, el API usa el lote abierto por defecto. */
+  loteId?: string;
 }): Promise<Animal> {
   const res = await fetch("/api/animals", {
     method: "POST",

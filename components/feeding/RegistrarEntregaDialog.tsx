@@ -15,8 +15,15 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Loader2, Wheat } from "lucide-react";
+import { useActiveLote } from "@/components/lotes/LoteProvider";
 
 type LoteOpt = { id: string; nombre: string };
+
+type SuggestedPortion = {
+  alimentoId: string;
+  /** kg totales del hato para un día (reparto equitativo). */
+  kgHatoDia: number;
+};
 
 type Props = {
   open: boolean;
@@ -31,6 +38,8 @@ type Props = {
   onSuccess: () => void;
   /** Prefill lines when duplicating an existing delivery */
   duplicateLines?: { alimentoId: string; cantidad: number }[] | null;
+  /** Sugerencias equitativas desde PDF / raciones previas. */
+  suggestedPortions?: SuggestedPortion[];
 };
 
 const MAX_KG_PER_ANIMAL_WARN = 25;
@@ -44,7 +53,9 @@ export function RegistrarEntregaDialog({
   lastDelivery,
   onSuccess,
   duplicateLines,
+  suggestedPortions = [],
 }: Props) {
+  const { loteId: activeLoteId } = useActiveLote();
   const [fecha, setFecha] = useState(() => new Date().toISOString().slice(0, 10));
   const [observaciones, setObservaciones] = useState("");
   const [loteId, setLoteId] = useState("");
@@ -54,6 +65,13 @@ export function RegistrarEntregaDialog({
   const [error, setError] = useState<string | null>(null);
   const [warn, setWarn] = useState<string | null>(null);
 
+  const preferredLoteId = () => {
+    if (activeLoteId && lotes.some((l) => l.id === activeLoteId)) {
+      return activeLoteId;
+    }
+    return lotes[0]?.id ?? "";
+  };
+
   const reset = () => {
     setFecha(new Date().toISOString().slice(0, 10));
     setObservaciones("");
@@ -61,12 +79,15 @@ export function RegistrarEntregaDialog({
     setHerdTotal("");
     setError(null);
     setWarn(null);
-    setLoteId(lotes[0]?.id ?? "");
+    setLoteId(preferredLoteId());
   };
 
   useEffect(() => {
     if (open) {
-      setLoteId((prev) => prev || lotes[0]?.id || "");
+      setLoteId((prev) => {
+        if (prev && lotes.some((l) => l.id === prev)) return prev;
+        return preferredLoteId();
+      });
       if (duplicateLines?.length) {
         const next: Record<string, string> = {};
         for (const l of duplicateLines) {
@@ -75,7 +96,8 @@ export function RegistrarEntregaDialog({
         setQtyById(next);
       }
     }
-  }, [open, lotes, duplicateLines]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- preferredLoteId uses activeLoteId/lotes
+  }, [open, lotes, duplicateLines, activeLoteId]);
 
   const handleOpenChange = (next: boolean) => {
     if (!next) reset();
@@ -129,21 +151,50 @@ export function RegistrarEntregaDialog({
     }
     const active = feedTypes.filter((f) => Number(qtyById[f.id] ?? 0) > 0);
     if (active.length === 0) {
-      // Put all on first product with purchases or first catalog item
       const target = feedTypes[0];
       if (!target) return;
       setQtyById({ [target.id]: String(Math.round(total * 1000) / 1000) });
     } else {
-      const sum = active.reduce((s, f) => s + Number(qtyById[f.id]), 0);
+      // Partes iguales entre insumos activos (y luego entre animales).
+      const each = Math.round((total / active.length) * 1000) / 1000;
       const next = { ...qtyById };
       for (const f of active) {
-        const share = Number(qtyById[f.id]) / sum;
-        next[f.id] = String(Math.round(total * share * 1000) / 1000);
+        next[f.id] = String(each);
       }
       setQtyById(next);
     }
+    const perHead =
+      animalCount > 0
+        ? (Math.round((total / animalCount) * 1000) / 1000).toFixed(2)
+        : "—";
     setError(null);
-    setWarn(`Repartidos ${total} kg entre insumos con cantidad.`);
+    setWarn(
+      `Reparto equitativo: ${total} kg del hato → ${perHead} kg/animal (${animalCount || 0} cab.).`
+    );
+  };
+
+  const applySuggestedPortions = () => {
+    const usable = suggestedPortions.filter((p) => p.kgHatoDia > 0);
+    if (usable.length === 0) {
+      setError(
+        "No hay sugerencias desde PDF con kg. Captura kg en Compras o copia la última entrega."
+      );
+      return;
+    }
+    const next: Record<string, string> = {};
+    for (const p of usable) {
+      next[p.alimentoId] = String(Math.round(p.kgHatoDia * 1000) / 1000);
+    }
+    setQtyById(next);
+    const total = usable.reduce((s, p) => s + p.kgHatoDia, 0);
+    const perHead =
+      animalCount > 0
+        ? (Math.round((total / animalCount) * 1000) / 1000).toFixed(2)
+        : "—";
+    setError(null);
+    setWarn(
+      `Cargados ${usable.length} insumo(s) PDF en partes iguales: ${total.toLocaleString("es-CR")} kg hato/día ≈ ${perHead} kg/animal.`
+    );
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -233,6 +284,13 @@ export function RegistrarEntregaDialog({
             >
               Copiar última entrega
             </button>
+            <button
+              type="button"
+              onClick={applySuggestedPortions}
+              className="text-xs font-medium px-3 py-1.5 rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-800 hover:bg-emerald-100"
+            >
+              Sugerir desde PDF (equitativo)
+            </button>
             <div className="flex items-center gap-1.5">
               <Input
                 type="number"
@@ -248,13 +306,16 @@ export function RegistrarEntregaDialog({
                 onClick={applyHerdSplit}
                 className="text-xs font-medium px-3 py-1.5 rounded-lg border hover:bg-muted"
               >
-                Repartir
+                Repartir equitativo
               </button>
             </div>
           </div>
 
           <div className="space-y-2">
-            <Label>Cantidades por insumo (kg)</Label>
+            <Label>
+              Cantidades por insumo (kg totales del hato · se dividen en partes
+              iguales entre {animalCount || "—"} animales)
+            </Label>
             {feedTypes.length === 0 ? (
               <p className="text-sm text-muted-foreground">
                 No hay insumos en catálogo. Agréguelos en Gestión → Alimentación.
@@ -305,10 +366,20 @@ export function RegistrarEntregaDialog({
 
           <div className="rounded-xl border bg-muted/20 px-3 py-2 text-xs space-y-0.5">
             <p>
-              Total: <strong>{totalKg.toLocaleString("es-CR", { maximumFractionDigits: 2 })} kg</strong>
-              {animalCount > 0
-                ? ` · ${perAnimal.toFixed(2)} kg/animal (${animalCount} cab.)`
-                : ""}
+              Total hato:{" "}
+              <strong>
+                {totalKg.toLocaleString("es-CR", { maximumFractionDigits: 2 })}{" "}
+                kg
+              </strong>
+            </p>
+            <p>
+              Porción equitativa:{" "}
+              <strong className="text-emerald-700">
+                {animalCount > 0
+                  ? `${perAnimal.toFixed(2)} kg/animal`
+                  : "—"}
+              </strong>
+              {animalCount > 0 ? ` × ${animalCount} animales` : ""}
             </p>
             <p>
               Costo estimado:{" "}

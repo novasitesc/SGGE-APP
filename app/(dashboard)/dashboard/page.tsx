@@ -1,5 +1,6 @@
 "use client";
 
+import { useCallback } from "react";
 import DashboardCards from "@/components/DashboardCards";
 import ChartWeight from "@/components/ChartWeight";
 import ChartCosts from "@/components/ChartCosts";
@@ -10,6 +11,8 @@ import { formatModuleLabel } from "@/lib/modulos/constants";
 import { AlertTriangle, Beef, ShoppingCart, Activity } from "lucide-react";
 import { fetchDashboard, fetchWeightHistory } from "@/lib/api/data-client";
 import { useApiQuery } from "@/lib/hooks/useApiQuery";
+import { useActiveLote } from "@/components/lotes/LoteProvider";
+import { loteLabel } from "@/lib/lotes/active-lote";
 
 const alertTypeConfig = {
   urgente: { variant: "destructive" as const, icon: "🔴" },
@@ -20,13 +23,21 @@ const alertTypeConfig = {
 };
 
 export default function DashboardPage() {
+  const { loteId, lote } = useActiveLote();
+  const dashLoader = useCallback(() => fetchDashboard(loteId), [loteId]);
+  const weightLoader = useCallback(() => fetchWeightHistory(loteId), [loteId]);
+
   const { data: dashboard, loading: loadingDash } = useApiQuery(
-    "dashboard",
-    fetchDashboard
+    loteId ? `dashboard:${loteId}` : "dashboard",
+    dashLoader,
+    [loteId],
+    { enabled: !!loteId }
   );
   const { data: weightHistory, loading: loadingWeight } = useApiQuery(
-    "weights:history",
-    fetchWeightHistory
+    loteId ? `weights:history:${loteId}` : "weights:history",
+    weightLoader,
+    [loteId],
+    { enabled: !!loteId }
   );
 
   const kpi = dashboard?.kpiSummary;
@@ -34,14 +45,18 @@ export default function DashboardPage() {
   const recentSales = dashboard?.recentSales ?? [];
   const healthAlerts = dashboard?.healthAlerts ?? [];
   const costsByCategory = dashboard?.costsByCategory ?? [];
+  const loteName = loteLabel(lote);
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-4 flex-wrap">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
           <p className="text-sm text-muted-foreground mt-0.5">
-            Resumen general del ciclo de engorda
+            Estadísticas de animales del lote{" "}
+            <span className="font-medium text-foreground">{loteName}</span>
+            {" · "}
+            gastos compartidos de la granja
           </p>
         </div>
         <div className="flex items-center gap-2 text-sm text-muted-foreground bg-card border rounded-xl px-3 py-2">
@@ -55,7 +70,12 @@ export default function DashboardPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <ChartWeight data={weightHistory ?? []} loading={loadingWeight} />
-        <ChartCosts data={costsByCategory} loading={loadingDash} />
+        <div className="space-y-2">
+          <ChartCosts data={costsByCategory} loading={loadingDash} />
+          <p className="text-[11px] text-muted-foreground px-1">
+            Los gastos son de toda la granja y se comparten entre lotes.
+          </p>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -66,7 +86,7 @@ export default function DashboardPage() {
                 <Beef className="h-4 w-4 text-emerald-600" />
                 Animales Recientes
               </CardTitle>
-              <a href="/animals" className="text-xs text-primary hover:underline">Ver todos</a>
+              <a href="/gestion/animales" className="text-xs text-primary hover:underline">Ver todos</a>
             </div>
           </CardHeader>
           <CardContent className="pt-0">
@@ -77,7 +97,9 @@ export default function DashboardPage() {
                 ))}
               </div>
             ) : recentAnimals.length === 0 ? (
-              <p className="text-sm text-muted-foreground py-4 text-center">Sin animales registrados.</p>
+              <p className="text-sm text-muted-foreground py-4 text-center">
+                Sin animales en este lote. Un lote nuevo empieza sin inventario.
+              </p>
             ) : (
               <div className="space-y-2">
                 {recentAnimals.map((animal) => (
@@ -106,7 +128,7 @@ export default function DashboardPage() {
                 <AlertTriangle className="h-4 w-4 text-amber-500" />
                 Alertas Activas
               </CardTitle>
-              <a href="/health" className="text-xs text-primary hover:underline">Ver todas</a>
+              <a href="/gestion/salud" className="text-xs text-primary hover:underline">Ver todas</a>
             </div>
           </CardHeader>
           <CardContent className="pt-0">
@@ -146,7 +168,9 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent className="pt-0">
             {recentSales.length === 0 ? (
-              <p className="text-sm text-muted-foreground py-4 text-center">Sin ventas registradas.</p>
+              <p className="text-sm text-muted-foreground py-4 text-center">
+                Sin ventas de este lote.
+              </p>
             ) : (
               <div className="space-y-2">
                 {recentSales.map((sale) => (

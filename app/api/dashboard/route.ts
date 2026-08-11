@@ -17,10 +17,27 @@ export async function GET(req: Request) {
     const auth = await requireApiContext(req);
     if (!auth.ok) return auth.response;
     const { admin, granjaId } = auth.ctx;
+    const url = new URL(req.url);
+    const loteId = url.searchParams.get("loteId")?.trim() || null;
 
     const desde30 = new Date();
     desde30.setUTCDate(desde30.getUTCDate() - 30);
     const desde30Iso = desde30.toISOString().slice(0, 10);
+
+    let animalsQuery = admin
+      .from("animales")
+      .select(ANIMAL_SELECT)
+      .eq("granja_id", granjaId)
+      .is("deleted_at", null);
+    if (loteId) animalsQuery = animalsQuery.eq("lote_id", loteId);
+
+    let alimQuery = admin
+      .from("alimentaciones")
+      .select("id, fecha, costo_total, turno, lote_id")
+      .eq("granja_id", granjaId)
+      .is("deleted_at", null)
+      .gte("fecha", desde30Iso);
+    if (loteId) alimQuery = alimQuery.eq("lote_id", loteId);
 
     const [
       { data: animals, error: e1 },
@@ -28,11 +45,8 @@ export async function GET(req: Request) {
       { data: ventas },
       { data: alimCab },
     ] = await Promise.all([
-      admin
-        .from("animales")
-        .select(ANIMAL_SELECT)
-        .eq("granja_id", granjaId)
-        .is("deleted_at", null),
+      animalsQuery,
+      // Gastos: siempre a nivel granja (compartidos entre lotes).
       admin
         .from("gastos")
         .select("monto, fecha, categorias_gastos(codigo)")
@@ -43,18 +57,14 @@ export async function GET(req: Request) {
         .select("id, monto_total, fecha_venta")
         .eq("granja_id", granjaId)
         .is("deleted_at", null),
-      admin
-        .from("alimentaciones")
-        .select("id, fecha, costo_total, turno")
-        .eq("granja_id", granjaId)
-        .is("deleted_at", null)
-        .gte("fecha", desde30Iso),
+      alimQuery,
     ]);
     if (e1) throw new Error(e1.message);
 
     const list = (animals ?? []).map((row) =>
       normalizeAnimalRow(row as Record<string, unknown>)
     );
+    const animalIds = new Set(list.map((a) => a.id));
     const active = list.filter(
       (a) => a.estados_animales?.codigo === "activo"
     );
@@ -79,14 +89,31 @@ export async function GET(req: Request) {
         : 0;
 
     const totalGainKg = gains.reduce((s, g) => s + g.gain, 0);
+    // Costos de granja: compartidos entre lotes (no se segmentan).
     const totalCost = (gastos ?? []).reduce(
       (s: number, c: { monto: number }) => s + Number(c.monto),
       0
     );
-    const totalRevenue = (ventas ?? []).reduce(
+
+    // Ingresos: si hay lote activo, solo ventas de animales de ese lote.
+    let totalRevenue = (ventas ?? []).reduce(
       (s: number, v: { monto_total: number }) => s + Number(v.monto_total),
       0
     );
+    if (loteId) {
+      if (animalIds.size === 0) {
+        totalRevenue = 0;
+      } else {
+        const { data: detLote } = await admin
+          .from("detalle_ventas")
+          .select("subtotal, animal_id")
+          .in("animal_id", [...animalIds]);
+        totalRevenue = (detLote ?? []).reduce(
+          (s, d) => s + Number((d as { subtotal: number }).subtotal),
+          0
+        );
+      }
+    }
 
     // Costos ALIM reales (gastos 30d) — prioriza comprobantes confirmados.
     const alimGastos30 = (gastos ?? []).reduce((s, c) => {
@@ -157,20 +184,29 @@ export async function GET(req: Request) {
       .slice(0, 5)
       .map((row) => mapAnimalToApi(row));
 
-    const { data: salesDetail } = await admin
+    let salesDetailQuery = admin
       .from("detalle_ventas")
       .select(
         `
-        id, peso_salida_kg, precio_kg, subtotal, venta_id, created_at,
-        animales ( arete, razas ( nombre ), corrales ( codigo ) ),
+        id, peso_salida_kg, precio_kg, subtotal, venta_id, created_at, animal_id,
+        animales ( arete, lote_id, razas ( nombre ), corrales ( codigo ) ),
         ventas ( fecha_venta, clientes ( razon_social ) )
       `
       )
       .eq("ventas.granja_id", granjaId)
       .order("created_at", { ascending: false })
-      .limit(4);
+      .limit(loteId ? 24 : 4);
+    if (loteId && animalIds.size > 0) {
+      salesDetailQuery = salesDetailQuery.in("animal_id", [...animalIds]);
+    }
 
-    const fromDetalle = (salesDetail ?? []).map(
+    const { data: salesDetailRaw } = await salesDetailQuery;
+    const salesDetail =
+      loteId && animalIds.size === 0
+        ? []
+        : (salesDetailRaw ?? []).slice(0, 4);
+
+    const fromDetalle = salesDetail.map(
       (row: Record<string, unknown>) => {
         const anim = row.animales as {
           arete: string;
@@ -199,39 +235,42 @@ export async function GET(req: Request) {
       (salesDetail ?? []).map((r) => String((r as { venta_id?: string }).venta_id ?? ""))
     );
 
-    // Ventas por factura (sin detalle de animal) para el bloque de recientes
-    const { data: headerRecent } = await admin
-      .from("ventas")
-      .select(
-        "id, folio, fecha_venta, peso_total_kg, monto_total, clientes ( razon_social )"
-      )
-      .eq("granja_id", granjaId)
-      .is("deleted_at", null)
-      .order("fecha_venta", { ascending: false })
-      .limit(4);
+    // Facturas sin detalle de animal: solo en vista de granja (sin lote).
+    let fromHeader: ReturnType<typeof mapSaleRow>[] = [];
+    if (!loteId) {
+      const { data: headerRecent } = await admin
+        .from("ventas")
+        .select(
+          "id, folio, fecha_venta, peso_total_kg, monto_total, clientes ( razon_social )"
+        )
+        .eq("granja_id", granjaId)
+        .is("deleted_at", null)
+        .order("fecha_venta", { ascending: false })
+        .limit(4);
 
-    const fromHeader = (headerRecent ?? [])
-      .filter((v) => !detalleVentaIds.has(String(v.id)))
-      .map((v) => {
-        const peso = Number(v.peso_total_kg) || 0;
-        const monto = Number(v.monto_total) || 0;
-        const clienteRaw = v.clientes as
-          | { razon_social: string }
-          | { razon_social: string }[]
-          | null;
-        const cliente = Array.isArray(clienteRaw) ? clienteRaw[0] : clienteRaw;
-        return mapSaleRow({
-          id: String(v.id),
-          tag_id: v.folio?.slice(0, 20) || "—",
-          breed: "Factura",
-          final_weight: peso,
-          price_per_kg: peso > 0 ? Math.round((monto / peso) * 100) / 100 : 0,
-          total_revenue: monto,
-          sale_date: v.fecha_venta ?? "",
-          buyer: cliente?.razon_social ?? "Cliente (comprobante)",
-          module_code: "—",
+      fromHeader = (headerRecent ?? [])
+        .filter((v) => !detalleVentaIds.has(String(v.id)))
+        .map((v) => {
+          const peso = Number(v.peso_total_kg) || 0;
+          const monto = Number(v.monto_total) || 0;
+          const clienteRaw = v.clientes as
+            | { razon_social: string }
+            | { razon_social: string }[]
+            | null;
+          const cliente = Array.isArray(clienteRaw) ? clienteRaw[0] : clienteRaw;
+          return mapSaleRow({
+            id: String(v.id),
+            tag_id: v.folio?.slice(0, 20) || "—",
+            breed: "Factura",
+            final_weight: peso,
+            price_per_kg: peso > 0 ? Math.round((monto / peso) * 100) / 100 : 0,
+            total_revenue: monto,
+            sale_date: v.fecha_venta ?? "",
+            buyer: cliente?.razon_social ?? "Cliente (comprobante)",
+            module_code: "—",
+          });
         });
-      });
+    }
 
     const recentSales = [...fromDetalle, ...fromHeader]
       .sort((a, b) => b.saleDate.localeCompare(a.saleDate))
@@ -288,6 +327,11 @@ export async function GET(req: Request) {
     try {
       const { listAlertas } = await import("@/modules/salud");
       healthAlerts = await listAlertas(admin, granjaId, { limit: 8 });
+      if (loteId) {
+        healthAlerts = healthAlerts.filter(
+          (a) => !a.animalId || animalIds.has(a.animalId)
+        );
+      }
     } catch {
       healthAlerts = [];
     }
@@ -298,6 +342,9 @@ export async function GET(req: Request) {
       recentSales,
       healthAlerts,
       costsByCategory,
+      /** true = gastos/costos son de toda la granja aunque el lote filtre animales */
+      costsSharedAcrossLotes: true,
+      loteId,
     });
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Error desconocido";

@@ -525,7 +525,10 @@ async function confirmarComoGasto(
     .single();
   if (eGasto) return { ok: false, message: eGasto.message, status: 400 };
 
-  // Compras ALIM de ganado → catálogo + alimentaciones (no comida humana / tilapia).
+  const extrasConfirm = extractParsedExtras(row.datos_parseados);
+  const textoPdf = extrasConfirm.texto || row.texto_extraido || "";
+
+  // Compras ALIM de ganado → catálogo + alimentaciones (no comida humana / tilapia / vet-ml).
   if (data.categoryCode.toUpperCase() === "ALIM") {
     try {
       const cantidad =
@@ -543,6 +546,7 @@ async function confirmarComoGasto(
         emisorNombre: data.issuer ?? row.emisor_nombre,
         concepto,
         archivoNombre: row.archivo_nombre,
+        texto: textoPdf,
       });
     } catch {
       // El gasto ya quedó; la sync se puede reintentar con el script de backfill.
@@ -550,14 +554,12 @@ async function confirmarComoGasto(
   }
 
   // Insumos veterinarios → catálogo medicamentos + tratamientos (Salud).
-  // Corre si la categoría es VET o si el PDF trae líneas veterinarias (facturas mixtas).
+  // Unidades: ml / dosis / und (NO kg). Corre si categoría VET o hay líneas vet en el PDF.
   {
-    const extras = extractParsedExtras(row.datos_parseados);
-    const texto = extras.texto || row.texto_extraido || "";
     const lineasVet =
-      extras.lineasVetSugeridas.length > 0
-        ? extras.lineasVetSugeridas
-        : extractLineasVeterinarias(texto);
+      extrasConfirm.lineasVetSugeridas.length > 0
+        ? extrasConfirm.lineasVetSugeridas
+        : extractLineasVeterinarias(textoPdf);
     const isVet = data.categoryCode.toUpperCase() === "VET";
     if (isVet || lineasVet.length > 0) {
       try {
@@ -566,7 +568,7 @@ async function confirmarComoGasto(
           gastoId: gasto.id,
           fecha: data.issueDate,
           monto: data.amount,
-          texto,
+          texto: textoPdf,
           concepto,
           archivoNombre: row.archivo_nombre,
           fallbackTotal: isVet && lineasVet.length === 0,

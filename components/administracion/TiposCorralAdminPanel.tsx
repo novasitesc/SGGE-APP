@@ -130,8 +130,8 @@ export function TiposCorralAdminPanel() {
             Tipos de corral
           </CardTitle>
           <p className="text-xs text-muted-foreground">
-            Clasificación operativa de módulos (engorda, cuarentena, etc.) y
-            prefijo de código.
+            Clasificación operativa de los módulos existentes (engorda,
+            cuarentena, etc.) y prefijo de código. Compartida entre lotes.
           </p>
           {readOnlyFallback && (
             <p className="text-xs text-amber-700 mt-2">

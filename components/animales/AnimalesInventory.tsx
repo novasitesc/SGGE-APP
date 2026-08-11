@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -14,6 +14,10 @@ import {
 } from "@/components/ui/table";
 import { useAnimals } from "@/lib/hooks/useAnimals";
 import { fetchCorrales } from "@/lib/api/animals-client";
+import {
+  fetchCategoriasAnimalesAdmin,
+  type CategoriaAnimalAdmin,
+} from "@/lib/api/data-client";
 import { formatDate, formatCurrency } from "@/lib/utils";
 import { formatModuleLabel } from "@/lib/modulos/constants";
 import {
@@ -28,7 +32,7 @@ import {
   ScrollText,
 } from "lucide-react";
 import type { Animal } from "@/lib/types/domain";
-import type { AnimalDetail, AnimalFormValues } from "@/components/animales/types";
+import type { AnimalFormValues } from "@/components/animales/types";
 import {
   EMPTY_ANIMAL_FORM,
   STATUS_CONFIG,
@@ -44,6 +48,17 @@ import {
 } from "@/components/animales/AnimalDeleteDialog";
 import { fetchSolicitudes } from "@/lib/api/solicitudes-client";
 import type { AnimalStatus } from "@/lib/types/domain";
+import { useActiveLote } from "@/components/lotes/LoteProvider";
+import { loteLabel } from "@/lib/lotes/active-lote";
+
+function weightMatchesCategoria(
+  weightKg: number,
+  cat: CategoriaAnimalAdmin
+): boolean {
+  const minOk = cat.peso_min_kg == null || weightKg >= cat.peso_min_kg;
+  const maxOk = cat.peso_max_kg == null || weightKg <= cat.peso_max_kg;
+  return minOk && maxOk;
+}
 
 type Props = {
   title?: string;
@@ -60,6 +75,7 @@ export function AnimalesInventory({
   historialHref = "/gestion/historial",
   fichaHref = (id) => `/gestion/animales/${id}`,
 }: Props) {
+  const { lote } = useActiveLote();
   const {
     animals,
     loading,
@@ -72,8 +88,15 @@ export function AnimalesInventory({
   } = useAnimals();
 
   const [corrales, setCorrales] = useState<{ id: string; name: string }[]>([]);
+  const [categorias, setCategorias] = useState<CategoriaAnimalAdmin[]>([]);
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState("todos");
+  /** Posicionamiento: módulo/corral donde está el animal. */
+  const [filterModule, setFilterModule] = useState("todos");
+  /** Categoría por rango de peso (ternero, novillo, toro…). */
+  const [filterCategoria, setFilterCategoria] = useState("todos");
+  const [filterPesoMin, setFilterPesoMin] = useState("");
+  const [filterPesoMax, setFilterPesoMax] = useState("");
 
   const [formOpen, setFormOpen] = useState(false);
   const [formMode, setFormMode] = useState<"create" | "edit">("create");
@@ -104,6 +127,9 @@ export function AnimalesInventory({
     fetchCorrales()
       .then((list) => setCorrales(list))
       .catch(() => {});
+    fetchCategoriasAnimalesAdmin()
+      .then((list) => setCategorias(list.filter((c) => c.activa)))
+      .catch(() => setCategorias([]));
     loadPendingDeletes();
 
     const onFocus = () => {
@@ -113,6 +139,14 @@ export function AnimalesInventory({
     window.addEventListener("focus", onFocus);
     return () => window.removeEventListener("focus", onFocus);
   }, [reload]);
+
+  const selectedCategoria = useMemo(
+    () => categorias.find((c) => c.id === filterCategoria) ?? null,
+    [categorias, filterCategoria]
+  );
+
+  const pesoMinNum = filterPesoMin.trim() === "" ? null : Number(filterPesoMin);
+  const pesoMaxNum = filterPesoMax.trim() === "" ? null : Number(filterPesoMax);
 
   const filtered = animals.filter((a) => {
     const q = search.toLowerCase();
@@ -124,7 +158,27 @@ export function AnimalesInventory({
       (a.moduleName?.toLowerCase().includes(q) ?? false) ||
       moduleLabel.includes(q);
     const matchStatus = filterStatus === "todos" || a.status === filterStatus;
-    return matchSearch && matchStatus;
+    const matchModule =
+      filterModule === "todos" || a.moduleId === filterModule;
+    const matchCategoria =
+      !selectedCategoria ||
+      weightMatchesCategoria(a.currentWeight, selectedCategoria);
+    const matchPesoMin =
+      pesoMinNum == null ||
+      Number.isNaN(pesoMinNum) ||
+      a.currentWeight >= pesoMinNum;
+    const matchPesoMax =
+      pesoMaxNum == null ||
+      Number.isNaN(pesoMaxNum) ||
+      a.currentWeight <= pesoMaxNum;
+    return (
+      matchSearch &&
+      matchStatus &&
+      matchModule &&
+      matchCategoria &&
+      matchPesoMin &&
+      matchPesoMax
+    );
   });
 
   const countByStatus = (s: AnimalStatus) =>
@@ -221,7 +275,8 @@ export function AnimalesInventory({
           <div>
             <h1 className="text-2xl font-bold tracking-tight">{title}</h1>
             <p className="text-sm text-muted-foreground mt-0.5">
-              {subtitle ?? `${animals.length} animales en inventario · CRUD completo`}
+              {subtitle ??
+                `${animals.length} animales en lote ${loteLabel(lote)} · gastos y catálogos son de la granja`}
             </p>
           </div>
         </div>
@@ -270,30 +325,114 @@ export function AnimalesInventory({
 
       <Card>
         <CardHeader className="pb-4">
-          <div className="flex flex-col sm:flex-row gap-3">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <input
-                type="text"
-                placeholder="Buscar por arete o raza..."
-                className="pl-9 pr-4 py-2 w-full text-sm rounded-xl border bg-background focus:outline-none focus:ring-2 focus:ring-primary/30"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-              />
+          <div className="flex flex-col gap-3">
+            <div className="flex flex-col sm:flex-row gap-3">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <input
+                  type="text"
+                  placeholder="Buscar por arete o raza..."
+                  className="pl-9 pr-4 py-2 w-full text-sm rounded-xl border bg-background focus:outline-none focus:ring-2 focus:ring-primary/30"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                />
+              </div>
+              <div className="relative">
+                <Filter className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+                <select
+                  value={filterStatus}
+                  onChange={(e) => setFilterStatus(e.target.value)}
+                  className="pl-9 pr-4 py-2 text-sm rounded-xl border bg-background focus:outline-none focus:ring-2 focus:ring-primary/30 appearance-none min-w-[160px]"
+                  aria-label="Filtrar por estado"
+                >
+                  <option value="todos">Todos los estados</option>
+                  <option value="activo">Activo</option>
+                  <option value="enfermo">Enfermo</option>
+                  <option value="vendido">Vendido</option>
+                  <option value="muerto">Muerto</option>
+                </select>
+              </div>
             </div>
-            <div className="relative">
-              <Filter className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
-              <select
-                value={filterStatus}
-                onChange={(e) => setFilterStatus(e.target.value)}
-                className="pl-9 pr-4 py-2 text-sm rounded-xl border bg-background focus:outline-none focus:ring-2 focus:ring-primary/30 appearance-none min-w-[160px]"
-              >
-                <option value="todos">Todos</option>
-                <option value="activo">Activo</option>
-                <option value="enfermo">Enfermo</option>
-                <option value="vendido">Vendido</option>
-                <option value="muerto">Muerto</option>
-              </select>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+              <div>
+                <label className="mb-1 block text-[11px] font-medium text-muted-foreground">
+                  Posicionamiento (módulo)
+                </label>
+                <select
+                  value={filterModule}
+                  onChange={(e) => setFilterModule(e.target.value)}
+                  className="w-full px-3 py-2 text-sm rounded-xl border bg-background focus:outline-none focus:ring-2 focus:ring-primary/30 appearance-none"
+                  aria-label="Filtrar por módulo o corral"
+                >
+                  <option value="todos">Todos los módulos</option>
+                  {corrales.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {formatModuleLabel(c.id, c.name)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="mb-1 block text-[11px] font-medium text-muted-foreground">
+                  Categoría / rango de peso
+                </label>
+                <select
+                  value={filterCategoria}
+                  onChange={(e) => setFilterCategoria(e.target.value)}
+                  className="w-full px-3 py-2 text-sm rounded-xl border bg-background focus:outline-none focus:ring-2 focus:ring-primary/30 appearance-none"
+                  aria-label="Filtrar por categoría de peso"
+                >
+                  <option value="todos">Todas las categorías</option>
+                  {categorias.map((c) => {
+                    const min = c.peso_min_kg == null ? "…" : String(c.peso_min_kg);
+                    const max = c.peso_max_kg == null ? "…" : String(c.peso_max_kg);
+                    const rango =
+                      c.peso_min_kg == null && c.peso_max_kg == null
+                        ? ""
+                        : ` (${min}–${max} kg)`;
+                    return (
+                      <option key={c.id} value={c.id}>
+                        {c.nombre}
+                        {rango}
+                      </option>
+                    );
+                  })}
+                </select>
+              </div>
+
+              <div>
+                <label className="mb-1 block text-[11px] font-medium text-muted-foreground">
+                  Peso mín. (kg)
+                </label>
+                <input
+                  type="number"
+                  min={0}
+                  step="0.1"
+                  placeholder="Ej. 200"
+                  value={filterPesoMin}
+                  onChange={(e) => setFilterPesoMin(e.target.value)}
+                  className="w-full px-3 py-2 text-sm rounded-xl border bg-background focus:outline-none focus:ring-2 focus:ring-primary/30"
+                  aria-label="Peso mínimo en kilogramos"
+                />
+              </div>
+
+              <div>
+                <label className="mb-1 block text-[11px] font-medium text-muted-foreground">
+                  Peso máx. (kg)
+                </label>
+                <input
+                  type="number"
+                  min={0}
+                  step="0.1"
+                  placeholder="Ej. 450"
+                  value={filterPesoMax}
+                  onChange={(e) => setFilterPesoMax(e.target.value)}
+                  className="w-full px-3 py-2 text-sm rounded-xl border bg-background focus:outline-none focus:ring-2 focus:ring-primary/30"
+                  aria-label="Peso máximo en kilogramos"
+                />
+              </div>
             </div>
           </div>
         </CardHeader>
