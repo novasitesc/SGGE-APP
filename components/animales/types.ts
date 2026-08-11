@@ -195,10 +195,8 @@ export function validateAnimalForm(
   if (!form.currentWeight || Number(form.currentWeight) <= 0) {
     return "El peso actual debe ser mayor a 0.";
   }
-  if (mode === "create") {
-    if (!form.purchasePricePerKg || Number(form.purchasePricePerKg) < 0) {
-      return "Indique el precio de compra por kg (₡/kg).";
-    }
+  if (!form.purchasePricePerKg || Number(form.purchasePricePerKg) < 0) {
+    return "Indique el precio de compra por kg (₡/kg).";
   }
   if (mode === "create" && form.status === "vendido") {
     return "No se puede registrar un animal nuevo ya como vendido.";

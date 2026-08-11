@@ -78,6 +78,11 @@ export async function updateAnimalApi(
     sex: string;
     age: number;
     observaciones: string;
+    acquisitionType: string;
+    purchasePricePerKg: number;
+    invoiceFolio: string;
+    invoiceOrAuctionDate: string;
+    auctionLotNumber: string;
     saleDate: string;
     salePricePerKg: number;
     saleBuyer: string;
