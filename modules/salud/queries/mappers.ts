@@ -13,11 +13,15 @@ export function mapMedicamento(row: Record<string, unknown>): Medicamento {
     unit: (row.unidad_medida as string) ?? "dosis",
     pricePerUnit: Number(row.costo_unitario ?? 0),
     active: row.activo !== false,
+    periodoCarenciaDias: Number(row.periodo_carencia_dias ?? 0) || 0,
+    manualUso: (row.manual_uso as string) ?? null,
   };
 }
 
 export function mapTreatment(row: Record<string, unknown>): TreatmentRecord {
-  const med = row.medicamentos as { nombre?: string } | null;
+  const med = row.medicamentos as
+    | { nombre?: string; periodo_carencia_dias?: number }
+    | null;
   const name =
     (row.nombre as string) ||
     med?.nombre ||
@@ -27,6 +31,9 @@ export function mapTreatment(row: Record<string, unknown>): TreatmentRecord {
   const costPerAnimal =
     Number(row.costo_por_animal ?? 0) ||
     (animalCount > 0 ? totalCost / animalCount : totalCost);
+  const fechaFinCarencia = (row.fecha_fin_carencia as string) ?? null;
+  const listoTraslado =
+    row.listo_traslado == null ? fechaFinCarencia == null : Boolean(row.listo_traslado);
 
   return {
     id: row.id as string,
@@ -43,6 +50,12 @@ export function mapTreatment(row: Record<string, unknown>): TreatmentRecord {
     nextDue: (row.proxima_aplicacion as string) ?? null,
     status: (row.estado as string) ?? "aplicado",
     origen: (row.origen as string) ?? "manual",
+    fechaFinCarencia,
+    listoTraslado,
+    diasCarencia:
+      med?.periodo_carencia_dias != null
+        ? Number(med.periodo_carencia_dias)
+        : null,
   };
 }
 
@@ -69,6 +82,8 @@ export function snapshotTratamiento(t: TreatmentRecord): Record<string, unknown>
     costo_total: t.totalCost,
     aplicado_por: t.appliedBy,
     proxima: t.nextDue,
+    fecha_fin_carencia: t.fechaFinCarencia,
+    listo_traslado: t.listoTraslado,
   };
 }
 

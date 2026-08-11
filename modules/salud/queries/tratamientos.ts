@@ -7,7 +7,8 @@ const SELECT_TRATAMIENTO = `
   id, granja_id, animal_id, lote_id, medicamento_id, tipo, nombre,
   fecha_inicio, proxima_aplicacion, animal_count, costo_por_animal, costo_total,
   estado, aplicado_por, observaciones, origen, deleted_at,
-  medicamentos(nombre)
+  fecha_fin_carencia, listo_traslado,
+  medicamentos(nombre, periodo_carencia_dias)
 `;
 
 export type ListTreatmentsFilters = {
@@ -34,13 +35,28 @@ export async function listTratamientos(
   if (filters.from) query = query.gte("fecha_inicio", filters.from);
   if (filters.to) query = query.lte("fecha_inicio", filters.to);
   if (filters.type) query = query.eq("tipo", filters.type);
-  if (filters.animalId) query = query.eq("animal_id", filters.animalId);
+  if (filters.animalId) {
+    const linked = await listTratamientoIdsByAnimal(admin, filters.animalId);
+    if (linked.length > 0) {
+      query = query.or(
+        `animal_id.eq.${filters.animalId},id.in.(${linked.join(",")})`
+      );
+    } else {
+      query = query.eq("animal_id", filters.animalId);
+    }
+  }
   if (filters.limit) query = query.limit(filters.limit);
 
   const { data, error } = await query;
   if (error) {
-    // Fallback: tablas sin granja_id (remoto legado)
-    if (error.message.includes("granja_id") || error.code === "42703") {
+    // Fallback: columnas nuevas o tablas sin granja_id (remoto legado)
+    if (
+      error.message.includes("granja_id") ||
+      error.message.includes("fecha_fin_carencia") ||
+      error.message.includes("listo_traslado") ||
+      error.message.includes("periodo_carencia") ||
+      error.code === "42703"
+    ) {
       return listTratamientosLegacy(admin, granjaId, filters);
     }
     throw new Error(error.message);
@@ -58,6 +74,18 @@ export async function listTratamientos(
     );
   }
   return rows;
+}
+
+async function listTratamientoIdsByAnimal(
+  admin: SupabaseClient,
+  animalId: string
+): Promise<string[]> {
+  const { data, error } = await admin
+    .from("tratamiento_animales")
+    .select("tratamiento_id")
+    .eq("animal_id", animalId);
+  if (error) return [];
+  return (data ?? []).map((r: { tratamiento_id: string }) => r.tratamiento_id);
 }
 
 async function listTratamientosLegacy(
@@ -110,13 +138,20 @@ export async function listTratamientosByAnimal(
   admin: SupabaseClient,
   animalId: string
 ): Promise<TreatmentRecord[]> {
-  const { data, error } = await admin
+  const linked = await listTratamientoIdsByAnimal(admin, animalId);
+  let query = admin
     .from("tratamientos")
     .select(SELECT_TRATAMIENTO)
-    .eq("animal_id", animalId)
     .is("deleted_at", null)
     .order("fecha_inicio", { ascending: false });
 
+  if (linked.length > 0) {
+    query = query.or(`animal_id.eq.${animalId},id.in.(${linked.join(",")})`);
+  } else {
+    query = query.eq("animal_id", animalId);
+  }
+
+  const { data, error } = await query;
   if (error) throw new Error(error.message);
   return (data ?? []).map((r) => mapTreatment(r as Record<string, unknown>));
 }

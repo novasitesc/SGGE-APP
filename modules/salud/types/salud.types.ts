@@ -4,7 +4,12 @@ export type { TreatmentType };
 
 export type TreatmentOrigen = "manual" | "pdf" | "bulk";
 
-export type AlertTipo = "tratamiento" | "revisión" | "urgente" | "programado";
+export type AlertTipo =
+  | "tratamiento"
+  | "revisión"
+  | "urgente"
+  | "programado"
+  | "carencia";
 export type AlertPrioridad = "alta" | "media" | "baja";
 export type AlertEstado = "activa" | "resuelta" | "pospuesta";
 
@@ -16,6 +21,10 @@ export interface Medicamento {
   unit: string;
   pricePerUnit: number;
   active: boolean;
+  /** Días de retiro según manual de uso (0 = sin carencia). */
+  periodoCarenciaDias: number;
+  /** Nota / referencia del manual de uso. */
+  manualUso?: string | null;
 }
 
 export interface TreatmentRecord {
@@ -35,6 +44,10 @@ export interface TreatmentRecord {
   nextDue?: string | null;
   status: string;
   origen: TreatmentOrigen | string;
+  /** Fin del periodo de carencia (apto traslado/subasta). */
+  fechaFinCarencia?: string | null;
+  listoTraslado?: boolean;
+  diasCarencia?: number | null;
 }
 
 export interface HealthAlertRecord {
@@ -73,6 +86,8 @@ export interface CreateTreatmentInput {
   animalIds?: string[];
   medicamentoId?: string;
   loteId?: string;
+  /** Override de días de carencia (si no, usa el del medicamento). */
+  diasCarencia?: number;
 }
 
 export interface UpdateTreatmentInput extends Partial<CreateTreatmentInput> {
@@ -99,6 +114,8 @@ export interface CreateMedicamentoInput {
   type?: string;
   unit?: string;
   pricePerUnit: number;
+  periodoCarenciaDias?: number;
+  manualUso?: string;
 }
 
 export interface ParsedSaludPdf {
@@ -119,6 +136,7 @@ export const TREATMENT_TYPE_LABELS: Record<TreatmentType, string> = {
   desparasitante: "Desparasitante",
   implante: "Implante",
   anabólico: "Anabólico",
+  estimulante: "Estimulante",
   vitamina: "Vitamina",
   antibiótico: "Antibiótico",
 };
@@ -128,6 +146,7 @@ export const TREATMENT_TYPE_COLORS: Record<TreatmentType, string> = {
   desparasitante: "bg-amber-100 text-amber-800",
   implante: "bg-sky-100 text-sky-800",
   anabólico: "bg-cyan-100 text-cyan-800",
+  estimulante: "bg-orange-100 text-orange-800",
   vitamina: "bg-lime-100 text-lime-800",
   antibiótico: "bg-rose-100 text-rose-800",
 };

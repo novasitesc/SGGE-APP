@@ -18,7 +18,12 @@ import {
 import { useCallback, useEffect, useRef, useState } from "react";
 import { usePendingSolicitudesCount } from "@/components/mensajeria/MensajeriaGerente";
 import { useSessionCapabilities } from "@/lib/hooks/useSessionCapabilities";
-import { fetchGranjaInfo } from "@/lib/api/data-client";
+import {
+  fetchGranjaInfo,
+  fetchNotificacionesApi,
+  markNotificacionLeidaApi,
+  type NotificacionInboxItem,
+} from "@/lib/api/data-client";
 import { useApiQuery } from "@/lib/hooks/useApiQuery";
 import { logoutAction } from "@/lib/auth/actions";
 import { parseJson } from "@/lib/api/parse-json";
@@ -52,6 +57,27 @@ export default function Navbar() {
   const { usuario, capabilities } = useSessionCapabilities();
   const canApprove = capabilities.canApprove;
   const { data: granja } = useApiQuery("granja", fetchGranjaInfo);
+  const [saludNotifs, setSaludNotifs] = useState<NotificacionInboxItem[]>([]);
+  const [saludUnread, setSaludUnread] = useState(0);
+
+  const loadSaludNotifs = useCallback(async () => {
+    try {
+      const data = await fetchNotificacionesApi(true);
+      setSaludNotifs(data.items);
+      setSaludUnread(data.unreadCount);
+    } catch {
+      setSaludNotifs([]);
+      setSaludUnread(0);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadSaludNotifs();
+    const t = window.setInterval(() => {
+      void loadSaludNotifs();
+    }, 60_000);
+    return () => window.clearInterval(t);
+  }, [loadSaludNotifs]);
 
   useEffect(() => {
     if (!showProfile) return;
@@ -112,7 +138,7 @@ export default function Navbar() {
     [router]
   );
 
-  const notifications =
+  const approvalNotifications =
     canApprove && pendingCount > 0
       ? [
           {
@@ -120,11 +146,21 @@ export default function Navbar() {
             text: `${pendingCount} solicitud${pendingCount !== 1 ? "es" : ""} pendiente${pendingCount !== 1 ? "s" : ""} de autorización`,
             time: "Requiere acción del administrador",
             href: "/gestion/mensajeria",
+            kind: "approval" as const,
           },
         ]
       : [];
 
-  const alertCount = notifications.length;
+  const saludNotifications = saludNotifs.map((n) => ({
+    id: n.id,
+    text: n.titulo,
+    time: n.mensaje,
+    href: "/gestion/salud",
+    kind: "salud" as const,
+  }));
+
+  const notifications = [...approvalNotifications, ...saludNotifications];
+  const alertCount = (canApprove ? pendingCount : 0) + saludUnread;
 
   return (
     <header className="h-16 border-b bg-card flex items-center justify-between px-6 shrink-0">
@@ -248,10 +284,17 @@ export default function Navbar() {
                       <Link
                         href={n.href}
                         className="block px-4 py-3"
-                        onClick={() => setShowNotif(false)}
+                        onClick={() => {
+                          setShowNotif(false);
+                          if (n.kind === "salud") {
+                            void markNotificacionLeidaApi(n.id).then(() =>
+                              loadSaludNotifs()
+                            );
+                          }
+                        }}
                       >
                         <p className="text-sm leading-snug">{n.text}</p>
-                        <p className="text-xs text-muted-foreground mt-1">
+                        <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
                           {n.time}
                         </p>
                       </Link>
@@ -259,14 +302,23 @@ export default function Navbar() {
                   ))
                 )}
               </div>
-              <div className="px-4 py-2 border-t text-center">
+              <div className="px-4 py-2 border-t flex items-center justify-center gap-3">
                 <Link
-                  href="/gestion/mensajeria"
+                  href="/gestion/salud"
                   className="text-xs text-primary hover:underline font-medium"
                   onClick={() => setShowNotif(false)}
                 >
-                  Ir a autorizaciones
+                  Ver salud
                 </Link>
+                {canApprove && (
+                  <Link
+                    href="/gestion/mensajeria"
+                    className="text-xs text-primary hover:underline font-medium"
+                    onClick={() => setShowNotif(false)}
+                  >
+                    Autorizaciones
+                  </Link>
+                )}
               </div>
             </div>
           )}

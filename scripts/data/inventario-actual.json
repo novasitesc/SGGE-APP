@@ -1,0 +1,1199 @@
+{
+  "total": 160,
+  "corrales": [
+    {
+      "id": "0b49b9dd-3cba-4a4b-8d9c-38483f1777bb",
+      "codigo": "M1",
+      "nombre": "1Zapote uno",
+      "ocupacion_actual": 3
+    },
+    {
+      "id": "44fd0afa-0e70-476e-b08d-9f63a4865b06",
+      "codigo": "M2",
+      "nombre": "2Zapote dos",
+      "ocupacion_actual": 8
+    },
+    {
+      "id": "2f6f149c-238d-48f2-bcc0-1823424d147e",
+      "codigo": "M3",
+      "nombre": "3Ceiba arriba",
+      "ocupacion_actual": 15
+    },
+    {
+      "id": "87d759f6-9adb-4614-bdca-11cfc7377cd4",
+      "codigo": "M4",
+      "nombre": "4Ceiba abajo",
+      "ocupacion_actual": 18
+    },
+    {
+      "id": "2a6a8b41-84c7-4275-902a-1522c1e97456",
+      "codigo": "M5",
+      "nombre": "5Zapote abajo",
+      "ocupacion_actual": 49
+    },
+    {
+      "id": "092ccb7f-31c7-4240-a8a7-766b63958367",
+      "codigo": "M6",
+      "nombre": "6Casa arriba",
+      "ocupacion_actual": 16
+    },
+    {
+      "id": "5ad434a0-cef6-437d-bd14-d8590c2b8d27",
+      "codigo": "M7",
+      "nombre": "7Casa abajo",
+      "ocupacion_actual": 18
+    },
+    {
+      "id": "7402a732-615b-4f53-85e1-0312a2433955",
+      "codigo": "M8",
+      "nombre": "8Isla",
+      "ocupacion_actual": 16
+    },
+    {
+      "id": "dca8ac97-63c1-462a-b5eb-9e5ec9f1e194",
+      "codigo": "M9",
+      "nombre": "9Cacao",
+      "ocupacion_actual": 16
+    }
+  ],
+  "porCorral": {
+    "1Zapote uno [M1]": [
+      {
+        "arete": "2248",
+        "estado": "activo",
+        "peso": 520,
+        "sexo": "M",
+        "id": "f6df82a5-c684-41d0-8e51-d2a899b6e856"
+      },
+      {
+        "arete": "2251",
+        "estado": "activo",
+        "peso": 524,
+        "sexo": "M",
+        "id": "922cd186-1a0b-42ef-890a-b702172d03f7"
+      },
+      {
+        "arete": "2252",
+        "estado": "activo",
+        "peso": 552,
+        "sexo": "M",
+        "id": "051d5f12-49be-4027-84bd-c4b662c5a0b8"
+      }
+    ],
+    "2Zapote dos [M2]": [
+      {
+        "arete": "15",
+        "estado": "activo",
+        "peso": 615,
+        "sexo": "M",
+        "id": "55e7cc6c-0e24-4cf2-bc5c-7387e276a2c8"
+      },
+      {
+        "arete": "0443",
+        "estado": "activo",
+        "peso": 357,
+        "sexo": "M",
+        "id": "48a1679e-026b-4d9b-a8a1-62cfd7722161"
+      },
+      {
+        "arete": "0444",
+        "estado": "activo",
+        "peso": 328,
+        "sexo": "M",
+        "id": "4c1a76b9-9fe1-400e-bdef-a5d630ab03f1"
+      },
+      {
+        "arete": "0447",
+        "estado": "activo",
+        "peso": 292,
+        "sexo": "M",
+        "id": "9f5cb088-cb23-4429-bdd3-4b6385a8e43f"
+      },
+      {
+        "arete": "2304",
+        "estado": "activo",
+        "peso": 494,
+        "sexo": "M",
+        "id": "15356b86-1867-4edc-bd9d-af2832b8ede0"
+      },
+      {
+        "arete": "3625",
+        "estado": "activo",
+        "peso": 465,
+        "sexo": "M",
+        "id": "4f45bd25-45c5-44ef-8f8a-23a56c1dcc85"
+      },
+      {
+        "arete": "3637",
+        "estado": "activo",
+        "peso": 522,
+        "sexo": "M",
+        "id": "fb3c795f-8044-48fa-8169-7fdd06060563"
+      },
+      {
+        "arete": "6917",
+        "estado": "activo",
+        "peso": 466,
+        "sexo": "M",
+        "id": "01cc4eba-49e5-4c64-a2fd-4e69f7b34d01"
+      }
+    ],
+    "3Ceiba arriba [M3]": [
+      {
+        "arete": "0254",
+        "estado": "activo",
+        "peso": 339,
+        "sexo": "M",
+        "id": "921684da-7919-4b8d-b2e6-2c98933ec1bd"
+      },
+      {
+        "arete": "0348",
+        "estado": "activo",
+        "peso": 322,
+        "sexo": "M",
+        "id": "cf060115-b8af-4d96-8be5-fcf0a48a4502"
+      },
+      {
+        "arete": "1112",
+        "estado": "activo",
+        "peso": 568,
+        "sexo": "M",
+        "id": "d36f0ce7-e9c6-4a2e-9cad-5ed0aafa1630"
+      },
+      {
+        "arete": "5711",
+        "estado": "activo",
+        "peso": 390,
+        "sexo": "M",
+        "id": "09f1f5f9-5ba5-4026-99aa-fcae36196114"
+      },
+      {
+        "arete": "5855",
+        "estado": "activo",
+        "peso": 386,
+        "sexo": "M",
+        "id": "43c9278f-1787-48f4-9dbe-691507326822"
+      },
+      {
+        "arete": "5862",
+        "estado": "activo",
+        "peso": 401,
+        "sexo": "M",
+        "id": "c4d2ee37-f37b-4ecb-8b38-a1479ba5c1c8"
+      },
+      {
+        "arete": "5864",
+        "estado": "activo",
+        "peso": 339,
+        "sexo": "M",
+        "id": "d83c3eff-b3f2-49f7-a9a2-77f97ed67aa5"
+      },
+      {
+        "arete": "5866",
+        "estado": "activo",
+        "peso": 358,
+        "sexo": "M",
+        "id": "b7270687-d036-4210-bd8b-2d162cadcc9e"
+      },
+      {
+        "arete": "5867",
+        "estado": "activo",
+        "peso": 337,
+        "sexo": "M",
+        "id": "72db3bb6-74d3-4066-a2d5-f712b3285dd2"
+      },
+      {
+        "arete": "5868",
+        "estado": "activo",
+        "peso": 352,
+        "sexo": "M",
+        "id": "f5ac3309-813b-4b8e-906c-65b08d7bd69c"
+      },
+      {
+        "arete": "5872",
+        "estado": "activo",
+        "peso": 338,
+        "sexo": "M",
+        "id": "8db6c52a-8ff5-4d17-8fd5-cfa3d2631444"
+      },
+      {
+        "arete": "5873",
+        "estado": "activo",
+        "peso": 393,
+        "sexo": "M",
+        "id": "a76ca284-ebc4-4f34-b5b9-3b2d4098d60f"
+      },
+      {
+        "arete": "5874",
+        "estado": "activo",
+        "peso": 352,
+        "sexo": "M",
+        "id": "6f37b1ce-6b11-46fd-a5d4-1555bd00a437"
+      },
+      {
+        "arete": "5876",
+        "estado": "activo",
+        "peso": 373,
+        "sexo": "M",
+        "id": "c10fac35-f96e-4c84-8745-bacbf90cc207"
+      },
+      {
+        "arete": "5878",
+        "estado": "activo",
+        "peso": 401,
+        "sexo": "M",
+        "id": "5b74ab87-f9ef-4b38-8b14-f72d581f2b01"
+      }
+    ],
+    "4Ceiba abajo [M4]": [
+      {
+        "arete": "0036",
+        "estado": "vendido",
+        "peso": 303,
+        "sexo": "M",
+        "id": "dc67cd65-61b4-48e9-913d-0bd8ccf4c892"
+      },
+      {
+        "arete": "1488",
+        "estado": "activo",
+        "peso": 297,
+        "sexo": "M",
+        "id": "2c086977-8647-42fa-bc85-135e147a69a3"
+      },
+      {
+        "arete": "2045",
+        "estado": "activo",
+        "peso": 354,
+        "sexo": "M",
+        "id": "0f8998ba-8318-42b2-b198-7c0e538fa8ac"
+      },
+      {
+        "arete": "2227",
+        "estado": "activo",
+        "peso": 341,
+        "sexo": "M",
+        "id": "a826c50a-9c69-4174-8b64-a33d397b046e"
+      },
+      {
+        "arete": "2230",
+        "estado": "activo",
+        "peso": 349,
+        "sexo": "M",
+        "id": "6dec84b9-528e-44cc-927d-86b8449b6ea4"
+      },
+      {
+        "arete": "2232",
+        "estado": "activo",
+        "peso": 307,
+        "sexo": "M",
+        "id": "fa6f850f-9f7c-46fc-8311-c5ee72a03449"
+      },
+      {
+        "arete": "2242",
+        "estado": "activo",
+        "peso": 331,
+        "sexo": "M",
+        "id": "26345024-767e-4645-ab44-a1562ff5fa7a"
+      },
+      {
+        "arete": "2313",
+        "estado": "activo",
+        "peso": 352,
+        "sexo": "M",
+        "id": "fb4a44f4-9efb-491f-9a40-145038f9e84c"
+      },
+      {
+        "arete": "2319",
+        "estado": "activo",
+        "peso": 353,
+        "sexo": "M",
+        "id": "f7161d91-df45-4929-99d5-6829c905b353"
+      },
+      {
+        "arete": "5708",
+        "estado": "activo",
+        "peso": 308,
+        "sexo": "M",
+        "id": "9644dce3-9f25-4f11-96b1-1f103b219c0a"
+      },
+      {
+        "arete": "5709",
+        "estado": "activo",
+        "peso": 366,
+        "sexo": "M",
+        "id": "ef9f8ede-8e5b-4be7-b595-227b431b94be"
+      },
+      {
+        "arete": "5710",
+        "estado": "activo",
+        "peso": 371,
+        "sexo": "M",
+        "id": "0f841643-694b-4f62-9e89-aac4755c226f"
+      },
+      {
+        "arete": "5712",
+        "estado": "activo",
+        "peso": 360,
+        "sexo": "M",
+        "id": "453be249-35dc-49b4-805b-96d7c83fc865"
+      },
+      {
+        "arete": "5841",
+        "estado": "activo",
+        "peso": 364,
+        "sexo": "M",
+        "id": "5c652507-5333-4ce7-9beb-65a093363d00"
+      },
+      {
+        "arete": "5842",
+        "estado": "activo",
+        "peso": 354,
+        "sexo": "M",
+        "id": "25c2234a-3d12-42f0-a46e-50b1ea79e070"
+      },
+      {
+        "arete": "5843",
+        "estado": "activo",
+        "peso": 311,
+        "sexo": "M",
+        "id": "1b787ab1-b74a-4fe8-a483-a13ee17db3bc"
+      },
+      {
+        "arete": "5848",
+        "estado": "activo",
+        "peso": 342,
+        "sexo": "M",
+        "id": "81e72b54-fc29-4eed-b506-ea36aee27188"
+      },
+      {
+        "arete": "ALLAN 5845",
+        "estado": "activo",
+        "peso": 306,
+        "sexo": "M",
+        "id": "bf1acc9c-e379-4006-92ed-266bf9ddc091"
+      },
+      {
+        "arete": "JADER",
+        "estado": "activo",
+        "peso": 527,
+        "sexo": "M",
+        "id": "42332437-2927-4bcc-a1a8-057db7eed97a"
+      }
+    ],
+    "5Zapote abajo [M5]": [
+      {
+        "arete": "1",
+        "estado": "activo",
+        "peso": 378,
+        "sexo": "M",
+        "id": "47dfa576-d5e0-47d1-a99d-e84f7b9dcb19"
+      },
+      {
+        "arete": "3",
+        "estado": "activo",
+        "peso": 337,
+        "sexo": "M",
+        "id": "1a305b34-bceb-4e26-a2ce-1d1ce424c0fe"
+      },
+      {
+        "arete": "4",
+        "estado": "activo",
+        "peso": 342,
+        "sexo": "M",
+        "id": "6330748b-e8b8-4db9-9a94-c60e927013a1"
+      },
+      {
+        "arete": "5",
+        "estado": "activo",
+        "peso": 364,
+        "sexo": "M",
+        "id": "88a0e6a7-9477-4044-ad85-af384ff12430"
+      },
+      {
+        "arete": "6",
+        "estado": "activo",
+        "peso": 401,
+        "sexo": "M",
+        "id": "40391370-5403-4716-aafd-5a733e914b77"
+      },
+      {
+        "arete": "7",
+        "estado": "activo",
+        "peso": 372,
+        "sexo": "M",
+        "id": "e9e5a811-4b6d-4c9f-ba54-37658a4b16be"
+      },
+      {
+        "arete": "8",
+        "estado": "activo",
+        "peso": 356,
+        "sexo": "M",
+        "id": "bda7359f-d328-49dd-b453-7fe26755ce4f"
+      },
+      {
+        "arete": "9",
+        "estado": "activo",
+        "peso": 353,
+        "sexo": "M",
+        "id": "0682403d-239c-41b3-be92-6b9499ac6d08"
+      },
+      {
+        "arete": "23",
+        "estado": "activo",
+        "peso": 285,
+        "sexo": "M",
+        "id": "255d87b7-3c60-4271-9b22-f0d41d9f86b6"
+      },
+      {
+        "arete": "24",
+        "estado": "activo",
+        "peso": 304,
+        "sexo": "M",
+        "id": "5447f13e-1105-4041-acd0-740914afc885"
+      },
+      {
+        "arete": "27TT",
+        "estado": "activo",
+        "peso": 302,
+        "sexo": "M",
+        "id": "60e139bc-8dae-406d-89f2-9b5d78485793"
+      },
+      {
+        "arete": "29TT",
+        "estado": "activo",
+        "peso": 346,
+        "sexo": "M",
+        "id": "d6224eb0-2fb3-4b32-814e-f55d40cc6411"
+      },
+      {
+        "arete": "30TT",
+        "estado": "activo",
+        "peso": 365,
+        "sexo": "M",
+        "id": "20471fa5-1d3e-4d9c-97b8-926b4355aa83"
+      },
+      {
+        "arete": "31N",
+        "estado": "activo",
+        "peso": 442,
+        "sexo": "M",
+        "id": "5b06bbeb-841f-4e38-a2ab-c4399f7157b5"
+      },
+      {
+        "arete": "2162",
+        "estado": "activo",
+        "peso": 477,
+        "sexo": "M",
+        "id": "59eb0929-9a5d-4e72-af79-6f36b940762f"
+      },
+      {
+        "arete": "2163",
+        "estado": "activo",
+        "peso": 447,
+        "sexo": "M",
+        "id": "749273b0-daeb-4800-a18d-6eaea286a4f3"
+      },
+      {
+        "arete": "2164",
+        "estado": "activo",
+        "peso": 404,
+        "sexo": "M",
+        "id": "a9a2821b-59e1-4886-a3e7-39bcf7f8a5c4"
+      },
+      {
+        "arete": "2165",
+        "estado": "activo",
+        "peso": 441,
+        "sexo": "M",
+        "id": "d9ad1b31-fa4d-4486-8da6-55dbe7fc2a35"
+      },
+      {
+        "arete": "2166",
+        "estado": "activo",
+        "peso": 431,
+        "sexo": "M",
+        "id": "ab66e4a1-782c-43af-9cfa-2246d1cac659"
+      },
+      {
+        "arete": "2167",
+        "estado": "activo",
+        "peso": 422,
+        "sexo": "M",
+        "id": "42556917-611b-47fb-8b58-8956c584ab25"
+      },
+      {
+        "arete": "2168",
+        "estado": "activo",
+        "peso": 463,
+        "sexo": "M",
+        "id": "95989874-e9a5-431e-a644-bc1218bd88b0"
+      },
+      {
+        "arete": "2170",
+        "estado": "activo",
+        "peso": 373,
+        "sexo": "M",
+        "id": "5ce2b734-864c-47cc-8ac6-08d743130393"
+      },
+      {
+        "arete": "2171",
+        "estado": "activo",
+        "peso": 425,
+        "sexo": "M",
+        "id": "ec3c9009-68ee-45f0-b0c0-2f4501eed669"
+      },
+      {
+        "arete": "2172",
+        "estado": "activo",
+        "peso": 437,
+        "sexo": "M",
+        "id": "a15a2fc1-b3d3-4b72-89f8-f2db5b47dc0e"
+      },
+      {
+        "arete": "2173",
+        "estado": "activo",
+        "peso": 416,
+        "sexo": "M",
+        "id": "adb29654-be0a-4b8e-99e3-fa42ba2b028a"
+      },
+      {
+        "arete": "2175",
+        "estado": "activo",
+        "peso": 465,
+        "sexo": "M",
+        "id": "a2208a3f-e95e-48c7-8549-38a3a90e68d1"
+      },
+      {
+        "arete": "2176",
+        "estado": "activo",
+        "peso": 463,
+        "sexo": "M",
+        "id": "f11e05f4-30c4-4b31-bcff-339dc8ef2c7b"
+      },
+      {
+        "arete": "2210",
+        "estado": "activo",
+        "peso": 455,
+        "sexo": "M",
+        "id": "6d76fe2d-a9a4-44ce-858c-b802f4f28f48"
+      },
+      {
+        "arete": "2222",
+        "estado": "activo",
+        "peso": 414,
+        "sexo": "M",
+        "id": "40da0057-56b9-4cd4-bcce-c396971254d1"
+      },
+      {
+        "arete": "2259",
+        "estado": "activo",
+        "peso": 400,
+        "sexo": "M",
+        "id": "deeb54e7-10b9-4a41-8d87-1655c933785f"
+      },
+      {
+        "arete": "2303",
+        "estado": "activo",
+        "peso": 440,
+        "sexo": "M",
+        "id": "043aa2d8-ab8f-4c2f-99b0-e069565d0a20"
+      },
+      {
+        "arete": "2305",
+        "estado": "activo",
+        "peso": 440,
+        "sexo": "M",
+        "id": "2245191d-b2f8-4574-a1d7-d274ce3b851c"
+      },
+      {
+        "arete": "2316",
+        "estado": "activo",
+        "peso": 427,
+        "sexo": "M",
+        "id": "69059ad0-277d-4018-a16e-5bd55daaf290"
+      },
+      {
+        "arete": "3629",
+        "estado": "activo",
+        "peso": 436,
+        "sexo": "M",
+        "id": "f2a79506-f652-4aa2-9c59-c7f06d54c4f8"
+      },
+      {
+        "arete": "3631",
+        "estado": "activo",
+        "peso": 457,
+        "sexo": "M",
+        "id": "3bfd4afc-8f76-4790-ae27-ae67e3e56d23"
+      },
+      {
+        "arete": "3642",
+        "estado": "activo",
+        "peso": 422,
+        "sexo": "M",
+        "id": "257d1bf0-3827-4c20-8f4f-4a44486dbc61"
+      },
+      {
+        "arete": "5847",
+        "estado": "activo",
+        "peso": 327,
+        "sexo": "M",
+        "id": "521bba69-b22d-4eaf-8aaf-194f72b373bc"
+      },
+      {
+        "arete": "5852",
+        "estado": "activo",
+        "peso": 485,
+        "sexo": "M",
+        "id": "1b02e000-0ff5-4934-bee1-409d4e6e5adb"
+      },
+      {
+        "arete": "5854",
+        "estado": "activo",
+        "peso": 430,
+        "sexo": "M",
+        "id": "9a903bd4-1eb9-4023-bcd4-11347bcf8720"
+      },
+      {
+        "arete": "5856",
+        "estado": "activo",
+        "peso": 443,
+        "sexo": "M",
+        "id": "5b0b6f66-2e4b-4c2c-9ff3-2319f09d7f00"
+      },
+      {
+        "arete": "5857",
+        "estado": "activo",
+        "peso": 406,
+        "sexo": "M",
+        "id": "df3ffb9e-e5bb-44d6-8448-8a4b2d3e5f39"
+      },
+      {
+        "arete": "5859",
+        "estado": "activo",
+        "peso": 444,
+        "sexo": "M",
+        "id": "0f77337e-6660-45aa-8dc7-5174eab77efe"
+      },
+      {
+        "arete": "5863",
+        "estado": "activo",
+        "peso": 526,
+        "sexo": "M",
+        "id": "c7158ec6-8ad4-4456-b66e-ca8427dba6da"
+      },
+      {
+        "arete": "5865",
+        "estado": "activo",
+        "peso": 413,
+        "sexo": "M",
+        "id": "c2e52876-8343-4c18-ac96-435079809a35"
+      },
+      {
+        "arete": "5870",
+        "estado": "activo",
+        "peso": 462,
+        "sexo": "M",
+        "id": "737ddbe5-6a95-43ab-a7de-852f7908a458"
+      },
+      {
+        "arete": "5871",
+        "estado": "activo",
+        "peso": 432,
+        "sexo": "M",
+        "id": "f78bc250-e957-40aa-8c1e-6cae227f481a"
+      },
+      {
+        "arete": "5875",
+        "estado": "activo",
+        "peso": 465,
+        "sexo": "M",
+        "id": "61329946-14d6-4228-a8b4-8e6f06b02b97"
+      },
+      {
+        "arete": "5877",
+        "estado": "activo",
+        "peso": 371,
+        "sexo": "M",
+        "id": "df52f6c3-6a62-447b-8ef9-c3a2c7d60eed"
+      },
+      {
+        "arete": "7178",
+        "estado": "activo",
+        "peso": 425,
+        "sexo": "M",
+        "id": "00e73c28-7e4a-4821-b231-a4c0030d8c6d"
+      }
+    ],
+    "6Casa arriba [M6]": [
+      {
+        "arete": "2286",
+        "estado": "activo",
+        "peso": 391,
+        "sexo": "M",
+        "id": "d1445bbc-9672-4e98-95e3-bcd07820b776"
+      },
+      {
+        "arete": "2293",
+        "estado": "activo",
+        "peso": 402,
+        "sexo": "M",
+        "id": "8ca82bfe-de25-4ef8-ac5c-edb0034418cb"
+      },
+      {
+        "arete": "2302",
+        "estado": "activo",
+        "peso": 368,
+        "sexo": "M",
+        "id": "c901e734-544f-48ee-b5ff-9569c3b06aa4"
+      },
+      {
+        "arete": "2311",
+        "estado": "activo",
+        "peso": 389,
+        "sexo": "M",
+        "id": "6a6dab6b-bcdf-45cc-a6ca-7b59df8e6820"
+      },
+      {
+        "arete": "2312",
+        "estado": "activo",
+        "peso": 421,
+        "sexo": "M",
+        "id": "0e1e63a4-1e49-425b-9c60-84a1fc508c43"
+      },
+      {
+        "arete": "2314",
+        "estado": "activo",
+        "peso": 381,
+        "sexo": "M",
+        "id": "f0c042de-1fe6-4ef9-90bb-ff2012034590"
+      },
+      {
+        "arete": "2315",
+        "estado": "activo",
+        "peso": 418,
+        "sexo": "M",
+        "id": "1f962e42-eb81-43f5-bec3-15e92350d36b"
+      },
+      {
+        "arete": "2317",
+        "estado": "activo",
+        "peso": 396,
+        "sexo": "M",
+        "id": "faaf7593-7230-45e6-83f3-30a6795be14f"
+      },
+      {
+        "arete": "2318",
+        "estado": "activo",
+        "peso": 415,
+        "sexo": "M",
+        "id": "1e12126f-4fae-4d24-b0ea-12bf8a895cb4"
+      },
+      {
+        "arete": "2320",
+        "estado": "activo",
+        "peso": 406,
+        "sexo": "M",
+        "id": "1fe3b9b8-aaff-49ff-b42c-e8220862da63"
+      },
+      {
+        "arete": "2490",
+        "estado": "activo",
+        "peso": 368,
+        "sexo": "M",
+        "id": "fdc71ff4-6512-44e4-ba5d-0a4a39e77a2f"
+      },
+      {
+        "arete": "3634",
+        "estado": "activo",
+        "peso": 393,
+        "sexo": "M",
+        "id": "d19827cf-d908-4b3b-ba84-89e8bf754224"
+      },
+      {
+        "arete": "5776",
+        "estado": "activo",
+        "peso": 392,
+        "sexo": "M",
+        "id": "97c54777-d206-4090-b473-0dffa4cdb2c1"
+      },
+      {
+        "arete": "5884",
+        "estado": "activo",
+        "peso": 400,
+        "sexo": "M",
+        "id": "f6f8d45e-9bd3-40f8-b810-14d25ff7ffc8"
+      },
+      {
+        "arete": "5885",
+        "estado": "activo",
+        "peso": 410,
+        "sexo": "M",
+        "id": "869126fc-3cc1-4283-b539-8dab7586a7fb"
+      },
+      {
+        "arete": "836402",
+        "estado": "activo",
+        "peso": 366,
+        "sexo": "M",
+        "id": "eea445b8-b537-4e2c-a7cd-b17f899d6f23"
+      }
+    ],
+    "7Casa abajo [M7]": [
+      {
+        "arete": "2225",
+        "estado": "activo",
+        "peso": 401,
+        "sexo": "M",
+        "id": "7492ef38-00ec-4f63-ac38-408eb53527e8"
+      },
+      {
+        "arete": "2228",
+        "estado": "activo",
+        "peso": 391,
+        "sexo": "M",
+        "id": "bf121f79-bcd4-43cb-be0c-4d1ef60849ad"
+      },
+      {
+        "arete": "2229",
+        "estado": "activo",
+        "peso": 420,
+        "sexo": "M",
+        "id": "ed18fe57-803a-4856-a8ef-a28953751e93"
+      },
+      {
+        "arete": "2231",
+        "estado": "activo",
+        "peso": 391,
+        "sexo": "M",
+        "id": "4ac6a690-10c9-4b4e-88cd-3f06db3362e1"
+      },
+      {
+        "arete": "2237",
+        "estado": "activo",
+        "peso": 430,
+        "sexo": "M",
+        "id": "ba2ac90e-19f6-4f48-8c68-dc02c894ce7d"
+      },
+      {
+        "arete": "2238",
+        "estado": "activo",
+        "peso": 397,
+        "sexo": "M",
+        "id": "7b85969c-2bff-4302-bf07-0da62e0b2c8d"
+      },
+      {
+        "arete": "2239",
+        "estado": "activo",
+        "peso": 412,
+        "sexo": "M",
+        "id": "5cce7fb1-db33-41e0-8f6f-0c03a94e2f48"
+      },
+      {
+        "arete": "2241",
+        "estado": "activo",
+        "peso": 412,
+        "sexo": "M",
+        "id": "223a2248-fb9f-40f8-990c-37a329b02c80"
+      },
+      {
+        "arete": "2275",
+        "estado": "activo",
+        "peso": 404,
+        "sexo": "M",
+        "id": "0abeeed6-c616-4251-86c8-f42e18c2a798"
+      },
+      {
+        "arete": "2287",
+        "estado": "activo",
+        "peso": 406,
+        "sexo": "M",
+        "id": "fef43431-0585-4ba6-947b-bfad15437ba8"
+      },
+      {
+        "arete": "2294",
+        "estado": "activo",
+        "peso": 397,
+        "sexo": "M",
+        "id": "0549355d-f4a9-407d-8534-1d5dc832de82"
+      },
+      {
+        "arete": "2301",
+        "estado": "activo",
+        "peso": 394,
+        "sexo": "M",
+        "id": "9aa42165-3374-4898-8cb6-22b8653a4913"
+      },
+      {
+        "arete": "2308",
+        "estado": "activo",
+        "peso": 416,
+        "sexo": "M",
+        "id": "f1a466e5-6f91-402c-9fe1-25d26d9863ff"
+      },
+      {
+        "arete": "2309",
+        "estado": "activo",
+        "peso": 422,
+        "sexo": "M",
+        "id": "1b51be0a-b09f-4147-8c11-56a31d6efb7d"
+      },
+      {
+        "arete": "2310",
+        "estado": "activo",
+        "peso": 413,
+        "sexo": "M",
+        "id": "d7fbcee8-b372-4185-86d4-e344c6a26e9c"
+      },
+      {
+        "arete": "5879",
+        "estado": "activo",
+        "peso": 447,
+        "sexo": "M",
+        "id": "05aa1cda-1a43-4504-9261-40d1fe29fe80"
+      },
+      {
+        "arete": "5880",
+        "estado": "activo",
+        "peso": 447,
+        "sexo": "M",
+        "id": "a211c2d3-c416-4341-bbae-cb0f2549dc50"
+      },
+      {
+        "arete": "5882",
+        "estado": "activo",
+        "peso": 418,
+        "sexo": "M",
+        "id": "e7be8e7b-4543-4ac7-a57e-9bb40f9f78d3"
+      }
+    ],
+    "8Isla [M8]": [
+      {
+        "arete": "2263",
+        "estado": "activo",
+        "peso": 456,
+        "sexo": "M",
+        "id": "3be762d8-388c-41a3-b2f1-9d18d125c1c5"
+      },
+      {
+        "arete": "2270",
+        "estado": "activo",
+        "peso": 498,
+        "sexo": "M",
+        "id": "e6d1e534-dca2-4990-8c46-e2e15df12080"
+      },
+      {
+        "arete": "2272",
+        "estado": "activo",
+        "peso": 471,
+        "sexo": "M",
+        "id": "fc0cd8f2-5655-419b-bc10-a0480c776480"
+      },
+      {
+        "arete": "2273",
+        "estado": "activo",
+        "peso": 471,
+        "sexo": "M",
+        "id": "e5bf48b7-4402-464f-b4b3-3108fc883a54"
+      },
+      {
+        "arete": "2274",
+        "estado": "activo",
+        "peso": 468,
+        "sexo": "M",
+        "id": "ef583a9f-a7b8-4a81-bcee-00ed2f42e43e"
+      },
+      {
+        "arete": "2276",
+        "estado": "activo",
+        "peso": 520,
+        "sexo": "M",
+        "id": "8af53db9-e9fa-4cb6-85b4-3e9f150af596"
+      },
+      {
+        "arete": "2278",
+        "estado": "activo",
+        "peso": 433,
+        "sexo": "M",
+        "id": "91d93c71-1cae-4c98-8def-aafd32c6e9a6"
+      },
+      {
+        "arete": "2279",
+        "estado": "activo",
+        "peso": 469,
+        "sexo": "M",
+        "id": "adf06605-a4eb-4fdb-87f8-729852790dfd"
+      },
+      {
+        "arete": "2280",
+        "estado": "activo",
+        "peso": 442,
+        "sexo": "M",
+        "id": "ef26045e-9c26-4f99-acad-775455f233e9"
+      },
+      {
+        "arete": "2283",
+        "estado": "activo",
+        "peso": 431,
+        "sexo": "M",
+        "id": "a71730ae-cb6e-4c64-b646-76b86babcc53"
+      },
+      {
+        "arete": "2285",
+        "estado": "activo",
+        "peso": 500,
+        "sexo": "M",
+        "id": "5cab4f40-cc6d-4061-82fd-cebc741ba455"
+      },
+      {
+        "arete": "2288",
+        "estado": "activo",
+        "peso": 439,
+        "sexo": "M",
+        "id": "2aa2cb4e-bd38-4324-8e9f-c12f9abe29b8"
+      },
+      {
+        "arete": "2291",
+        "estado": "activo",
+        "peso": 446,
+        "sexo": "M",
+        "id": "cb059611-31f8-440f-97d7-d20559974f97"
+      },
+      {
+        "arete": "6552",
+        "estado": "activo",
+        "peso": 476,
+        "sexo": "M",
+        "id": "42109d8c-302d-4ba1-9d4a-3d632a8d0a7f"
+      },
+      {
+        "arete": "7444",
+        "estado": "activo",
+        "peso": 322,
+        "sexo": "M",
+        "id": "02af712b-d5e5-40d5-ac43-d19dd6cb1b72"
+      },
+      {
+        "arete": "388658",
+        "estado": "activo",
+        "peso": 420,
+        "sexo": "M",
+        "id": "6bfbd4b1-1bb5-4b3f-8117-544b53106f62"
+      }
+    ],
+    "9Cacao [M9]": [
+      {
+        "arete": "2233",
+        "estado": "activo",
+        "peso": 422,
+        "sexo": "M",
+        "id": "cadc5303-d3dc-4262-a212-c53873236fb4"
+      },
+      {
+        "arete": "2234",
+        "estado": "activo",
+        "peso": 437,
+        "sexo": "M",
+        "id": "6385dfdd-6a42-4db0-8166-e9b81db8badb"
+      },
+      {
+        "arete": "2235",
+        "estado": "activo",
+        "peso": 432,
+        "sexo": "M",
+        "id": "aef7be0a-611b-4531-a558-ab0124d24ed2"
+      },
+      {
+        "arete": "2240",
+        "estado": "activo",
+        "peso": 424,
+        "sexo": "M",
+        "id": "62fa2ac9-5367-4a7f-a507-9577127b4217"
+      },
+      {
+        "arete": "2243",
+        "estado": "activo",
+        "peso": 426,
+        "sexo": "M",
+        "id": "33603c1c-578b-4903-a820-e3624e37e2cb"
+      },
+      {
+        "arete": "2266",
+        "estado": "activo",
+        "peso": 443,
+        "sexo": "M",
+        "id": "7053135f-721a-4dc7-9a87-7e16b2737318"
+      },
+      {
+        "arete": "2271",
+        "estado": "activo",
+        "peso": 414,
+        "sexo": "M",
+        "id": "ddb2b6f8-c3bc-438b-89cc-418b48177829"
+      },
+      {
+        "arete": "2282",
+        "estado": "activo",
+        "peso": 460,
+        "sexo": "M",
+        "id": "8aad5477-4737-4774-a306-abc6fa96b4b4"
+      },
+      {
+        "arete": "2284",
+        "estado": "activo",
+        "peso": 400,
+        "sexo": "M",
+        "id": "7a862282-f721-4c0c-8d2d-c7968a474d63"
+      },
+      {
+        "arete": "2289",
+        "estado": "activo",
+        "peso": 415,
+        "sexo": "M",
+        "id": "88be9761-c611-463b-9644-5f775d9510fd"
+      },
+      {
+        "arete": "2290",
+        "estado": "activo",
+        "peso": 423,
+        "sexo": "M",
+        "id": "9dc9fa7e-bf07-4f1e-8041-eb7997ca23c9"
+      },
+      {
+        "arete": "2292",
+        "estado": "activo",
+        "peso": 442,
+        "sexo": "M",
+        "id": "0eed20fe-e92e-49a2-bb50-d780135b852b"
+      },
+      {
+        "arete": "2295",
+        "estado": "activo",
+        "peso": 508,
+        "sexo": "M",
+        "id": "04ae7d9e-e3e2-43b0-9797-fefe8556053f"
+      },
+      {
+        "arete": "2296",
+        "estado": "activo",
+        "peso": 441,
+        "sexo": "M",
+        "id": "b4904f18-0275-4430-b4b0-f82817d71b89"
+      },
+      {
+        "arete": "2297",
+        "estado": "activo",
+        "peso": 456,
+        "sexo": "M",
+        "id": "8e062e7a-44e3-40d4-a47b-ed3aefdcd27f"
+      },
+      {
+        "arete": "762752",
+        "estado": "activo",
+        "peso": 445,
+        "sexo": "M",
+        "id": "40efe976-2986-449c-b4bf-7905d754abbe"
+      }
+    ]
+  }
+}

@@ -23,6 +23,7 @@ const ALERT_TIPOS: AlertTipo[] = [
   "revisión",
   "urgente",
   "programado",
+  "carencia",
 ];
 const ALERT_PRIORIDADES: AlertPrioridad[] = ["alta", "media", "baja"];
 
@@ -87,6 +88,8 @@ export function parseCreateTreatment(
       medicamentoId:
         typeof b.medicamentoId === "string" ? b.medicamentoId : undefined,
       loteId: typeof b.loteId === "string" ? b.loteId : undefined,
+      diasCarencia:
+        b.diasCarencia != null ? (asNumber(b.diasCarencia) ?? undefined) : undefined,
     },
   };
 }
@@ -120,6 +123,7 @@ export function parseUpdateTreatment(
   if (typeof b.status === "string") data.status = b.status;
   if (typeof b.animalId === "string") data.animalId = b.animalId;
   if (typeof b.medicamentoId === "string") data.medicamentoId = b.medicamentoId;
+  if (b.diasCarencia != null) data.diasCarencia = asNumber(b.diasCarencia) ?? undefined;
   if (Array.isArray(b.animalIds)) {
     data.animalIds = (b.animalIds as unknown[]).filter(
       (x): x is string => typeof x === "string"
@@ -200,6 +204,10 @@ export function parseCreateMedicamento(
   if (pricePerUnit < 0) {
     return { ok: false, error: "pricePerUnit inválido." };
   }
+  const periodoCarenciaDias = asNumber(b.periodoCarenciaDias) ?? 0;
+  if (periodoCarenciaDias < 0) {
+    return { ok: false, error: "periodoCarenciaDias inválido." };
+  }
   return {
     ok: true,
     data: {
@@ -208,6 +216,9 @@ export function parseCreateMedicamento(
       type: typeof b.type === "string" ? b.type : "vacuna",
       unit: typeof b.unit === "string" ? b.unit : "dosis",
       pricePerUnit,
+      periodoCarenciaDias,
+      manualUso:
+        typeof b.manualUso === "string" ? b.manualUso.trim() || undefined : undefined,
     },
   };
 }

@@ -47,7 +47,8 @@ Ver [`.env.example`](.env.example). En producción (Vercel) configura las mismas
 | `/administracion` | Catálogos (razas, estados, lotes…) |
 | `/gestion/*` | Hub operativo (CRUD, comprobantes, mensajería) |
 
-Documentación de producto: [`docs/resumen-ejecutivo.md`](docs/resumen-ejecutivo.md).
+Documentación de producto: [`docs/resumen-ejecutivo.md`](docs/resumen-ejecutivo.md).  
+Backups de Postgres (sin plan Pro): [`docs/backups.md`](docs/backups.md).
 
 ## Licencia
 
