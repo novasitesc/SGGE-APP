@@ -28,6 +28,10 @@
 /backups/
 *.dump
 
+# datos operativos reales de los scripts de importación: aretes, pesos, montos,
+# proveedores y UUIDs de producción. Se conservan en local, nunca en el repo.
+/scripts/data/
+
 # client tools locales (pg_dump PG17+, ~300MB)
 /tools/pgsql-*/
 

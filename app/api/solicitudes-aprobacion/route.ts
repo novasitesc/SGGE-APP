@@ -1,6 +1,6 @@
 
 import { requireAdmin, requireApiContext } from "@/lib/api/auth";
-import { jsonError, jsonOk } from "@/lib/api/http";
+import { jsonError, jsonOk, jsonServerError } from "@/lib/api/http";
 import {
   mapSolicitudToApi,
   type SolicitudRow,
@@ -57,7 +57,6 @@ export async function GET(req: Request) {
 
     return jsonOk({ items, total: count ?? items.length });
   } catch (e) {
-    const msg = e instanceof Error ? e.message : "Error desconocido";
-    return jsonError(msg, 500);
+    return jsonServerError("solicitudes-aprobacion", e);
   }
 }

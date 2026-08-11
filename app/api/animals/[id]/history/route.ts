@@ -1,7 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { isUuid } from "@/lib/api/granja";
 import { requireApiContext } from "@/lib/api/auth";
-import { jsonError, jsonOk } from "@/lib/api/http";
+import { jsonError, jsonOk, jsonServerError } from "@/lib/api/http";
 import {
   mapHistorialToApi,
   type HistorialRow,
@@ -103,7 +103,6 @@ export async function GET(
     const items = await fetchForAnimal(admin, granjaId, animalId);
     return jsonOk(items);
   } catch (e) {
-    const msg = e instanceof Error ? e.message : "Error desconocido";
-    return jsonError(msg, 500);
+    return jsonServerError("animals/[id]/history", e);
   }
 }

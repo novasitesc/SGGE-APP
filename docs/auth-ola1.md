@@ -9,7 +9,8 @@ Ver [`.env.example`](../.env.example):
 | `NEXT_PUBLIC_SUPABASE_URL` | URL del proyecto |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Cliente SSR/browser |
 | `SUPABASE_SERVICE_ROLE_KEY` | Solo servidor, post-autorización |
-| `AUTH_PROXY_ENFORCE=true` | Redirect a `/login` en rutas de app/gestión |
+
+La redirección a `/login` en rutas de app y gestión es incondicional: no depende de ninguna variable de entorno.
 
 ## Enlazar usuario de negocio
 
@@ -27,7 +28,7 @@ Sin `auth_user_id`, la API responde **403** aunque el login Auth sea válido.
 
 ## Comportamiento
 
-- UI protegida: proxy redirige a `/login` si no hay sesión (`AUTH_PROXY_ENFORCE`).
+- UI protegida: el proxy redirige a `/login` si no hay sesión. Si falta la configuración de Supabase, las rutas protegidas también se bloquean en lugar de servirse.
 - APIs: **401** sin cookie; **403** si `farmId`/`granjaId` ≠ `usuarios.granja_id`.
 - Separación de poderes:
   - **admin** — máxima autoridad: autoriza solicitudes (aprobar/rechazar) y muta catálogos de `/administracion`.

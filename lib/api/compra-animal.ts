@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { AcquisitionType } from "@/lib/types/domain";
+import { ApiError } from "@/lib/api/errors";
 
 const PROVEEDOR_DEMO_ID = "11111111-1111-1111-1111-111111111111";
 
@@ -75,7 +76,7 @@ async function resolveProveedorId(
     .maybeSingle();
   if (anyProv?.id) return anyProv.id;
 
-  throw new Error("No hay proveedores configurados en la granja.");
+  throw new ApiError("No hay proveedores configurados en la granja.", 409);
 }
 
 function buildFolio(arete: string, folio?: string | null): string {

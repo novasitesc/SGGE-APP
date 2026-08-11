@@ -1,6 +1,6 @@
 import { isUuid, getSystemUserId } from "@/lib/api/granja";
 import { requireApiContext } from "@/lib/api/auth";
-import { jsonError, jsonOk } from "@/lib/api/http";
+import { jsonError, jsonOk, jsonServerError } from "@/lib/api/http";
 import { mapAnimalToApi } from "@/lib/api/mappers";
 import {
   ANIMAL_SELECT,
@@ -165,8 +165,7 @@ export async function GET(
       permissions: permissionsForStatus(statusCodigo, hasVenta),
     });
   } catch (e) {
-    const msg = e instanceof Error ? e.message : "Error desconocido";
-    return jsonError(msg, 500);
+    return jsonServerError("animals/[id]", e);
   }
 }
 
@@ -373,8 +372,7 @@ export async function PATCH(
 
     return jsonOk(mapAnimalToApi(updated));
   } catch (e) {
-    const msg = e instanceof Error ? e.message : "Error desconocido";
-    return jsonError(msg, 500);
+    return jsonServerError("animals/[id]", e);
   }
 }
 

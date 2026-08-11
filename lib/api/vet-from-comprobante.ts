@@ -240,14 +240,16 @@ export async function sincronizarSaludDesdeGastoVet(
   let lineas = extractLineasVeterinarias(input.texto ?? "");
 
   if (lineas.length === 0 && input.fallbackTotal) {
+    const nombre = (input.concepto ?? "Insumo veterinario").slice(0, 80);
     lineas = [
       {
         codigo: null,
-        nombre: (input.concepto ?? "Insumo veterinario").slice(0, 80),
+        nombre,
         cantidad: 1,
         precioUnitario: input.monto,
         total: input.monto,
         tipo: classifyTipoMedicamento(input.concepto ?? ""),
+        unidad: unidadDesdeNombreProducto(nombre),
       },
     ];
   }
@@ -323,11 +325,13 @@ export async function sincronizarSaludDesdeGastoVet(
       created_by: input.usuarioId ?? null,
     };
 
-    let { data: row, error } = await admin
+    const inserted = await admin
       .from("tratamientos")
       .insert(insertRow)
       .select("id")
       .single();
+    const { error } = inserted;
+    let row = inserted.data;
 
     if (error) {
       const retry = await admin

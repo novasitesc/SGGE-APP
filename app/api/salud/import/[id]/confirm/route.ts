@@ -1,5 +1,5 @@
 import { requireApiContext } from "@/lib/api/auth";
-import { jsonError, jsonOk } from "@/lib/api/http";
+import { jsonError, jsonOk, jsonServerError } from "@/lib/api/http";
 import { createTratamiento, parseCreateTreatment } from "@/modules/salud";
 import { registrarHistorial } from "@/lib/api/historial-sistema";
 
@@ -80,7 +80,6 @@ export async function POST(req: Request, ctx: Ctx) {
 
     return jsonOk(treatment);
   } catch (e) {
-    const msg = e instanceof Error ? e.message : "Error desconocido";
-    return jsonError(msg, 500);
+    return jsonServerError("salud/import/[id]/confirm", e);
   }
 }

@@ -1,6 +1,6 @@
 import { isUuid } from "@/lib/api/granja";
 import { requireApiContext } from "@/lib/api/auth";
-import { jsonError, jsonOk } from "@/lib/api/http";
+import { jsonError, jsonOk, jsonServerError } from "@/lib/api/http";
 import {
   crearSolicitudEliminarAnimal,
   mapSolicitudToApi,
@@ -55,7 +55,6 @@ export async function POST(
 
     return jsonOk(mapSolicitudToApi(result.solicitud), { status: 201 });
   } catch (e) {
-    const msg = e instanceof Error ? e.message : "Error desconocido";
-    return jsonError(msg, 500);
+    return jsonServerError("animals/[id]/solicitud-baja", e);
   }
 }

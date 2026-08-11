@@ -1,5 +1,5 @@
 import { requireApiContext } from "@/lib/api/auth";
-import { jsonError, jsonOk } from "@/lib/api/http";
+import { jsonError, jsonOk, jsonServerError } from "@/lib/api/http";
 import {
   getAlertaById,
   parseUpdateAlert,
@@ -16,12 +16,11 @@ export async function GET(req: Request, ctx: Ctx) {
     const auth = await requireApiContext(req);
     if (!auth.ok) return auth.response;
     const { id } = await ctx.params;
-    const row = await getAlertaById(auth.ctx.admin, id);
+    const row = await getAlertaById(auth.ctx.admin, auth.ctx.granjaId, id);
     if (!row) return jsonError("Alerta no encontrada.", 404);
     return jsonOk(row);
   } catch (e) {
-    const msg = e instanceof Error ? e.message : "Error desconocido";
-    return jsonError(msg, 500);
+    return jsonServerError("health-alerts/[id]", e);
   }
 }
 
@@ -31,7 +30,7 @@ export async function PATCH(req: Request, ctx: Ctx) {
     if (!auth.ok) return auth.response;
     const { admin, granjaId, usuario } = auth.ctx;
     const { id } = await ctx.params;
-    const previous = await getAlertaById(admin, id);
+    const previous = await getAlertaById(admin, granjaId, id);
     if (!previous) return jsonError("Alerta no encontrada.", 404);
 
     const parsed = parseUpdateAlert(await req.json());
@@ -47,8 +46,7 @@ export async function PATCH(req: Request, ctx: Ctx) {
     );
     return jsonOk(updated);
   } catch (e) {
-    const msg = e instanceof Error ? e.message : "Error desconocido";
-    return jsonError(msg, 500);
+    return jsonServerError("health-alerts/[id]", e);
   }
 }
 
@@ -58,11 +56,11 @@ export async function DELETE(req: Request, ctx: Ctx) {
     if (!auth.ok) return auth.response;
     const { admin, granjaId, usuario } = auth.ctx;
     const { id } = await ctx.params;
-    const previous = await getAlertaById(admin, id);
+    const previous = await getAlertaById(admin, granjaId, id);
+    if (!previous) return jsonError("Alerta no encontrada.", 404);
     await softDeleteAlerta(admin, granjaId, id, previous, usuario?.id);
     return jsonOk({ ok: true });
   } catch (e) {
-    const msg = e instanceof Error ? e.message : "Error desconocido";
-    return jsonError(msg, 500);
+    return jsonServerError("health-alerts/[id]", e);
   }
 }

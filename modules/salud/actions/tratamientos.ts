@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { registrarHistorial } from "@/lib/api/historial-sistema";
+import { ApiError } from "@/lib/api/errors";
 import { computeCarencia } from "../lib/carencia";
 import { mapTreatment, snapshotTratamiento } from "../queries/mappers";
 import { findOrCreateMedicamento } from "../queries/medicamentos";
@@ -292,7 +293,7 @@ export async function updateTratamiento(
     patch.listo_traslado = carencia.listoTraslado;
   }
 
-  let { data, error } = await admin
+  const updated = await admin
     .from("tratamientos")
     .update(patch)
     .eq("id", id)
@@ -305,6 +306,8 @@ export async function updateTratamiento(
        medicamentos(nombre, periodo_carencia_dias)`
     )
     .single();
+  const { error } = updated;
+  let data = updated.data;
 
   if (error) {
     const retry = await admin
@@ -326,7 +329,7 @@ export async function updateTratamiento(
     data = retry.data as typeof data;
   }
 
-  if (!data) throw new Error("Tratamiento no encontrado.");
+  if (!data) throw new ApiError("Tratamiento no encontrado.", 404);
   const mapped = mapTreatment(data as Record<string, unknown>);
 
   await syncAlertFromNextDue(admin, granjaId, mapped);

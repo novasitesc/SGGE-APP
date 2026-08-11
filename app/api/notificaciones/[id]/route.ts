@@ -1,5 +1,5 @@
 import { requireApiContext } from "@/lib/api/auth";
-import { jsonError, jsonOk } from "@/lib/api/http";
+import { jsonError, jsonOk, jsonServerError } from "@/lib/api/http";
 import { markNotificacionLeida } from "@/modules/salud";
 
 export const dynamic = "force-dynamic";
@@ -18,7 +18,6 @@ export async function PATCH(
     await markNotificacionLeida(admin, usuario.id, id);
     return jsonOk({ ok: true });
   } catch (e) {
-    const msg = e instanceof Error ? e.message : "Error desconocido";
-    return jsonError(msg, 500);
+    return jsonServerError("notificaciones/[id]", e);
   }
 }

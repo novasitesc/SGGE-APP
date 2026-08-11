@@ -1,6 +1,6 @@
 
 import { requireApiContext } from "@/lib/api/auth";
-import { jsonError, jsonOk } from "@/lib/api/http";
+import { jsonError, jsonOk, jsonServerError } from "@/lib/api/http";
 import { confirmComprobante } from "@/lib/api/comprobantes";
 import type { Clasificacion } from "@/lib/api/pdf/classify";
 
@@ -56,7 +56,6 @@ export async function POST(
     if (!result.ok) return jsonError(result.message, result.status);
     return jsonOk(result.comprobante, { status: 201 });
   } catch (e) {
-    const msg = e instanceof Error ? e.message : "Error desconocido";
-    return jsonError(msg, 500);
+    return jsonServerError("comprobantes/[id]/confirm", e);
   }
 }

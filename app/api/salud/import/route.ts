@@ -1,5 +1,10 @@
 import { requireApiContext } from "@/lib/api/auth";
-import { jsonError, jsonOk } from "@/lib/api/http";
+import {
+  MAX_UPLOAD_BYTES,
+  jsonError,
+  jsonOk,
+  jsonServerError,
+} from "@/lib/api/http";
 import { extractPdfText, extractPdfTextAsync } from "@/lib/api/pdf/extract-text";
 import { parseSaludPdfText } from "@/lib/api/pdf/parse-salud";
 import { registrarHistorial } from "@/lib/api/historial-sistema";
@@ -19,6 +24,14 @@ export async function POST(req: Request) {
     }
     if (!file.name.toLowerCase().endsWith(".pdf")) {
       return jsonError("Solo se aceptan archivos PDF.", 400);
+    }
+    // El PDF se carga completo en memoria para extraer el texto: sin tope, un
+    // archivo grande agota la memoria de la función.
+    if (file.size > MAX_UPLOAD_BYTES) {
+      return jsonError(
+        `El archivo excede el máximo de ${MAX_UPLOAD_BYTES / (1024 * 1024)} MB.`,
+        413
+      );
     }
 
     const buffer = Buffer.from(await file.arrayBuffer());
@@ -53,7 +66,7 @@ export async function POST(req: Request) {
           503
         );
       }
-      return jsonError(error.message, 400);
+      return jsonServerError("salud/import", error);
     }
 
     await registrarHistorial(admin, {
@@ -77,7 +90,6 @@ export async function POST(req: Request) {
       { status: 201 }
     );
   } catch (e) {
-    const msg = e instanceof Error ? e.message : "Error desconocido";
-    return jsonError(msg, 500);
+    return jsonServerError("salud/import", e);
   }
 }

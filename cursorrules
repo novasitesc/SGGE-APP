@@ -378,7 +378,7 @@ export async function updateSession(request: NextRequest) {
 }
 ```
 
-Activar redirecciones de rutas protegidas con `AUTH_PROXY_ENFORCE=true` cuando el login esté cableado.
+Las rutas protegidas redirigen a `/login` siempre; no hay bandera para desactivar la protección.
 
 ---
 

@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getSystemUserId } from "@/lib/api/granja";
+import { ApiError } from "@/lib/api/errors";
 import { registrarHistorialAnimal } from "@/lib/api/historial-animal";
 
 export type ActaAnimalRow = {
@@ -60,7 +61,7 @@ export async function createActaAnimal(
   input: CreateActaInput
 ): Promise<ActaAnimalApi> {
   const texto = input.texto.trim();
-  if (!texto) throw new Error("El texto de la acta es obligatorio.");
+  if (!texto) throw new ApiError("El texto de la acta es obligatorio.", 400);
 
   const { data, error } = await admin
     .from("actas_animales")

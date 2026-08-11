@@ -15,6 +15,11 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "SGGE – Sistema de Gestión Ganadera",
   description: "Dashboard profesional para gestión de engorda de ganado bovino",
+  icons: {
+    icon: [{ url: "/ICONO/IconoSgge.png", type: "image/png" }],
+    apple: [{ url: "/ICONO/IconoSgge.png", type: "image/png" }],
+    shortcut: "/ICONO/IconoSgge.png",
+  },
 };
 
 export default function RootLayout({

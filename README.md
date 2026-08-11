@@ -30,7 +30,9 @@ npm run build
 
 ## Variables de entorno
 
-Ver [`.env.example`](.env.example). En producción (Vercel) configura las mismas claves; activa `AUTH_PROXY_ENFORCE=true` para proteger rutas.
+Ver [`.env.example`](.env.example). En producción (Vercel) configura las mismas claves.
+
+La protección de rutas del proxy es incondicional: sin sesión válida, las rutas de app y de administración redirigen a `/login`. No hay bandera para desactivarla.
 
 ## Estructura principal
 

@@ -3,7 +3,7 @@ import type { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createSupabaseAdmin } from "@/lib/supabase/admin";
 import { isUuid } from "@/lib/api/granja";
-import { jsonError } from "@/lib/api/http";
+import { jsonError, jsonServerError } from "@/lib/api/http";
 
 export type UsuarioNegocio = {
   id: string;
@@ -63,47 +63,67 @@ export async function requireApiContext(req: Request): Promise<ApiAuthResult> {
   const usuarioSelect =
     "id, granja_id, email, nombre, apellido, activo, auth_user_id";
 
-  let { data: usuario, error: userError } = await admin
+  const porAuthId = await admin
     .from("usuarios")
     .select(usuarioSelect)
     .eq("auth_user_id", user.id)
     .is("deleted_at", null)
     .maybeSingle();
 
-  // Fallback: Auth OK pero sin match por auth_user_id (enlace pendiente / cache).
-  // Busca por email y rellena auth_user_id automáticamente.
-  if ((!usuario || userError) && user.email) {
+  const userError = porAuthId.error;
+  let usuario = porAuthId.data;
+
+  // Enlace inicial por email, solo durante la migración a Supabase Auth.
+  // Tres condiciones obligatorias: el email debe estar confirmado en Auth, la
+  // fila destino no puede tener ya un auth_user_id, y el email debe coincidir
+  // exacto. Sin ellas, registrar una cuenta con el correo de un usuario de
+  // negocio bastaría para heredar su granja y sus roles.
+  if (!usuario && !userError && user.email && user.email_confirmed_at) {
     const email = user.email.trim().toLowerCase();
     const byEmail = await admin
       .from("usuarios")
       .select("id, granja_id, email, nombre, apellido, activo")
-      .ilike("email", email)
+      .eq("email", email)
+      .is("auth_user_id", null)
       .is("deleted_at", null)
       .maybeSingle();
 
     if (byEmail.error) {
-      return { ok: false, response: jsonError(byEmail.error.message, 500) };
+      return {
+        ok: false,
+        response: jsonServerError("auth/enlace-email", byEmail.error),
+      };
     }
 
     if (byEmail.data) {
-      await admin
+      const { error: linkError } = await admin
         .from("usuarios")
         .update({ auth_user_id: user.id })
-        .eq("id", byEmail.data.id);
+        .eq("id", byEmail.data.id)
+        .is("auth_user_id", null);
+
+      if (linkError) {
+        return {
+          ok: false,
+          response: jsonServerError("auth/enlace-email", linkError),
+        };
+      }
       usuario = { ...byEmail.data, auth_user_id: user.id };
-      userError = null;
     }
   }
 
   if (userError) {
-    return { ok: false, response: jsonError(userError.message, 500) };
+    return { ok: false, response: jsonServerError("auth/usuario", userError) };
   }
 
   if (!usuario || !usuario.activo) {
+    console.error(
+      `[auth] Sesión Auth sin usuario de negocio activo. auth_user_id=${user.id}`
+    );
     return {
       ok: false,
       response: jsonError(
-        `Usuario no vinculado a la aplicación o inactivo (auth: ${user.id}). Verifique public.usuarios.auth_user_id.`,
+        "Su cuenta no está habilitada en la aplicación. Contacte al administrador.",
         403
       ),
     };

@@ -1,5 +1,5 @@
 import { requireApiContext } from "@/lib/api/auth";
-import { jsonError } from "@/lib/api/http";
+import { jsonServerError } from "@/lib/api/http";
 import { listAlertas, listTratamientos } from "@/modules/salud";
 import { registrarHistorial } from "@/lib/api/historial-sistema";
 
@@ -152,7 +152,6 @@ export async function GET(req: Request) {
       },
     });
   } catch (e) {
-    const msg = e instanceof Error ? e.message : "Error desconocido";
-    return jsonError(msg, 500);
+    return jsonServerError("salud/export", e);
   }
 }

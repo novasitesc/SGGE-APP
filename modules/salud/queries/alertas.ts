@@ -38,14 +38,21 @@ export async function listAlertas(
   return (data ?? []).map((r) => mapAlert(r as Record<string, unknown>));
 }
 
+/**
+ * Lee una alerta por id dentro de la granja indicada. El filtro por `granja_id`
+ * es obligatorio: sin él, un UUID válido de otra finca devolvería sus datos, y
+ * es el mismo criterio que ya aplican las mutaciones.
+ */
 export async function getAlertaById(
   admin: SupabaseClient,
+  granjaId: string,
   id: string
 ): Promise<HealthAlertRecord | null> {
   const { data, error } = await admin
     .from("alertas_sanitarias")
     .select(SELECT_ALERTA)
     .eq("id", id)
+    .eq("granja_id", granjaId)
     .is("deleted_at", null)
     .maybeSingle();
   if (error) throw new Error(error.message);

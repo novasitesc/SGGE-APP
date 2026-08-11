@@ -4,7 +4,7 @@ import {
   ESTADOS_SISTEMA,
   mapEstadoRow,
 } from "@/lib/api/estados-helpers";
-import { jsonError, jsonOk } from "@/lib/api/http";
+import { jsonError, jsonOk, jsonServerError } from "@/lib/api/http";
 
 export const dynamic = "force-dynamic";
 
@@ -94,7 +94,6 @@ export async function PATCH(
 
     return jsonOk(mapEstadoRow(data));
   } catch (e) {
-    const msg = e instanceof Error ? e.message : "Error desconocido";
-    return jsonError(msg, 500);
+    return jsonServerError("estados-animales/[id]", e);
   }
 }

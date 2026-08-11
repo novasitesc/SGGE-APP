@@ -1,7 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { isUuid } from "@/lib/api/granja";
 import { requireApiContext } from "@/lib/api/auth";
-import { jsonError, jsonOk } from "@/lib/api/http";
+import { jsonError, jsonOk, jsonServerError } from "@/lib/api/http";
 import { createActaAnimal, fetchActasForAnimal } from "@/lib/api/actas-animal";
 
 export const dynamic = "force-dynamic";
@@ -54,7 +54,7 @@ export async function GET(
         503
       );
     }
-    return jsonError(msg, 500);
+    return jsonServerError("animals/[id]/actas", e);
   }
 }
 
@@ -104,6 +104,6 @@ export async function POST(
         503
       );
     }
-    return jsonError(msg, 500);
+    return jsonServerError("animals/[id]/actas", e);
   }
 }

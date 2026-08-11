@@ -1,6 +1,6 @@
 
 import { requireApiContext } from "@/lib/api/auth";
-import { jsonError, jsonOk } from "@/lib/api/http";
+import { jsonError, jsonOk, jsonServerError } from "@/lib/api/http";
 import {
   COMPROBANTE_SELECT,
   mapComprobanteToApi,
@@ -46,8 +46,7 @@ export async function GET(req: Request) {
     );
     return jsonOk(mapped);
   } catch (e) {
-    const msg = e instanceof Error ? e.message : "Error desconocido";
-    return jsonError(msg, 500);
+    return jsonServerError("comprobantes", e);
   }
 }
 
@@ -105,7 +104,6 @@ export async function POST(req: Request) {
       { status: uploaded.length > 0 ? 201 : 400 }
     );
   } catch (e) {
-    const msg = e instanceof Error ? e.message : "Error desconocido";
-    return jsonError(msg, 500);
+    return jsonServerError("comprobantes", e);
   }
 }
