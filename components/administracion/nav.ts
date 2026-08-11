@@ -64,14 +64,14 @@ export const ADMIN_NAV_GROUPS: AdminNavGroup[] = [
       {
         id: "corrales",
         label: "Tipos de corral",
-        description: "Clasificación operativa de módulos.",
+        description: "Clasificación operativa de los módulos existentes.",
         icon: Warehouse,
         available: true,
       },
       {
         id: "lotes",
         label: "Lotes",
-        description: "Lotes de engorda y capacidad.",
+        description: "Ciclos de engorda: estadísticas de animales por lote.",
         icon: Grid3X3,
         available: true,
       },

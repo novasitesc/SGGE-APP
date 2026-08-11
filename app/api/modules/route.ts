@@ -20,8 +20,16 @@ export async function GET(req: Request) {
     if (!auth.ok) return auth.response;
     const { admin, granjaId } = auth.ctx;
     const url = new URL(req.url);
+    const loteId = url.searchParams.get("loteId")?.trim() || null;
 
     const estadoActivo = await getEstadoIdByCodigo(admin, "activo");
+
+    let animalesQuery = admin
+      .from("animales")
+      .select("id, corral_id, estado_id, peso_actual_kg")
+      .eq("granja_id", granjaId)
+      .is("deleted_at", null);
+    if (loteId) animalesQuery = animalesQuery.eq("lote_id", loteId);
 
     const [{ data: corrales, error: e1 }, { data: animales, error: e2 }] =
       await Promise.all([
@@ -31,11 +39,7 @@ export async function GET(req: Request) {
           .eq("granja_id", granjaId)
           .is("deleted_at", null)
           .order("codigo", { ascending: true }),
-        admin
-          .from("animales")
-          .select("id, corral_id, estado_id, peso_actual_kg")
-          .eq("granja_id", granjaId)
-          .is("deleted_at", null),
+        animalesQuery,
       ]);
     if (e1) throw new Error(e1.message);
     if (e2) throw new Error(e2.message);

@@ -1,6 +1,8 @@
 "use client";
 
+import { useCallback } from "react";
 import type { AnimalDetail } from "@/components/animales/types";
+import { useActiveLote } from "@/components/lotes/LoteProvider";
 import {
   createAnimal,
   fetchAnimalById,
@@ -15,20 +17,31 @@ import { invalidateApiCacheMany, setCached } from "@/lib/hooks/api-cache";
 import { useApiQuery } from "@/lib/hooks/useApiQuery";
 
 export function useAnimals() {
+  const { loteId, loading: loteLoading } = useActiveLote();
+  const cacheKey = loteId ? `animals:${loteId}` : "animals";
+  const loader = useCallback(
+    () => fetchAnimals(loteId),
+    [loteId]
+  );
   const { data, loading, error, reload, mutate } = useApiQuery(
-    "animals",
-    fetchAnimals
+    cacheKey,
+    loader,
+    [loteId],
+    { enabled: !!loteId }
   );
   const animals = data ?? [];
 
   const afterMutation = (next: typeof animals) => {
     mutate(next);
     invalidateApiCacheMany(["animals", "dashboard", "modules", "weights"]);
-    setCached("animals", next);
+    setCached(cacheKey, next);
   };
 
   const addAnimal = async (payload: Parameters<typeof createAnimal>[0]) => {
-    const created = await createAnimal(payload);
+    const created = await createAnimal({
+      ...payload,
+      loteId: payload.loteId ?? loteId ?? undefined,
+    });
     afterMutation(
       [...animals, created].sort((a, b) => a.tagId.localeCompare(b.tagId))
     );
@@ -57,7 +70,7 @@ export function useAnimals() {
 
   return {
     animals,
-    loading,
+    loading: loteLoading || loading,
     error,
     reload,
     addAnimal,

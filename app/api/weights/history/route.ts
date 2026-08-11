@@ -25,12 +25,16 @@ export async function GET(req: Request) {
     if (!auth.ok) return auth.response;
     const { admin, granjaId } = auth.ctx;
     const url = new URL(req.url);
+    const loteId = url.searchParams.get("loteId")?.trim() || null;
 
-    const { data: animals } = await admin
+    let animalsQuery = admin
       .from("animales")
       .select("id")
       .eq("granja_id", granjaId)
       .is("deleted_at", null);
+    if (loteId) animalsQuery = animalsQuery.eq("lote_id", loteId);
+
+    const { data: animals } = await animalsQuery;
     const ids = (animals ?? []).map((a: { id: string }) => a.id);
     if (ids.length === 0) {
       return jsonOk({
@@ -69,12 +73,14 @@ export async function GET(req: Request) {
         }));
     } else {
       const estadoActivo = await getEstadoIdByCodigo(admin, "activo");
-      const { data: act } = await admin
+      let actQuery = admin
         .from("animales")
         .select("peso_actual_kg")
         .eq("granja_id", granjaId)
         .eq("estado_id", estadoActivo)
         .is("deleted_at", null);
+      if (loteId) actQuery = actQuery.eq("lote_id", loteId);
+      const { data: act } = await actQuery;
       const list = act ?? [];
       const n = list.length;
       if (n > 0) {

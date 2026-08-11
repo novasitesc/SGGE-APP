@@ -23,6 +23,8 @@ export type LineaVetSugerida = {
   precioUnitario: number;
   total: number;
   tipo: string;
+  /** ml | dosis | und — no kg. */
+  unidad?: string;
 };
 
 export type Comprobante = {

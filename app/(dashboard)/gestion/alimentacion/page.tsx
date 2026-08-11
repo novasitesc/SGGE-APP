@@ -525,7 +525,9 @@ export default function GestionAlimentacionPage() {
                                     );
                                   }}
                                 >
-                                  Editar kg
+                                  {row.unidad === "compra"
+                                    ? "Completar kg"
+                                    : `Editar ${row.unidad || "cant."}`}
                                 </button>
                               )}
                             </td>

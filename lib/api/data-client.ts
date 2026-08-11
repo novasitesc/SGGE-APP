@@ -16,8 +16,11 @@ import type {
   WeightRecord,
 } from "@/lib/types/domain";
 
-export async function fetchDashboard(): Promise<DashboardData> {
-  const res = await fetch("/api/dashboard", { cache: "no-store" });
+export async function fetchDashboard(
+  loteId?: string | null
+): Promise<DashboardData> {
+  const qs = loteId ? `?loteId=${encodeURIComponent(loteId)}` : "";
+  const res = await fetch(`/api/dashboard${qs}`, { cache: "no-store" });
   return parseJson<DashboardData>(res);
 }
 
@@ -119,8 +122,9 @@ export async function deleteSaleApi(id: string): Promise<void> {
   }
 }
 
-export async function fetchModules(): Promise<Module[]> {
-  const res = await fetch("/api/modules", { cache: "no-store" });
+export async function fetchModules(loteId?: string | null): Promise<Module[]> {
+  const qs = loteId ? `?loteId=${encodeURIComponent(loteId)}` : "";
+  const res = await fetch(`/api/modules${qs}`, { cache: "no-store" });
   const list = await parseJson<
     {
       id: string;
@@ -241,6 +245,8 @@ export type FeedStockRow = {
   stockKg: number;
   entradasComprasSinKg: number;
   diasCobertura: number | null;
+  costoCompras?: number;
+  desdePdf?: boolean;
 };
 
 export type FeedAlert = {
@@ -283,15 +289,37 @@ export type FeedingResponse = {
   lotes?: { id: string; nombre: string }[];
   racionCostPeriod?: number;
   costPerAnimalDayRacion?: number;
+  porcionesEquitativas?: FeedPorcionEquitativa[];
+  loteId?: string | null;
+  comprasCompartidasGranja?: boolean;
+};
+
+export type FeedPorcionEquitativa = {
+  alimentoId: string;
+  nombre: string;
+  origen: "racion" | "pdf_sugerido" | "pdf_sin_kg";
+  totalKg: number;
+  animalCount: number;
+  kgPorAnimal: number;
+  kgPorAnimalDia: number;
+  kgHatoDia: number;
+  stockKg: number;
+  comprasSinKg: number;
+  costoCompras: number;
 };
 
 export type FeedingPeriodDays = number | "all";
 
 export async function fetchFeeding(
-  days: FeedingPeriodDays = 30
+  days: FeedingPeriodDays = 30,
+  loteId?: string | null
 ): Promise<FeedingResponse> {
-  const qs = `?days=${days === "all" ? "all" : days}`;
-  const res = await fetch(`/api/feeding${qs}`, { cache: "no-store" });
+  const params = new URLSearchParams();
+  params.set("days", days === "all" ? "all" : String(days));
+  if (loteId) params.set("loteId", loteId);
+  const res = await fetch(`/api/feeding?${params.toString()}`, {
+    cache: "no-store",
+  });
   return parseJson<FeedingResponse>(res);
 }
 
@@ -612,8 +640,11 @@ export async function confirmSaludImportApi(
   return parseJson<Treatment>(res);
 }
 
-export async function fetchWeightHistory(): Promise<WeightRecord[]> {
-  const res = await fetch("/api/weights/history", { cache: "no-store" });
+export async function fetchWeightHistory(
+  loteId?: string | null
+): Promise<WeightRecord[]> {
+  const qs = loteId ? `?loteId=${encodeURIComponent(loteId)}` : "";
+  const res = await fetch(`/api/weights/history${qs}`, { cache: "no-store" });
   const data = await parseJson<{ weightHistory: WeightRecord[] }>(res);
   return data.weightHistory;
 }

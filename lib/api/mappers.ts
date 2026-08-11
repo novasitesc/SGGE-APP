@@ -25,6 +25,7 @@ export function mapAnimalToApi(row: AnimalRowSrrg, purchase?: CompraAnimalInfo |
     currentWeight: Number(row.peso_actual_kg),
     moduleId: row.corrales?.codigo ?? "",
     moduleName: row.corrales?.nombre ?? undefined,
+    loteId: row.lote_id ?? null,
     status: row.estados_animales?.codigo ?? "activo",
     sex: row.sexo,
     age: row.fecha_nacimiento ? monthsBetween(row.fecha_nacimiento, new Date()) : 0,

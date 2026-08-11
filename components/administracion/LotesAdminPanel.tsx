@@ -7,6 +7,7 @@ import {
   updateLoteApi,
   type LoteAdmin,
 } from "@/lib/api/data-client";
+import { useActiveLote } from "@/components/lotes/LoteProvider";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -39,6 +40,7 @@ function formatFecha(iso: string | null) {
 }
 
 export function LotesAdminPanel() {
+  const { reloadLotes } = useActiveLote();
   const [rows, setRows] = useState<LoteAdmin[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -114,6 +116,7 @@ export function LotesAdminPanel() {
       }
       setDialogOpen(false);
       await reload();
+      await reloadLotes();
     } catch (err) {
       setFormError(err instanceof Error ? err.message : "No se pudo guardar");
     } finally {
@@ -141,8 +144,10 @@ export function LotesAdminPanel() {
             Lotes
           </CardTitle>
           <p className="text-xs text-muted-foreground">
-            Lotes de engorda. Los lotes abiertos se usan en alimentación y altas
-            de animales.
+            Cada lote es un ciclo de engorda: las estadísticas de animales
+            (inventario, pesos, ganancias, ventas del hato) se segmentan por
+            lote. Un lote nuevo arranca en cero. Gastos, catálogos y módulos se
+            comparten a nivel granja.
           </p>
         </CardHeader>
         <CardContent>

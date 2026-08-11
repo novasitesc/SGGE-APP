@@ -27,6 +27,7 @@ import {
 import { useApiQuery } from "@/lib/hooks/useApiQuery";
 import { logoutAction } from "@/lib/auth/actions";
 import { parseJson } from "@/lib/api/parse-json";
+import { LoteSelector } from "@/components/lotes/LoteSelector";
 
 type SearchHit = {
   type: "animal" | "modulo";
@@ -163,8 +164,10 @@ export default function Navbar() {
   const alertCount = (canApprove ? pendingCount : 0) + saludUnread;
 
   return (
-    <header className="h-16 border-b bg-card flex items-center justify-between px-6 shrink-0">
-      <div className="relative hidden md:block" ref={searchRef}>
+    <header className="h-16 border-b bg-card flex items-center justify-between gap-3 px-4 sm:px-6 shrink-0">
+      <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+        <LoteSelector className="shrink-0" />
+        <div className="relative hidden md:block" ref={searchRef}>
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
         <input
           type="search"
@@ -236,6 +239,7 @@ export default function Navbar() {
             </div>
           </div>
         )}
+        </div>
       </div>
 
       <div className="flex items-center gap-4 ml-auto">

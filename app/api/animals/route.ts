@@ -37,13 +37,17 @@ export async function GET(req: Request) {
     if (!auth.ok) return auth.response;
     const { admin, granjaId } = auth.ctx;
     const url = new URL(req.url);
+    const loteId = url.searchParams.get("loteId")?.trim() || null;
 
-    const { data, error } = await admin
+    let query = admin
       .from("animales")
       .select(ANIMAL_SELECT)
       .eq("granja_id", granjaId)
       .is("deleted_at", null)
       .order("arete", { ascending: true });
+    if (loteId) query = query.eq("lote_id", loteId);
+
+    const { data, error } = await query;
     if (error) throw new Error(error.message);
 
     const rows = (data ?? []).map((row) =>
@@ -81,6 +85,8 @@ type PostBody = {
   invoiceFolio?: string;
   invoiceOrAuctionDate?: string;
   auctionLotNumber?: string;
+  /** Lote de engorda operativo. */
+  loteId?: string;
 };
 
 export async function POST(req: Request) {
@@ -127,7 +133,26 @@ export async function POST(req: Request) {
     }
 
     const categoriaId = await getDefaultCategoriaId(admin, granjaId);
-    const loteId = await getDefaultLoteId(admin, granjaId);
+    let loteId = body.loteId?.trim() || null;
+    if (loteId) {
+      const { data: loteRow, error: loteErr } = await admin
+        .from("lotes")
+        .select("id")
+        .eq("id", loteId)
+        .eq("granja_id", granjaId)
+        .is("deleted_at", null)
+        .maybeSingle();
+      if (loteErr) throw new Error(loteErr.message);
+      if (!loteRow?.id) return jsonError("El lote indicado no existe en la granja.");
+      loteId = loteRow.id as string;
+    } else {
+      loteId = await getDefaultLoteId(admin, granjaId);
+    }
+    if (!loteId) {
+      return jsonError(
+        "No hay un lote de engorda disponible. Cree uno en Administración."
+      );
+    }
     const pesoInicial = normalizeWeightKg(body.initialWeight);
     const pesoActual = normalizeWeightKg(body.currentWeight);
     const systemUser = getSystemUserId();

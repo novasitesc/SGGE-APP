@@ -15,6 +15,8 @@ export interface Animal {
   moduleId: string;
   /** Nombre legible del corral/módulo (corrales.nombre). */
   moduleName?: string;
+  /** Lote de engorda (ciclo). Segmenta estadísticas de animales. */
+  loteId?: string | null;
   status: AnimalStatus;
   sex: "M" | "H";
   age: number;
@@ -201,4 +203,7 @@ export interface DashboardData {
   recentSales: Sale[];
   healthAlerts: HealthAlert[];
   costsByCategory: CostByCategory[];
+  /** Gastos/costos agregados a nivel granja (compartidos entre lotes). */
+  costsSharedAcrossLotes?: boolean;
+  loteId?: string | null;
 }

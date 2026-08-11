@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { registrarHistorial } from "@/lib/api/historial-sistema";
+import { unidadDesdeNombreProducto } from "@/lib/api/unidades-medida";
 import type { TreatmentType } from "@/lib/types/domain";
 
 export type LineaVeterinaria = {
@@ -9,15 +10,17 @@ export type LineaVeterinaria = {
   precioUnitario: number;
   total: number;
   tipo: TreatmentType | string;
+  /** ml | dosis | und — nunca forzar kg. */
+  unidad: string;
 };
 
-/** Productos veterinarios conocidos (Dos Pinos y genéricos). */
+/** Productos veterinarios conocidos (Dos Pinos y genéricos). Marca/principio. */
 const VET_NAME =
-  /PARTOVET|BAYTRIL|HISTAMINEX|CARBOLINA|IVERMECT|ALBENDAZ|DESPARASIT|VACUN|ANTIBIOT|OXITETRA|PENICIL|DORAMECT|MOXIDECT|LEVAMISOL|FENBENDAZ|FLUNIXIN|BANAMINE|CEFTIOFUR|CLOSTRID|BOVIGAM|COVEXIN|DRAXXIN|CYDECTIN|BAYCOX|SULFADIM|RUMENSIN|MONENSIN|ANTIPARASIT|MEDICAMENT|VETERINAR/i;
+  /PARTOVET|BAYTRIL|HISTAMINEX|CARBOLINA|IVERMECT|ALBENDAZ|DESPARASIT|VACUN|ANTIBIOT|OXITETRA|PENICIL|DORAMEC|MOXIDECT|LEVAMISOL|FENBENDAZ|FLUNIXIN|BANAMINE|CEFTIOFUR|CLOSTRID|BOVIGAM|COVEXIN|DRAXXIN|CYDECTIN|BAYCOX|SULFADIM|RUMENSIN|MONENSIN|ANTIPARASIT|MEDICAMENT|VETERINAR|REVALOR|VIRBAMEC|ABAXTION|MULTIFORT|\bABZ\b|COSMO\s*IN|BAYOVAC|CATTLEMASTER|TRIANGLE|SPIROVET|OXITOCIN|DEXAMET|FLUMETASON|ENROFLOX|TILMICOS|FLORFENIC/i;
 
-/** No son tratamientos (inventario / ferretería). */
+/** No son tratamientos (inventario / ferretería / alimento). */
 const EXCLUDE_NAME =
-  /ARETE|ALLFLEX|PVC|UNION\s+LISA|TORNILLO|TUBERIA|TUBERÍA|ACEITE\s+HU|MELAZA|GROFACTOR|MA[IÍ]Z|CONCENTRAD/i;
+  /ARETE|ALLFLEX|PVC|UNION\s+LISA|TORNILLO|TUBERIA|TUBERÍA|ACEITE\s+HU|MELAZA|GROFACTOR|MA[IÍ]Z|CONCENTRAD|ALAMBRE|AISLADOR|CLAVO|GRAPA|ALICATE|BATERIA|TIJERA/i;
 
 const LINE_RE =
   /(\d{7,8})\s*[-–]\s*([A-ZÁÉÍÓÚÑ0-9 /.%]+?)\s+(\d+(?:[.,]\d+)?)\s+([\d,]+\.\d{2})\s+[A-Z]\s+([\d,]+\.\d{2})/gi;
@@ -29,15 +32,23 @@ function parseMoney(s: string): number {
 export function classifyTipoMedicamento(nombre: string): TreatmentType | string {
   const n = nombre.toLowerCase();
   if (/vacun|bovigam|covexin|clostrid|aftosa|brucel/.test(n)) return "vacuna";
-  if (/desparasit|ivermect|albendaz|doramect|moxidect|fenbendaz|levamisol|cydectin/.test(n))
+  if (
+    /desparasit|ivermect|albendaz|doramec|moxidect|fenbendaz|levamisol|cydectin|virbamec|abaxtion|\babz\b/.test(
+      n
+    )
+  )
     return "desparasitante";
-  if (/baytril|antibiot|antibiótico|oxitetra|penicil|ceftiofur|draxxin|sulfadim/.test(n))
+  if (
+    /baytril|antibiot|antibiótico|oxitetra|penicil|ceftiofur|draxxin|sulfadim|enroflox|tilmicos|florfenic/.test(
+      n
+    )
+  )
     return "antibiótico";
-  if (/vitamin|biotina|mineral/.test(n)) return "vitamina";
-  if (/implant/.test(n)) return "implante";
+  if (/vitamin|biotina|mineral|multifort/.test(n)) return "vitamina";
+  if (/implant|revalor/.test(n)) return "implante";
   if (/anabol/.test(n)) return "anabólico";
   // Partovet / Histaminex / Carbolina → tratamiento genérico tipo antibiótico/soporte
-  if (/partovet|histaminex|carbolina|baycox|flunixin|banamine/.test(n))
+  if (/partovet|histaminex|carbolina|baycox|flunixin|banamine|cosmo/.test(n))
     return "antibiótico";
   return "vacuna";
 }
@@ -67,13 +78,14 @@ export function extractLineasVeterinarias(texto: string): LineaVeterinaria[] {
       precioUnitario,
       total,
       tipo: classifyTipoMedicamento(nombre),
+      unidad: unidadDesdeNombreProducto(nombre),
     });
   }
 
   // Fallback: nombres sueltos sin estructura de línea completa
   if (lines.length === 0 && VET_NAME.test(texto)) {
     const named = texto.match(
-      /\d{7,8}\s*[-–]\s*[A-ZÁÉÍÓÚÑ0-9 /.%]*(?:PARTOVET|BAYTRIL|HISTAMINEX|CARBOLINA|IVERMECT|VACUN|DRAXXIN|CYDECTIN)[A-ZÁÉÍÓÚÑ0-9 /.%]*/gi
+      /\d{7,8}\s*[-–]\s*[A-ZÁÉÍÓÚÑ0-9 /.%]*(?:PARTOVET|BAYTRIL|HISTAMINEX|CARBOLINA|IVERMECT|VACUN|DRAXXIN|CYDECTIN|REVALOR|VIRBAMEC|ABAXTION|MULTIFORT|DORAMEC)[A-ZÁÉÍÓÚÑ0-9 /.%]*/gi
     );
     for (const raw of named ?? []) {
       const nombre = raw.replace(/^\d{7,8}\s*[-–]\s*/, "").trim();
@@ -86,6 +98,7 @@ export function extractLineasVeterinarias(texto: string): LineaVeterinaria[] {
         precioUnitario: 0,
         total: 0,
         tipo: classifyTipoMedicamento(nombre),
+        unidad: unidadDesdeNombreProducto(nombre),
       });
     }
   }
@@ -171,7 +184,7 @@ async function upsertMedicamento(
       codigo,
       nombre: line.nombre,
       tipo: line.tipo,
-      unidad_medida: /CC|ML|LT|GL/i.test(line.nombre) ? "ml" : "dosis",
+      unidad_medida: line.unidad || unidadDesdeNombreProducto(line.nombre),
       costo_unitario: line.precioUnitario || line.total || 0,
       activo: true,
     })

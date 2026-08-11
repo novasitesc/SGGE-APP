@@ -3,6 +3,7 @@ import { jsonError, jsonOk } from "@/lib/api/http";
 import { getEstadoIdByCodigo } from "@/lib/api/corrales-helpers";
 import { getDefaultLoteId, listOpenLotes } from "@/lib/api/animales-query";
 import { registrarHistorial } from "@/lib/api/historial-sistema";
+import { esUnidadMasa, labelUnidad } from "@/lib/api/unidades-medida";
 
 export const dynamic = "force-dynamic";
 
@@ -84,30 +85,36 @@ export async function GET(req: Request) {
     const { days: periodDays, allTime } = resolvePeriod(
       url.searchParams.get("days")
     );
+    const loteId = url.searchParams.get("loteId")?.trim() || null;
     const desde = allTime ? "1970-01-01" : periodStartIso(periodDays);
 
     const estadoActivo = await getEstadoIdByCodigo(admin, "activo");
 
+    // Cabeceras: compras PDF se mantienen a nivel granja; raciones se pueden
+    // segmentar por lote operativo.
     let cabQuery = admin
       .from("alimentaciones")
-      .select("id, fecha, turno, costo_total, observaciones")
+      .select("id, fecha, turno, costo_total, observaciones, lote_id")
       .eq("granja_id", granjaId)
       .is("deleted_at", null);
     if (!allTime) {
       cabQuery = cabQuery.gte("fecha", desde);
     }
 
+    let animalsQuery = admin
+      .from("animales")
+      .select("id", { count: "exact", head: true })
+      .eq("granja_id", granjaId)
+      .eq("estado_id", estadoActivo)
+      .is("deleted_at", null);
+    if (loteId) animalsQuery = animalsQuery.eq("lote_id", loteId);
+
     const [
       { count: activeHead },
       { data: alimentos, error: eAlimentos },
       { data: cabeceras, error: eCab },
     ] = await Promise.all([
-      admin
-        .from("animales")
-        .select("id", { count: "exact", head: true })
-        .eq("granja_id", granjaId)
-        .eq("estado_id", estadoActivo)
-        .is("deleted_at", null),
+      animalsQuery,
       admin
         .from("alimentos")
         .select("id, nombre, unidad_medida, costo_unitario")
@@ -121,13 +128,17 @@ export async function GET(req: Request) {
     if (eAlimentos) throw new Error(eAlimentos.message);
     if (eCab) throw new Error(eCab.message);
 
-    // turno=compra → ingreso de factura (NO es ración diaria).
-    const racionCabs = ((cabeceras ?? []) as CabRow[]).filter(
-      (c) => c.turno !== "compra"
-    );
-    const compraCabs = ((cabeceras ?? []) as CabRow[]).filter(
-      (c) => c.turno === "compra"
-    );
+    type CabRowLote = CabRow & { lote_id?: string | null };
+
+    // turno=compra → ingreso PDF/factura (granja, siempre visible).
+    // Raciones → consumo del lote activo (partes iguales entre animales).
+    const allCabs = (cabeceras ?? []) as CabRowLote[];
+    const compraCabs = allCabs.filter((c) => c.turno === "compra");
+    const racionCabs = allCabs.filter((c) => {
+      if (c.turno === "compra") return false;
+      if (!loteId) return true;
+      return c.lote_id === loteId || c.lote_id == null;
+    });
 
     type DetRow = {
       alimento_id: string;
@@ -218,9 +229,15 @@ export async function GET(req: Request) {
 
       const totalQty = analyzed.reduce((s, a) => s + a.qty, 0);
       const avgUnit = totalQty > 0 ? totalCost / totalQty : 0;
-      const allSingleLot = analyzed.every((a) => a.qty > 0 && a.qty <= 1.0001);
-      const hugeInventedKg = analyzed.some((a) => a.qty > 5_000);
+      const unit = catalogUnit || "kg";
+      // Solo “falta cantidad de masa” aplica a kg/sacos. ml/und/dosis no se solapan a kg.
+      const expectsMasa = esUnidadMasa(unit);
+      const allSingleLot =
+        expectsMasa && analyzed.every((a) => a.qty > 0 && a.qty <= 1.0001);
+      const hugeInventedKg =
+        expectsMasa && analyzed.some((a) => a.qty > 100_000);
       const matchesCatalogSeed =
+        expectsMasa &&
         catalogPrice > 0 &&
         catalogPrice <= 5_000 &&
         analyzed.every(
@@ -229,7 +246,7 @@ export async function GET(req: Request) {
         totalQty > 1_000;
 
       const useCompraBasis =
-        allSingleLot || hugeInventedKg || matchesCatalogSeed || avgUnit > 5_000;
+        expectsMasa && (allSingleLot || hugeInventedKg || matchesCatalogSeed);
 
       if (useCompraBasis) {
         return {
@@ -244,7 +261,7 @@ export async function GET(req: Request) {
 
       return {
         displayQty: Math.round(totalQty * 1000) / 1000,
-        displayUnit: catalogUnit || "kg",
+        displayUnit: labelUnidad(unit),
         pricePerUnit: Math.round(avgUnit * 10000) / 10000,
         priceBasis: "unit" as const,
         totalCost,
@@ -304,6 +321,7 @@ export async function GET(req: Request) {
         priceBasis = pricePerUnit > 0 ? "unit" : "none";
       }
 
+      // Raciones reales; si no hay, se completa abajo con sugerencia PDF equitativa.
       const dailyConsumption =
         racionQty > 0 && animalDays > 0
           ? Math.round((racionQty / animalDays) * 100) / 100
@@ -390,10 +408,11 @@ export async function GET(req: Request) {
         const meta = alimentoMeta.get(d.alimento_id);
         const rawQty = Number(d.cantidad) || 0;
         const costo = Math.round((Number(d.subtotal) || 0) * 100) / 100;
-        const unitPrice = rawQty > 0 ? costo / rawQty : 0;
-        // Mostrar como 1 compra si no hay kg reales (lote o kilos inventados).
+        const catalogUnit = meta?.unidad ?? "kg";
+        // Solo marcar “sin cantidad” en productos de masa (kg). Vet/ml/und no aplican.
         const asCompra =
-          rawQty <= 1.0001 || rawQty > 5_000 || unitPrice > 5_000;
+          esUnidadMasa(catalogUnit) &&
+          (rawQty <= 1.0001 || rawQty > 100_000);
         return {
           id: `${d.alimentacion_id}:${d.alimento_id}`,
           alimentacionId: d.alimentacion_id,
@@ -403,7 +422,7 @@ export async function GET(req: Request) {
           cantidad: asCompra
             ? 1
             : Math.round(rawQty * 1000) / 1000,
-          unidad: asCompra ? "compra" : meta?.unidad ?? "kg",
+          unidad: asCompra ? "compra" : labelUnidad(catalogUnit),
           costo,
           origen: origenDesdeObservaciones(cab?.observaciones),
         };
@@ -475,19 +494,24 @@ export async function GET(req: Request) {
         : null;
 
     // Stock estimado: entradas kg reales − salidas por ración.
+    // Incluye TODOS los alimentos con movimiento PDF aunque no haya raciones.
     const stockByAlimento = rows.map((r) => {
       const id = r.id as string;
       const nombre = r.nombre as string;
       const lines = compraLinesByAlimento.get(id) ?? [];
+      const catalogUnit =
+        (alimentoMeta.get(id)?.unidad as string | undefined) ?? "kg";
       let entradasKg = 0;
       let entradasCompras = 0;
+      let costoCompras = 0;
       for (const l of lines) {
         const qty = Number(l.cantidad) || 0;
         const cost = Number(l.subtotal) || 0;
-        const unitPrice = qty > 0 ? cost / qty : 0;
-        const asCompra = qty <= 1.0001 || qty > 5_000 || unitPrice > 5_000;
-        if (!asCompra) entradasKg += qty;
-        else entradasCompras += 1;
+        costoCompras += cost;
+        const asCompra =
+          esUnidadMasa(catalogUnit) && (qty <= 1.0001 || qty > 100_000);
+        if (!asCompra && esUnidadMasa(catalogUnit)) entradasKg += qty;
+        else if (asCompra) entradasCompras += 1;
       }
       const salidasKg = racionMap.get(id)?.total_cantidad ?? 0;
       const stockKg = Math.round((entradasKg - salidasKg) * 1000) / 1000;
@@ -505,8 +529,68 @@ export async function GET(req: Request) {
         stockKg,
         entradasComprasSinKg: entradasCompras,
         diasCobertura,
+        costoCompras: Math.round(costoCompras * 100) / 100,
+        desdePdf: lines.length > 0,
       };
     });
+
+    /**
+     * Porciones equitativas entre animales del lote:
+     * - Si hay raciones: kg entregados ÷ cabezas (y ÷ días con registro).
+     * - Si solo hay compras PDF con kg: sugerencia = kg comprados ÷ cabezas ÷ días del período.
+     * Los alimentos PDF siempre aparecen aunque aún no haya entregas.
+     */
+    const daysForSuggest = distinctDays > 0 ? distinctDays : Math.max(periodDays, 1);
+    const porcionesEquitativas = stockByAlimento
+      .filter(
+        (s) =>
+          s.entradasKg > 0 ||
+          s.salidasKg > 0 ||
+          s.entradasComprasSinKg > 0 ||
+          s.desdePdf
+      )
+      .map((s) => {
+        const hasRacion = s.salidasKg > 0;
+        const baseKg = hasRacion ? s.salidasKg : s.entradasKg;
+        const daysBase = hasRacion ? Math.max(distinctDays, 1) : daysForSuggest;
+        const kgPorAnimal =
+          heads > 0 && baseKg > 0
+            ? Math.round((baseKg / heads) * 1000) / 1000
+            : 0;
+        const kgPorAnimalDia =
+          heads > 0 && baseKg > 0
+            ? Math.round((baseKg / heads / daysBase) * 1000) / 1000
+            : 0;
+        const kgHatoDia =
+          heads > 0 && kgPorAnimalDia > 0
+            ? Math.round(kgPorAnimalDia * heads * 1000) / 1000
+            : 0;
+        return {
+          alimentoId: s.alimentoId,
+          nombre: s.nombre,
+          origen: hasRacion
+            ? ("racion" as const)
+            : s.entradasKg > 0
+              ? ("pdf_sugerido" as const)
+              : ("pdf_sin_kg" as const),
+          totalKg: Math.round(baseKg * 1000) / 1000,
+          animalCount: heads,
+          kgPorAnimal,
+          kgPorAnimalDia,
+          kgHatoDia,
+          stockKg: s.stockKg,
+          comprasSinKg: s.entradasComprasSinKg,
+          costoCompras: s.costoCompras,
+        };
+      })
+      .sort((a, b) => {
+        // Primero con kg útiles, luego alfabético
+        const score = (x: typeof a) =>
+          x.origen === "racion" ? 0 : x.origen === "pdf_sugerido" ? 1 : 2;
+        const d = score(a) - score(b);
+        if (d !== 0) return d;
+        return a.nombre.localeCompare(b.nombre);
+      });
 
     const purchasesWithKg = purchaseHistory.filter((p) => p.unidad !== "compra");
     const purchasesWithoutKg = purchaseHistory.filter((p) => p.unidad === "compra");
@@ -583,9 +667,9 @@ export async function GET(req: Request) {
       alerts.push({
         id: "sin-kg",
         tone: "warning",
-        title: `${purchasesWithoutKg.length} compra(s) sin kg`,
+        title: `${purchasesWithoutKg.length} compra(s) de alimento sin kg`,
         message:
-          "Sin cantidad en kg no se puede calcular ₡/kg ni stock. Edita kg en Compras o al confirmar el PDF.",
+          "Solo aplica a melaza/concentrado/maíz (masa). Productos vet (ml/dosis) van en Salud, no se convierten a kg. Completa kg en Compras o al confirmar el PDF de alimento.",
         href: "/feeding?modo=compras",
       });
     }
@@ -674,13 +758,45 @@ export async function GET(req: Request) {
         ? Math.round((racionCostPeriod / heads / distinctDays) * 100) / 100
         : 0;
 
+    // Completar feedTypes sin ración con sugerencia equitativa desde PDF.
+    if (totalDailyKg <= 0 && heads > 0) {
+      const suggestDays = Math.max(periodDays, 1);
+      for (const f of feedTypes) {
+        const stock = stockByAlimento.find((s) => s.alimentoId === f.id);
+        if (!stock || stock.entradasKg <= 0) continue;
+        f.dailyConsumption =
+          Math.round((stock.entradasKg / heads / suggestDays) * 1000) / 1000;
+        totalDailyKg += f.dailyConsumption;
+      }
+      const sumDailySuggest = feedTypes.reduce(
+        (s, f) => s + f.dailyConsumption,
+        0
+      );
+      if (sumDailySuggest > 0) {
+        for (const f of feedTypes) {
+          f.percentage =
+            Math.round((f.dailyConsumption / sumDailySuggest) * 1000) / 10;
+        }
+      }
+    }
+
+    // Si no hay raciones pero sí compras PDF con kg, el KPI kg/animal/día
+    // usa la sugerencia equitativa para no dejar el resumen vacío.
+    const suggestedDailyTotal = porcionesEquitativas
+      .filter((p) => p.origen === "pdf_sugerido")
+      .reduce((s, p) => s + p.kgPorAnimalDia, 0);
+    const effectiveDailyConsumption =
+      totalDailyKg > 0
+        ? Math.round(totalDailyKg * 100) / 100
+        : Math.round(suggestedDailyTotal * 100) / 100;
+
     return jsonOk({
       activeHeadCount: heads,
       periodDays,
       daysWithRecords: distinctDays,
       hasConsumptionRecords: detalleRacion.length > 0,
       feedTypes,
-      totalDailyConsumption: Math.round(totalDailyKg * 100) / 100,
+      totalDailyConsumption: effectiveDailyConsumption,
       purchaseCount,
       purchaseCostPeriod: Math.round(purchaseCostPeriod * 100) / 100,
       periodFrom: allTime ? null : desde,
@@ -691,6 +807,7 @@ export async function GET(req: Request) {
       deliveryHistory,
       lastDelivery,
       stockByAlimento,
+      porcionesEquitativas,
       purchasesWithKgCount: purchasesWithKg.length,
       purchasesWithoutKgCount: purchasesWithoutKg.length,
       avgCostPerKg,
@@ -702,6 +819,9 @@ export async function GET(req: Request) {
       lotes,
       racionCostPeriod,
       costPerAnimalDayRacion,
+      loteId,
+      /** Compras PDF se conservan a nivel granja aunque el lote filtre raciones. */
+      comprasCompartidasGranja: true,
     });
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Error desconocido";

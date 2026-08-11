@@ -44,6 +44,8 @@ import {
   CheckCircle2,
   Loader2,
   AlertTriangle,
+  Search,
+  X,
 } from "lucide-react";
 
 const CATEGORIAS: { code: string; label: string }[] = [
@@ -96,6 +98,11 @@ export default function ComprobantesPage() {
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [filter, setFilter] = useState<string>("todos");
+  const [search, setSearch] = useState("");
+  const [classFilter, setClassFilter] = useState<string>("todos");
+  const [categoryFilter, setCategoryFilter] = useState<string>("todos");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [review, setReview] = useState<Comprobante | null>(null);
@@ -276,9 +283,56 @@ export default function ComprobantesPage() {
   };
 
   const filtered = useMemo(() => {
-    if (filter === "todos") return items;
-    return items.filter((c) => c.status === filter);
-  }, [items, filter]);
+    const q = search.trim().toLowerCase();
+    return items.filter((c) => {
+      if (filter !== "todos" && c.status !== filter) return false;
+      if (classFilter !== "todos" && c.classification !== classFilter) {
+        return false;
+      }
+      if (
+        categoryFilter !== "todos" &&
+        (c.suggestedCategory ?? "") !== categoryFilter
+      ) {
+        return false;
+      }
+      if (dateFrom && (c.issueDate ?? "") < dateFrom) return false;
+      if (dateTo && (c.issueDate ?? "") > dateTo) return false;
+      if (!q) return true;
+      const haystack = [
+        c.fileName,
+        c.issuer,
+        c.issuerId,
+        c.folio,
+        c.clave,
+        c.docType,
+        CLASS_LABEL[c.classification] ?? c.classification,
+        c.suggestedCategory,
+        c.amount != null ? String(c.amount) : "",
+        c.amount != null ? formatCurrency(c.amount) : "",
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+      return haystack.includes(q);
+    });
+  }, [items, filter, search, classFilter, categoryFilter, dateFrom, dateTo]);
+
+  const hasActiveFilters =
+    filter !== "todos" ||
+    search.trim() !== "" ||
+    classFilter !== "todos" ||
+    categoryFilter !== "todos" ||
+    dateFrom !== "" ||
+    dateTo !== "";
+
+  const clearFilters = () => {
+    setFilter("todos");
+    setSearch("");
+    setClassFilter("todos");
+    setCategoryFilter("todos");
+    setDateFrom("");
+    setDateTo("");
+  };
 
   const stats = useMemo(() => {
     const pend = items.filter((c) => c.status === "pendiente").length;
@@ -375,18 +429,94 @@ export default function ComprobantesPage() {
 
       {/* Table */}
       <Card>
-        <CardHeader className="pb-4">
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-base">Bandeja de comprobantes</CardTitle>
+        <CardHeader className="pb-4 space-y-3">
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <div>
+              <CardTitle className="text-base">Bandeja de comprobantes</CardTitle>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                {loading
+                  ? "Cargando…"
+                  : `${filtered.length} de ${items.length} PDF(s)`}
+              </p>
+            </div>
+            {hasActiveFilters && (
+              <button
+                type="button"
+                onClick={clearFilters}
+                className="inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-lg border hover:bg-muted"
+              >
+                <X className="h-3.5 w-3.5" />
+                Limpiar filtros
+              </button>
+            )}
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-2">
+            <div className="relative sm:col-span-2 lg:col-span-2 xl:col-span-2">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+              <input
+                type="search"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Buscar archivo, emisor, folio, monto…"
+                className="w-full pl-9 pr-3 py-2 text-sm rounded-xl border bg-background focus:outline-none focus:ring-2 focus:ring-primary/30"
+                aria-label="Buscar comprobantes"
+              />
+            </div>
             <select
               value={filter}
               onChange={(e) => setFilter(e.target.value)}
-              className="px-3 py-1.5 text-sm rounded-xl border bg-background focus:outline-none focus:ring-2 focus:ring-primary/30"
+              className="px-3 py-2 text-sm rounded-xl border bg-background focus:outline-none focus:ring-2 focus:ring-primary/30"
+              aria-label="Filtrar por estado"
             >
-              <option value="todos">Todos</option>
+              <option value="todos">Todos los estados</option>
               <option value="pendiente">Pendientes</option>
               <option value="confirmado">Confirmados</option>
             </select>
+            <select
+              value={classFilter}
+              onChange={(e) => setClassFilter(e.target.value)}
+              className="px-3 py-2 text-sm rounded-xl border bg-background focus:outline-none focus:ring-2 focus:ring-primary/30"
+              aria-label="Filtrar por clasificación"
+            >
+              <option value="todos">Toda clasificación</option>
+              <option value="gasto">Gasto</option>
+              <option value="compra_ganado">Compra de ganado</option>
+              <option value="venta">Venta</option>
+              <option value="pendiente">Sin clasificar</option>
+              <option value="ignorar">Ignorado</option>
+            </select>
+            <select
+              value={categoryFilter}
+              onChange={(e) => setCategoryFilter(e.target.value)}
+              className="px-3 py-2 text-sm rounded-xl border bg-background focus:outline-none focus:ring-2 focus:ring-primary/30"
+              aria-label="Filtrar por categoría"
+            >
+              <option value="todos">Toda categoría</option>
+              {CATEGORIAS.map((c) => (
+                <option key={c.code} value={c.code}>
+                  {c.label}
+                </option>
+              ))}
+            </select>
+            <div className="grid grid-cols-2 gap-2 sm:col-span-2 lg:col-span-1 xl:col-span-1">
+              <input
+                type="date"
+                value={dateFrom}
+                onChange={(e) => setDateFrom(e.target.value)}
+                className="px-2 py-2 text-sm rounded-xl border bg-background focus:outline-none focus:ring-2 focus:ring-primary/30"
+                aria-label="Fecha desde"
+                title="Fecha desde"
+              />
+              <input
+                type="date"
+                value={dateTo}
+                onChange={(e) => setDateTo(e.target.value)}
+                className="px-2 py-2 text-sm rounded-xl border bg-background focus:outline-none focus:ring-2 focus:ring-primary/30"
+                aria-label="Fecha hasta"
+                title="Fecha hasta"
+              />
+            </div>
           </div>
         </CardHeader>
         <CardContent className="pt-0">
@@ -414,7 +544,9 @@ export default function ComprobantesPage() {
               ) : filtered.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
-                    No hay comprobantes. Sube tus primeros PDFs arriba.
+                    {items.length === 0
+                      ? "No hay comprobantes. Sube tus primeros PDFs arriba."
+                      : "Sin resultados para los filtros aplicados."}
                   </TableCell>
                 </TableRow>
               ) : (
@@ -703,7 +835,7 @@ export default function ComprobantesPage() {
                 form.categoryCode.toUpperCase() === "ALIM" && (
                   <div className="space-y-1.5 rounded-xl border border-lime-200 bg-lime-50/50 p-3">
                     <Label htmlFor="rv-alim-qty">
-                      Cantidad recibida (kg / und) — para ₡/kg real
+                      Cantidad de alimento (kg) — melaza / maíz / concentrado
                     </Label>
                     <Input
                       id="rv-alim-qty"
@@ -714,11 +846,11 @@ export default function ComprobantesPage() {
                       onChange={(e) =>
                         setForm({ ...form, cantidadAlim: e.target.value })
                       }
-                      placeholder="Ej. 12000 (kg) o deja vacío = 1 compra"
+                      placeholder="Ej. 9740 kg — solo si el PDF es alimento"
                     />
                     <p className="text-xs text-muted-foreground">
                       {form.cantidadAlimHint ||
-                        "Con cantidad se calcula el precio promedio ₡/kg. Sin ella queda ₡/compra."}
+                        "No inventes kg. Productos vet (ml, CC, dosis) no van aquí: usa categoría Veterinaria."}
                     </p>
                   </div>
                 )}
@@ -738,7 +870,7 @@ export default function ComprobantesPage() {
                           <span>
                             <span className="font-medium">{l.nombre}</span>
                             <span className="text-xs text-muted-foreground ml-2 capitalize">
-                              {l.tipo} · x{l.cantidad}
+                              {l.tipo} · {l.cantidad} {l.unidad || "und"}
                             </span>
                           </span>
                           <span className="tabular-nums font-semibold">
@@ -752,8 +884,9 @@ export default function ComprobantesPage() {
                       ))}
                     </ul>
                     <p className="text-xs text-muted-foreground">
-                      Al confirmar se crean medicamentos y tratamientos (origen
-                      PDF). Aretes / ferretería se omiten.
+                      Al confirmar se crean medicamentos en Salud con su unidad
+                      (ml, dosis, und) — no se convierten a kg. Aretes /
+                      ferretería se omiten.
                     </p>
                   </div>
                 )}

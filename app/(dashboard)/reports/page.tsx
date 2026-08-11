@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useCallback, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import {
   BarChart,
@@ -20,20 +20,31 @@ import { fetchCosts, fetchDashboard, fetchFeeding, fetchFinancialReports } from 
 import { useApiQuery } from "@/lib/hooks/useApiQuery";
 import { formatCurrency, formatCurrencyCompact, formatNumber } from "@/lib/utils";
 import { BarChart3, TrendingUp, TrendingDown, Target, Beef, DollarSign } from "lucide-react";
+import { useActiveLote } from "@/components/lotes/LoteProvider";
+import { loteLabel } from "@/lib/lotes/active-lote";
 
 export default function ReportsPage() {
+  const { loteId, lote } = useActiveLote();
+  const dashLoader = useCallback(() => fetchDashboard(loteId), [loteId]);
+  const animalsLoader = useCallback(() => fetchAnimals(loteId), [loteId]);
+
   const { data: dashboard, loading: loadingDash } = useApiQuery(
-    "dashboard",
-    fetchDashboard
+    loteId ? `dashboard:${loteId}` : "dashboard",
+    dashLoader,
+    [loteId],
+    { enabled: !!loteId }
   );
   const { data: monthlyFinancials, loading: loadingFin } = useApiQuery(
     "reports:financial",
     fetchFinancialReports
   );
   const { data: animals, loading: loadingAnimals } = useApiQuery(
-    "animals",
-    fetchAnimals
+    loteId ? `animals:${loteId}` : "animals",
+    animalsLoader,
+    [loteId],
+    { enabled: !!loteId }
   );
+  // Costos: compartidos a nivel granja (no dependen del lote).
   const { data: costs, loading: loadingCosts } = useApiQuery("costs", fetchCosts);
   const { data: feeding, loading: loadingFeed } = useApiQuery(
     "feeding",
@@ -93,7 +104,8 @@ export default function ReportsPage() {
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Reportes</h1>
         <p className="text-sm text-muted-foreground mt-0.5">
-          Análisis financiero y productivo del ciclo de engorda
+          Productividad del lote {loteLabel(lote)} · costos financieros de la
+          granja (compartidos)
         </p>
       </div>
 

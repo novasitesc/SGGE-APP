@@ -44,6 +44,7 @@ import {
   Package,
   ClipboardList,
   LayoutDashboard,
+  Users,
 } from "lucide-react";
 import { RegistrarEntregaDialog } from "@/components/feeding/RegistrarEntregaDialog";
 import {
@@ -57,6 +58,8 @@ import {
   parseModeParam,
   type FeedingMode,
 } from "@/components/feeding/feeding-utils";
+import { useActiveLote } from "@/components/lotes/LoteProvider";
+import { loteLabel } from "@/lib/lotes/active-lote";
 
 const PAGE_SIZE = 20;
 
@@ -64,6 +67,7 @@ export default function FeedingPageClient() {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const { loteId, lote, loading: loteLoading } = useActiveLote();
 
   const [mode, setMode] = useState<FeedingMode>(() =>
     parseModeParam(searchParams.get("modo"))
@@ -90,12 +94,19 @@ export default function FeedingPageClient() {
   const [qtySaving, setQtySaving] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
 
+  const feedingLoader = useCallback(
+    () => fetchFeeding(periodFilter, loteId),
+    [periodFilter, loteId]
+  );
   const feedingKey =
-    periodFilter === "all" ? "feeding:all" : `feeding:${periodFilter}`;
+    periodFilter === "all"
+      ? `feeding:all:${loteId ?? "none"}`
+      : `feeding:${periodFilter}:${loteId ?? "none"}`;
   const { data: feeding, loading, error, reload } = useApiQuery(
     feedingKey,
-    () => fetchFeeding(periodFilter),
-    [periodFilter]
+    feedingLoader,
+    [periodFilter, loteId],
+    { enabled: !!loteId || !loteLoading }
   );
 
   const reloadFeeding = async () => {
@@ -125,9 +136,13 @@ export default function FeedingPageClient() {
   const purchaseHistory = feeding?.purchaseHistory ?? [];
   const deliveryHistory = feeding?.deliveryHistory ?? [];
   const stockByAlimento = feeding?.stockByAlimento ?? [];
+  const porcionesEquitativas = feeding?.porcionesEquitativas ?? [];
   const alerts = feeding?.alerts ?? [];
   const lotes = feeding?.lotes ?? [];
   const lastDelivery = feeding?.lastDelivery ?? null;
+  const hasSuggestedPortions = porcionesEquitativas.some(
+    (p) => p.origen === "pdf_sugerido" && p.kgPorAnimalDia > 0
+  );
   const previousPurchaseCost = feeding?.previousPurchaseCost ?? 0;
   const previousCostByAlimento = feeding?.previousCostByAlimento ?? [];
   const avgCostPerKg = feeding?.avgCostPerKg ?? 0;
@@ -310,9 +325,9 @@ export default function FeedingPageClient() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Alimentación</h1>
           <p className="text-sm text-muted-foreground mt-0.5">
-            Compras, raciones y costos · {periodLabel}
+            Lote {loteLabel(lote)} · compras PDF de la granja · {periodLabel}
             {periodFrom ? ` (desde ${periodFrom})` : ""}
-            {animalCount > 0 ? ` · ${animalCount} animales activos` : ""}
+            {animalCount > 0 ? ` · ${animalCount} animales` : ""}
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -447,6 +462,10 @@ export default function FeedingPageClient() {
         lotes={lotes}
         lastDelivery={lastDelivery}
         duplicateLines={duplicateLines}
+        suggestedPortions={porcionesEquitativas.map((p) => ({
+          alimentoId: p.alimentoId,
+          kgHatoDia: p.kgHatoDia,
+        }))}
         onSuccess={() => void reloadFeeding()}
       />
 
@@ -500,11 +519,11 @@ export default function FeedingPageClient() {
                     <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5 text-amber-600" />
                     <div className="min-w-0 flex-1">
                       <p className="font-medium">
-                        {purchasesWithoutKgCount} compra(s) sin kg
+                        {purchasesWithoutKgCount} compra(s) de alimento sin kg
                       </p>
                       <p className="text-xs mt-0.5 opacity-90">
-                        Sin cantidad en kg no se calcula ₡/kg ni stock. Edita kg
-                        en Compras o al confirmar el PDF.
+                        Solo melaza/concentrado/maíz. Lo veterinario (ml/dosis)
+                        no se convierte a kg — va en Salud.
                       </p>
                     </div>
                     <div className="flex flex-col gap-1 shrink-0 items-end">
@@ -513,7 +532,7 @@ export default function FeedingPageClient() {
                         className="text-xs font-medium underline"
                         onClick={() => setModeAndReset("compras")}
                       >
-                        Editar kg
+                        Completar kg
                       </button>
                       <Link
                         href="/gestion/comprobantes"
@@ -638,14 +657,16 @@ export default function FeedingPageClient() {
                   color="lime"
                   label="kg / animal / día"
                   value={
-                    hasConsumption
-                      ? `${totalDailyConsumption.toFixed(1)} kg`
+                    totalDailyConsumption > 0
+                      ? `${totalDailyConsumption.toFixed(2)} kg`
                       : "—"
                   }
                   sub={
                     hasConsumption
                       ? `${daysWithRecords} día(s) con ración`
-                      : "Sin raciones"
+                      : hasSuggestedPortions
+                        ? "Sugerido equitativo (PDF)"
+                        : "Sin raciones"
                   }
                 />
                 <Kpi
@@ -680,9 +701,119 @@ export default function FeedingPageClient() {
 
               <Card>
                 <CardHeader className="pb-2">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <Users className="h-4 w-4 text-emerald-700" />
+                    Porciones equitativas
+                  </CardTitle>
+                  <CardDescription>
+                    Reparto en partes iguales entre {animalCount || "—"}{" "}
+                    animal(es) del lote · {periodLabel}. Los alimentos de PDF
+                    se conservan aunque aún no haya entregas registradas.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {porcionesEquitativas.filter(
+                    (p) =>
+                      alimentoFilter === "all" ||
+                      p.alimentoId === alimentoFilter
+                  ).length === 0 ? (
+                    <p className="text-sm text-muted-foreground py-8 text-center">
+                      Sin alimentos de PDF ni raciones en este período.
+                    </p>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="border-b bg-muted/30">
+                            <th className="px-3 py-2 text-left font-semibold text-muted-foreground">
+                              Producto
+                            </th>
+                            <th className="px-3 py-2 text-left font-semibold text-muted-foreground">
+                              Origen
+                            </th>
+                            <th className="px-3 py-2 text-right font-semibold text-muted-foreground">
+                              Total kg
+                            </th>
+                            <th className="px-3 py-2 text-right font-semibold text-muted-foreground">
+                              kg / animal
+                            </th>
+                            <th className="px-3 py-2 text-right font-semibold text-muted-foreground">
+                              kg / animal / día
+                            </th>
+                            <th className="px-3 py-2 text-right font-semibold text-muted-foreground">
+                              kg hato / día
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y">
+                          {porcionesEquitativas
+                            .filter(
+                              (p) =>
+                                alimentoFilter === "all" ||
+                                p.alimentoId === alimentoFilter
+                            )
+                            .map((p) => (
+                              <tr key={p.alimentoId}>
+                                <td className="px-3 py-2 font-medium">
+                                  {p.nombre}
+                                  {p.comprasSinKg > 0 && (
+                                    <span className="ml-2 text-[10px] text-amber-700">
+                                      {p.comprasSinKg} PDF sin kg
+                                    </span>
+                                  )}
+                                </td>
+                                <td className="px-3 py-2">
+                                  <span
+                                    className={[
+                                      "text-[10px] font-medium px-1.5 py-0.5 rounded-md",
+                                      p.origen === "racion"
+                                        ? "bg-emerald-50 text-emerald-800"
+                                        : p.origen === "pdf_sugerido"
+                                          ? "bg-blue-50 text-blue-800"
+                                          : "bg-amber-50 text-amber-800",
+                                    ].join(" ")}
+                                  >
+                                    {p.origen === "racion"
+                                      ? "Ración"
+                                      : p.origen === "pdf_sugerido"
+                                        ? "PDF (sugerido)"
+                                        : "PDF sin kg"}
+                                  </span>
+                                </td>
+                                <td className="px-3 py-2 text-right tabular-nums">
+                                  {p.totalKg > 0
+                                    ? `${p.totalKg.toLocaleString("es-CR")} kg`
+                                    : "—"}
+                                </td>
+                                <td className="px-3 py-2 text-right tabular-nums font-semibold">
+                                  {p.kgPorAnimal > 0
+                                    ? `${p.kgPorAnimal.toLocaleString("es-CR")} kg`
+                                    : "—"}
+                                </td>
+                                <td className="px-3 py-2 text-right tabular-nums text-emerald-700 font-semibold">
+                                  {p.kgPorAnimalDia > 0
+                                    ? `${p.kgPorAnimalDia.toLocaleString("es-CR")} kg`
+                                    : "—"}
+                                </td>
+                                <td className="px-3 py-2 text-right tabular-nums">
+                                  {p.kgHatoDia > 0
+                                    ? `${p.kgHatoDia.toLocaleString("es-CR")} kg`
+                                    : "—"}
+                                </td>
+                              </tr>
+                            ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="pb-2">
                   <CardTitle className="text-base">Stock estimado</CardTitle>
                   <CardDescription>
-                    Entradas (kg reales) − salidas por ración · {periodLabel}
+                    Entradas PDF (kg reales) − salidas por ración · {periodLabel}
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -1087,7 +1218,9 @@ export default function FeedingPageClient() {
                                         );
                                       }}
                                     >
-                                      Editar kg
+                                      {row.unidad === "compra"
+                                        ? "Completar kg"
+                                        : `Editar ${row.unidad || "cant."}`}
                                     </button>
                                   )}
                                 </td>
@@ -1118,9 +1251,16 @@ export default function FeedingPageClient() {
                   color="blue"
                   label="kg / animal / día"
                   value={
-                    hasConsumption
-                      ? `${totalDailyConsumption.toFixed(1)} kg`
+                    totalDailyConsumption > 0
+                      ? `${totalDailyConsumption.toFixed(2)} kg`
                       : "—"
+                  }
+                  sub={
+                    hasConsumption
+                      ? "Desde raciones"
+                      : hasSuggestedPortions
+                        ? "Sugerido equitativo (PDF)"
+                        : undefined
                   }
                 />
                 <Kpi
@@ -1128,7 +1268,7 @@ export default function FeedingPageClient() {
                   color="amber"
                   label="kg hato / día"
                   value={
-                    hasConsumption
+                    totalDailyConsumption > 0 && animalCount > 0
                       ? `${(totalDailyConsumption * animalCount).toFixed(0)} kg`
                       : "—"
                   }
@@ -1157,14 +1297,15 @@ export default function FeedingPageClient() {
                 />
               </div>
 
-              {!hasConsumption ? (
+              {!hasConsumption && !hasSuggestedPortions ? (
                 <div className="text-sm rounded-xl border border-dashed px-4 py-10 text-center text-muted-foreground space-y-3">
                   <p className="font-medium text-foreground">
                     Sin raciones en {periodLabel}
                   </p>
                   <p>
-                    Las compras PDF no cuentan como consumo. Registra entregas
-                    diarias para ver kg/animal.
+                    Conservamos los alimentos de PDF en Compras/Resumen. Usa
+                    “Sugerir desde PDF (equitativo)” al registrar la primera
+                    entrega para repartir en partes iguales entre animales.
                   </p>
                   <button
                     type="button"
@@ -1185,7 +1326,10 @@ export default function FeedingPageClient() {
                       Consumo diario por tipo
                     </CardTitle>
                     <CardDescription>
-                      kg/animal/día · {daysWithRecords} día(s) con observación
+                      kg/animal/día equitativo
+                      {hasConsumption
+                        ? ` · ${daysWithRecords} día(s) con ración`
+                        : " · sugerido desde compras PDF"}
                     </CardDescription>
                   </CardHeader>
                   <CardContent>
