@@ -1,6 +1,6 @@
 import { requireAdmin, requireApiContext } from "@/lib/api/auth";
 import { updateFlexible } from "@/lib/api/catalog-flexible";
-import { jsonError, jsonOk } from "@/lib/api/http";
+import { jsonError, jsonOk, jsonServerError } from "@/lib/api/http";
 import { mapTipoCorralRow } from "@/lib/api/tipos-corral-helpers";
 
 export const dynamic = "force-dynamic";
@@ -91,7 +91,6 @@ export async function PATCH(
 
     return jsonOk(mapTipoCorralRow(data));
   } catch (e) {
-    const msg = e instanceof Error ? e.message : "Error desconocido";
-    return jsonError(msg, 500);
+    return jsonServerError("tipos-corral/[id]", e);
   }
 }

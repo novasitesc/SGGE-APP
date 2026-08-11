@@ -50,12 +50,21 @@ export function isApiRoute(pathname: string): boolean {
   return matchesPrefix(pathname, SGGE_ROUTE_SECTIONS.api);
 }
 
+function redirectToLogin(request: NextRequest, pathname: string) {
+  const url = request.nextUrl.clone();
+  url.pathname = "/login";
+  url.search = "";
+  url.searchParams.set("next", pathname);
+  return NextResponse.redirect(url);
+}
+
 /**
  * Refresca la sesión Supabase Auth en cookies y aplica protección de rutas.
  * Debe invocarse solo desde `proxy.ts` (convención Next.js 16; middleware deprecado).
  *
- * Protección de rutas: activar con AUTH_PROXY_ENFORCE=true cuando el login
- * con Supabase Auth esté cableado. Sin esa flag, solo se refresca la sesión.
+ * La protección es incondicional: sin sesión válida no se sirve ninguna ruta de
+ * app ni de administración. Si falta configuración de Supabase tampoco se puede
+ * autenticar a nadie, así que esas rutas se bloquean en lugar de abrirse.
  */
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });
@@ -64,6 +73,10 @@ export async function updateSession(request: NextRequest) {
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
   if (!supabaseUrl || !supabaseAnonKey) {
+    const { pathname } = request.nextUrl;
+    if (isProtectedAppRoute(pathname)) {
+      return redirectToLogin(request, pathname);
+    }
     return supabaseResponse;
   }
 
@@ -98,11 +111,6 @@ export async function updateSession(request: NextRequest) {
     userId = data.user?.id;
   }
 
-  const enforceAuth = process.env.AUTH_PROXY_ENFORCE === "true";
-  if (!enforceAuth) {
-    return supabaseResponse;
-  }
-
   const { pathname } = request.nextUrl;
 
   // API: no redirigir (los handlers deciden auth / service role).
@@ -112,10 +120,7 @@ export async function updateSession(request: NextRequest) {
 
   // App y administración: requieren sesión.
   if (isProtectedAppRoute(pathname) && !userId) {
-    const url = request.nextUrl.clone();
-    url.pathname = "/login";
-    url.searchParams.set("next", pathname);
-    return NextResponse.redirect(url);
+    return redirectToLogin(request, pathname);
   }
 
   // Usuario autenticado no debe quedarse en login.

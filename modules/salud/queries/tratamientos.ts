@@ -120,14 +120,21 @@ async function listTratamientosLegacy(
   return (data ?? []).map((r) => mapTreatment(r as Record<string, unknown>));
 }
 
+/**
+ * Lee un tratamiento por id dentro de la granja indicada. El filtro por
+ * `granja_id` es obligatorio: sin él, un UUID válido de otra finca devolvería
+ * sus datos, y es el mismo criterio que ya aplican las mutaciones.
+ */
 export async function getTratamientoById(
   admin: SupabaseClient,
+  granjaId: string,
   id: string
 ): Promise<TreatmentRecord | null> {
   const { data, error } = await admin
     .from("tratamientos")
     .select(SELECT_TRATAMIENTO)
     .eq("id", id)
+    .eq("granja_id", granjaId)
     .is("deleted_at", null)
     .maybeSingle();
   if (error) throw new Error(error.message);

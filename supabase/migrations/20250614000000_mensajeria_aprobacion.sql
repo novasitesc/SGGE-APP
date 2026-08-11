@@ -60,12 +60,16 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_solicitudes_pendiente_unica
   ON solicitudes_aprobacion (granja_id, registro_id, tipo)
   WHERE estado = 'pendiente';
 
+-- El acceso se otorga con Supabase Auth; `password_hash` solo existe por el RPC
+-- legacy. Se siembra un hash aleatorio e inutilizable para no versionar ninguna
+-- credencial: el usuario recibe su acceso creándolo en Supabase Auth y
+-- enlazándolo con `usuarios.auth_user_id`.
 INSERT INTO usuarios (id, granja_id, email, password_hash, nombre, apellido, activo) VALUES
   (
     '44444444-4444-4444-4444-444444444444',
     'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
     'gerente@srrg.demo',
-    crypt('Gerente123!', gen_salt('bf', 12)),
+    crypt(gen_random_uuid()::text, gen_salt('bf', 12)),
     'Gerente',
     'SRRG',
     TRUE

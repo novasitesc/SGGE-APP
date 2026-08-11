@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { nextCodigoFromList } from "@/lib/modulos/codigo";
+import { ApiError } from "@/lib/api/errors";
 
 /** Si el UNIQUE antiguo aún incluye soft-deleted, libera ese código en filas borradas. */
 export async function liberarCodigoSoftDeleted(
@@ -127,7 +128,7 @@ export async function getCorralCapacity(
     .is("deleted_at", null)
     .maybeSingle();
   if (error) throw new Error(error.message);
-  if (!data) throw new Error("Corral no encontrado.");
+  if (!data) throw new ApiError("Corral no encontrado.", 404);
   return data.capacidad_maxima as number;
 }
 

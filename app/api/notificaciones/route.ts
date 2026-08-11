@@ -1,5 +1,5 @@
 import { requireApiContext } from "@/lib/api/auth";
-import { jsonError, jsonOk } from "@/lib/api/http";
+import { jsonError, jsonOk, jsonServerError } from "@/lib/api/http";
 import {
   countNotificacionesNoLeidas,
   listNotificacionesUsuario,
@@ -27,8 +27,7 @@ export async function GET(req: Request) {
 
     return jsonOk({ items, unreadCount });
   } catch (e) {
-    const msg = e instanceof Error ? e.message : "Error desconocido";
-    return jsonError(msg, 500);
+    return jsonServerError("notificaciones", e);
   }
 }
 
@@ -46,7 +45,6 @@ export async function PATCH(req: Request) {
     }
     return jsonOk({ ok: true });
   } catch (e) {
-    const msg = e instanceof Error ? e.message : "Error desconocido";
-    return jsonError(msg, 500);
+    return jsonServerError("notificaciones", e);
   }
 }

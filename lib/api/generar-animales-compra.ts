@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getSystemUserId } from "@/lib/api/granja";
+import { ApiError } from "@/lib/api/errors";
 import {
   getDefaultLoteId,
   normalizeAnimalRow,
@@ -67,7 +68,8 @@ async function getCategoriaIdByWeight(
     .eq("granja_id", granjaId)
     .is("deleted_at", null);
   if (error) throw new Error(error.message);
-  if (!cats?.length) throw new Error("No hay categorías de animales configuradas.");
+  if (!cats?.length)
+    throw new ApiError("No hay categorías de animales configuradas.", 409);
 
   const match = cats.find((c) => {
     const min = c.peso_min_kg == null ? -Infinity : Number(c.peso_min_kg);

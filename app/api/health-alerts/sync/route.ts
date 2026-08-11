@@ -1,5 +1,5 @@
 import { requireApiContext } from "@/lib/api/auth";
-import { jsonError, jsonOk } from "@/lib/api/http";
+import { jsonOk, jsonServerError } from "@/lib/api/http";
 import {
   listTratamientos,
   syncCarenciaYNotificaciones,
@@ -72,7 +72,6 @@ export async function POST(req: Request) {
       carenciaAlerts: carencia.alerts,
     });
   } catch (e) {
-    const msg = e instanceof Error ? e.message : "Error desconocido";
-    return jsonError(msg, 500);
+    return jsonServerError("health-alerts/sync", e);
   }
 }

@@ -1,5 +1,5 @@
 import { requireApiContext } from "@/lib/api/auth";
-import { jsonError, jsonOk } from "@/lib/api/http";
+import { jsonOk, jsonServerError } from "@/lib/api/http";
 import { listMedicamentos, softDeleteMedicamento } from "@/modules/salud";
 
 export const dynamic = "force-dynamic";
@@ -23,7 +23,6 @@ export async function DELETE(req: Request, ctx: Ctx) {
     );
     return jsonOk({ ok: true });
   } catch (e) {
-    const msg = e instanceof Error ? e.message : "Error desconocido";
-    return jsonError(msg, 500);
+    return jsonServerError("medicamentos/[id]", e);
   }
 }

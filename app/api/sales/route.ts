@@ -1,6 +1,6 @@
 import { isUuid } from "@/lib/api/granja";
 import { requireApiContext } from "@/lib/api/auth";
-import { jsonError, jsonOk } from "@/lib/api/http";
+import { jsonError, jsonOk, jsonServerError } from "@/lib/api/http";
 import { mapSaleRow } from "@/lib/api/mappers";
 import { ANIMAL_SELECT, normalizeAnimalRow } from "@/lib/api/animales-query";
 import { registrarVentaAnimal } from "@/lib/api/venta-animal";
@@ -102,8 +102,7 @@ export async function GET(req: Request) {
     );
     return jsonOk(merged);
   } catch (e) {
-    const msg = e instanceof Error ? e.message : "Error desconocido";
-    return jsonError(msg, 500);
+    return jsonServerError("sales", e);
   }
 }
 
@@ -200,7 +199,6 @@ export async function POST(req: Request) {
       status: 201,
     });
   } catch (e) {
-    const msg = e instanceof Error ? e.message : "Error desconocido";
-    return jsonError(msg, 500);
+    return jsonServerError("sales", e);
   }
 }

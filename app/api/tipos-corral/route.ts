@@ -4,7 +4,7 @@ import {
   insertFlexible,
   nextCatalogCodigo,
 } from "@/lib/api/catalog-flexible";
-import { jsonError, jsonOk } from "@/lib/api/http";
+import { jsonError, jsonOk, jsonServerError } from "@/lib/api/http";
 import {
   listTiposCorral,
   mapTipoCorralRow,
@@ -24,8 +24,7 @@ export async function GET(req: Request) {
     const { rows, fromDb } = await listTiposCorral(admin);
     return jsonOk({ items: rows, fromDb });
   } catch (e) {
-    const msg = e instanceof Error ? e.message : "Error desconocido";
-    return jsonError(msg, 500);
+    return jsonServerError("tipos-corral", e);
   }
 }
 
@@ -107,7 +106,6 @@ export async function POST(req: Request) {
 
     return jsonOk(mapTipoCorralRow(data), { status: 201 });
   } catch (e) {
-    const msg = e instanceof Error ? e.message : "Error desconocido";
-    return jsonError(msg, 500);
+    return jsonServerError("tipos-corral", e);
   }
 }

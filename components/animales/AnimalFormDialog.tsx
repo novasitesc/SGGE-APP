@@ -174,9 +174,8 @@ export function AnimalFormDialog({
             <div className="flex flex-col sm:flex-row sm:items-baseline sm:justify-between gap-1">
               <p className="text-sm font-medium text-emerald-900">Datos de compra</p>
               <p className="text-[11px] text-emerald-800/80">
-                {mode === "create"
-                  ? "Base para costeo y comparación con el precio de venta (₡/kg)."
-                  : "Datos de adquisición registrados al ingreso (solo lectura)."}
+                Base para costeo y comparación con el precio de venta (₡/kg). El peso de
+                compra se toma del peso inicial.
               </p>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
@@ -185,7 +184,6 @@ export function AnimalFormDialog({
                 <Select
                   id="acquisitionType"
                   value={form.acquisitionType}
-                  disabled={mode === "edit"}
                   onChange={(e) =>
                     set({ acquisitionType: e.target.value as typeof form.acquisitionType })
                   }
@@ -206,9 +204,8 @@ export function AnimalFormDialog({
                   step="0.01"
                   placeholder="52.50"
                   value={form.purchasePricePerKg}
-                  disabled={mode === "edit"}
                   onChange={(e) => set({ purchasePricePerKg: e.target.value })}
-                  required={mode === "create"}
+                  required
                 />
               </div>
               <div className="space-y-1.5">
@@ -217,7 +214,6 @@ export function AnimalFormDialog({
                   id="invoiceFolio"
                   placeholder="410756"
                   value={form.invoiceFolio}
-                  disabled={mode === "edit"}
                   onChange={(e) => set({ invoiceFolio: e.target.value })}
                 />
               </div>
@@ -227,7 +223,6 @@ export function AnimalFormDialog({
                   id="invoiceOrAuctionDate"
                   type="date"
                   value={form.invoiceOrAuctionDate}
-                  disabled={mode === "edit"}
                   onChange={(e) => set({ invoiceOrAuctionDate: e.target.value })}
                 />
               </div>
@@ -238,7 +233,6 @@ export function AnimalFormDialog({
                     id="auctionLotNumber"
                     placeholder="L-12"
                     value={form.auctionLotNumber}
-                    disabled={mode === "edit"}
                     onChange={(e) => set({ auctionLotNumber: e.target.value })}
                   />
                 </div>

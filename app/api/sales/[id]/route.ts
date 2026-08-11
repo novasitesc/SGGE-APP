@@ -1,5 +1,5 @@
 import { requireApiContext } from "@/lib/api/auth";
-import { jsonError, jsonOk } from "@/lib/api/http";
+import { jsonError, jsonOk, jsonServerError } from "@/lib/api/http";
 import { mapSaleRow } from "@/lib/api/mappers";
 import {
   actualizarVentaCabecera,
@@ -106,8 +106,7 @@ export async function PATCH(
 
     return jsonError(result.message, result.status);
   } catch (e) {
-    const msg = e instanceof Error ? e.message : "Error desconocido";
-    return jsonError(msg, 500);
+    return jsonServerError("sales/[id]", e);
   }
 }
 
@@ -132,7 +131,6 @@ export async function DELETE(
 
     return jsonError(result.message, result.status);
   } catch (e) {
-    const msg = e instanceof Error ? e.message : "Error desconocido";
-    return jsonError(msg, 500);
+    return jsonServerError("sales/[id]", e);
   }
 }

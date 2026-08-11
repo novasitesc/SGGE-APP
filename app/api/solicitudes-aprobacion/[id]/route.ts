@@ -1,6 +1,6 @@
 import { isUuid } from "@/lib/api/granja";
 import { requireApiContext } from "@/lib/api/auth";
-import { jsonError, jsonOk } from "@/lib/api/http";
+import { jsonError, jsonOk, jsonServerError } from "@/lib/api/http";
 import {
   mapSolicitudToApi,
   resolverSolicitud,
@@ -60,7 +60,6 @@ export async function PATCH(
 
     return jsonOk(mapSolicitudToApi(data));
   } catch (e) {
-    const msg = e instanceof Error ? e.message : "Error desconocido";
-    return jsonError(msg, 500);
+    return jsonServerError("solicitudes-aprobacion/[id]", e);
   }
 }

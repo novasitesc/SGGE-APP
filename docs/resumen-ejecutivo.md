@@ -83,7 +83,7 @@ La navegación entre secciones ya no “arranca en blanco” en cada visita:
 - **App móvil / offline:** no hay.
 - **Notificaciones push / WhatsApp / email:** la “mensajería” es bandeja interna de aprobaciones, no chat ni correo.
 - **Validación formal (Zod) y tipos generados de BD:** pendientes a nivel ingeniería; no bloquean el uso diario, sí la calidad a largo plazo.
-- **Protección de rutas:** activar `AUTH_PROXY_ENFORCE=true` (documentado en `.env.example`).
+- **Protección de rutas:** resuelto. El proxy protege las rutas de app y administración de forma incondicional, sin bandera de activación.
 - **Migración `tipos_corral` en remoto:** aplicar `supabase/migrations/20260803120000_tipos_corral.sql` si aún no está en producción.
 
 ---

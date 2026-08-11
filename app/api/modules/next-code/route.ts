@@ -1,6 +1,6 @@
 
 import { requireApiContext } from "@/lib/api/auth";
-import { jsonError, jsonOk } from "@/lib/api/http";
+import { jsonError, jsonOk, jsonServerError } from "@/lib/api/http";
 import { nextCodigoForTipo } from "@/lib/api/corrales-helpers";
 import { MODULE_TYPE_OPTIONS } from "@/lib/modulos/constants";
 
@@ -26,7 +26,6 @@ export async function GET(req: Request) {
     const code = await nextCodigoForTipo(admin, granjaId, tipo, excludeId);
     return jsonOk({ code });
   } catch (e) {
-    const msg = e instanceof Error ? e.message : "Error desconocido";
-    return jsonError(msg, 500);
+    return jsonServerError("modules/next-code", e);
   }
 }

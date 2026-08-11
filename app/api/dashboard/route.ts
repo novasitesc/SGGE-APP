@@ -1,6 +1,6 @@
 
 import { requireApiContext } from "@/lib/api/auth";
-import { jsonError, jsonOk } from "@/lib/api/http";
+import { jsonOk, jsonServerError } from "@/lib/api/http";
 import { mapAnimalToApi, mapSaleRow } from "@/lib/api/mappers";
 import { ANIMAL_SELECT, normalizeAnimalRow } from "@/lib/api/animales-query";
 
@@ -347,7 +347,6 @@ export async function GET(req: Request) {
       loteId,
     });
   } catch (e) {
-    const msg = e instanceof Error ? e.message : "Error desconocido";
-    return jsonError(msg, 500);
+    return jsonServerError("dashboard", e);
   }
 }

@@ -1,5 +1,5 @@
 import { requireApiContext } from "@/lib/api/auth";
-import { jsonError, jsonOk } from "@/lib/api/http";
+import { jsonError, jsonOk, jsonServerError } from "@/lib/api/http";
 import { getEstadoIdByCodigo } from "@/lib/api/corrales-helpers";
 import { getDefaultLoteId, listOpenLotes } from "@/lib/api/animales-query";
 import { registrarHistorial } from "@/lib/api/historial-sistema";
@@ -824,8 +824,7 @@ export async function GET(req: Request) {
       comprasCompartidasGranja: true,
     });
   } catch (e) {
-    const msg = e instanceof Error ? e.message : "Error desconocido";
-    return jsonError(msg, 500);
+    return jsonServerError("feeding", e);
   }
 }
 
@@ -986,8 +985,7 @@ export async function POST(req: Request) {
       { status: 201 }
     );
   } catch (e) {
-    const msg = e instanceof Error ? e.message : "Error desconocido";
-    return jsonError(msg, 500);
+    return jsonServerError("feeding", e);
   }
 }
 
@@ -1035,7 +1033,6 @@ export async function DELETE(req: Request) {
 
     return jsonOk({ id, deleted: true });
   } catch (e) {
-    const msg = e instanceof Error ? e.message : "Error desconocido";
-    return jsonError(msg, 500);
+    return jsonServerError("feeding", e);
   }
 }

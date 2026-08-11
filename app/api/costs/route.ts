@@ -1,5 +1,5 @@
 import { requireApiContext } from "@/lib/api/auth";
-import { jsonError, jsonOk } from "@/lib/api/http";
+import { jsonError, jsonOk, jsonServerError } from "@/lib/api/http";
 import { mapCostRow } from "@/lib/api/mappers";
 import {
   registrarHistorial,
@@ -78,8 +78,7 @@ export async function GET(req: Request) {
 
     return jsonOk(mapped);
   } catch (e) {
-    const msg = e instanceof Error ? e.message : "Error desconocido";
-    return jsonError(msg, 500);
+    return jsonServerError("costs", e);
   }
 }
 
@@ -148,7 +147,6 @@ export async function POST(req: Request) {
 
     return jsonOk(mapped, { status: 201 });
   } catch (e) {
-    const msg = e instanceof Error ? e.message : "Error desconocido";
-    return jsonError(msg, 500);
+    return jsonServerError("costs", e);
   }
 }

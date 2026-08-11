@@ -1,6 +1,6 @@
 
 import { requireApiContext } from "@/lib/api/auth";
-import { jsonError, jsonOk } from "@/lib/api/http";
+import { jsonError, jsonOk, jsonServerError } from "@/lib/api/http";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -44,7 +44,6 @@ export async function DELETE(
 
     return jsonOk({ id, deleted: true });
   } catch (e) {
-    const msg = e instanceof Error ? e.message : "Error desconocido";
-    return jsonError(msg, 500);
+    return jsonServerError("comprobantes/[id]", e);
   }
 }

@@ -1,6 +1,6 @@
 import { isUuid } from "@/lib/api/granja";
 import { requireApiContext } from "@/lib/api/auth";
-import { jsonError, jsonOk } from "@/lib/api/http";
+import { jsonError, jsonOk, jsonServerError } from "@/lib/api/http";
 import {
   mapHistorialToApi,
   type HistorialAccion,
@@ -115,7 +115,6 @@ export async function GET(req: Request) {
 
     return jsonOk({ items, total: count ?? items.length, limit, offset });
   } catch (e) {
-    const msg = e instanceof Error ? e.message : "Error desconocido";
-    return jsonError(msg, 500);
+    return jsonServerError("animals/history", e);
   }
 }

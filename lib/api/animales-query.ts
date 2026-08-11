@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { ApiError } from "@/lib/api/errors";
 
 export const ANIMAL_SELECT = `
   id,
@@ -91,7 +92,7 @@ export async function getDefaultCategoriaId(
     .is("deleted_at", null)
     .maybeSingle();
   if (error) throw new Error(error.message);
-  if (!data?.id) throw new Error("No existe categoría NOVI en la granja.");
+  if (!data?.id) throw new ApiError("No existe categoría NOVI en la granja.", 409);
   return data.id;
 }
 

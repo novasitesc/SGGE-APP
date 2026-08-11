@@ -1,6 +1,6 @@
 
 import { requireApiContext } from "@/lib/api/auth";
-import { jsonError, jsonOk } from "@/lib/api/http";
+import { jsonOk, jsonServerError } from "@/lib/api/http";
 import { getEstadoIdByCodigo } from "@/lib/api/corrales-helpers";
 
 export const dynamic = "force-dynamic";
@@ -101,7 +101,6 @@ export async function GET(req: Request) {
 
     return jsonOk({ weightHistory: series });
   } catch (e) {
-    const msg = e instanceof Error ? e.message : "Error desconocido";
-    return jsonError(msg, 500);
+    return jsonServerError("weights/history", e);
   }
 }

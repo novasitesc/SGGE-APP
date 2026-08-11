@@ -1,6 +1,6 @@
 import { isUuid, getSystemUserId } from "@/lib/api/granja";
 import { requireApiContext } from "@/lib/api/auth";
-import { jsonError, jsonOk } from "@/lib/api/http";
+import { jsonError, jsonOk, jsonServerError } from "@/lib/api/http";
 import { mapAnimalToApi } from "@/lib/api/mappers";
 import {
   ANIMAL_SELECT,
@@ -21,10 +21,11 @@ import {
   snapshotFromAnimalRow,
   snapshotFromApiBody,
 } from "@/lib/api/historial-animal";
-import { fetchCompraForAnimal } from "@/lib/api/compra-animal";
+import { fetchCompraForAnimal, actualizarCompraAnimal } from "@/lib/api/compra-animal";
 import { fetchActasForAnimal } from "@/lib/api/actas-animal";
 import { normalizeWeightKg } from "@/lib/api/weight-utils";
 import { upsertPesajeAnimal } from "@/lib/api/pesaje-utils";
+import type { AcquisitionType } from "@/lib/types/domain";
 
 export const dynamic = "force-dynamic";
 
@@ -60,6 +61,11 @@ type PatchBody = Partial<{
   sex: string;
   age: number;
   observaciones: string;
+  acquisitionType: AcquisitionType;
+  purchasePricePerKg: number;
+  invoiceFolio: string;
+  invoiceOrAuctionDate: string;
+  auctionLotNumber: string;
   saleDate: string;
   salePricePerKg: number;
   saleBuyer: string;
@@ -165,8 +171,7 @@ export async function GET(
       permissions: permissionsForStatus(statusCodigo, hasVenta),
     });
   } catch (e) {
-    const msg = e instanceof Error ? e.message : "Error desconocido";
-    return jsonError(msg, 500);
+    return jsonServerError("animals/[id]", e);
   }
 }
 
@@ -353,13 +358,104 @@ export async function PATCH(
       if (!pesajeResult.ok) return jsonError(pesajeResult.message, 400);
     }
 
-    const updated = normalizeAnimalRow(data as Record<string, unknown>);
+    let updated = normalizeAnimalRow(data as Record<string, unknown>);
+
+    const hasCompraUpdate =
+      body.purchasePricePerKg != null ||
+      body.acquisitionType != null ||
+      body.invoiceFolio !== undefined ||
+      body.invoiceOrAuctionDate != null ||
+      body.auctionLotNumber !== undefined;
+
+    let compraResumen = "";
+    let compraDetalleId = updated.compra_detalle_id;
+    if (hasCompraUpdate) {
+      const precioKg = body.purchasePricePerKg;
+      if (precioKg == null || precioKg < 0) {
+        return jsonError("El precio de compra por kg (₡/kg) es obligatorio.", 400);
+      }
+
+      const pesoCompraKg = normalizeWeightKg(
+        body.initialWeight ?? Number(cur.peso_inicial_kg)
+      );
+      const compraAnterior = await fetchCompraForAnimal(admin, compraDetalleId);
+
+      const compraResult = await actualizarCompraAnimal(admin, {
+        granjaId,
+        animalId: id,
+        arete: updated.arete,
+        pesoCompraKg,
+        precioKg,
+        fechaCompra:
+          body.invoiceOrAuctionDate ??
+          compraAnterior?.purchaseDate ??
+          updated.fecha_ingreso,
+        tipoAdquisicion:
+          body.acquisitionType ??
+          (compraAnterior?.acquisitionType as AcquisitionType | undefined) ??
+          "particular",
+        folio: body.invoiceFolio ?? compraAnterior?.folio,
+        loteSubasta:
+          body.auctionLotNumber !== undefined
+            ? body.auctionLotNumber
+            : compraAnterior?.auctionLotNumber,
+        compraDetalleId,
+      });
+      if (!compraResult.ok) {
+        return jsonError(compraResult.message, compraResult.status);
+      }
+
+      compraDetalleId = compraResult.detalleId;
+      if (compraDetalleId !== updated.compra_detalle_id) {
+        const { data: refreshed } = await admin
+          .from("animales")
+          .select(ANIMAL_SELECT)
+          .eq("id", id)
+          .single();
+        if (refreshed) {
+          updated = normalizeAnimalRow(refreshed as Record<string, unknown>);
+        }
+      }
+
+      const costoTotal = Math.round(pesoCompraKg * precioKg * 100) / 100;
+      const partesCompra: string[] = [];
+      if (
+        compraAnterior &&
+        Number(compraAnterior.pricePerKg) !== Number(precioKg)
+      ) {
+        partesCompra.push(
+          `Precio compra/kg: ₡${compraAnterior.pricePerKg} → ₡${precioKg}`
+        );
+      } else if (!compraAnterior) {
+        partesCompra.push(`Precio compra/kg: ₡${precioKg}`);
+      }
+      if (
+        compraAnterior &&
+        Number(compraAnterior.purchaseWeightKg) !== Number(pesoCompraKg)
+      ) {
+        partesCompra.push(
+          `Peso compra: ${compraAnterior.purchaseWeightKg} kg → ${pesoCompraKg} kg`
+        );
+      }
+      if (partesCompra.length > 0) {
+        compraResumen = `${partesCompra.join(" · ")} (total ₡${costoTotal})`;
+      } else if (compraAnterior) {
+        compraResumen = `Datos de compra actualizados (total ₡${costoTotal})`;
+      }
+    }
+
     const snapNuevo = snapshotFromAnimalRow(updated);
     const cambiosParcial = snapshotFromApiBody(body);
-    const resumen = buildCambiosResumen(snapAnterior, {
+    const resumenBase = buildCambiosResumen(snapAnterior, {
       ...cambiosParcial,
       pesoActualKg: body.currentWeight ?? snapAnterior.pesoActualKg,
     });
+    const resumen =
+      compraResumen && resumenBase === "Modificación registrada."
+        ? compraResumen
+        : compraResumen
+          ? `${resumenBase} · ${compraResumen}`
+          : resumenBase;
 
     await registrarHistorialAnimal(admin, {
       granjaId,
@@ -371,10 +467,10 @@ export async function PATCH(
       datosNuevos: snapNuevo,
     });
 
-    return jsonOk(mapAnimalToApi(updated));
+    const purchase = await fetchCompraForAnimal(admin, compraDetalleId);
+    return jsonOk(mapAnimalToApi(updated, purchase));
   } catch (e) {
-    const msg = e instanceof Error ? e.message : "Error desconocido";
-    return jsonError(msg, 500);
+    return jsonServerError("animals/[id]", e);
   }
 }
 

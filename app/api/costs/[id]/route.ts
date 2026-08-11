@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { requireApiContext } from "@/lib/api/auth";
-import { jsonError, jsonOk } from "@/lib/api/http";
+import { jsonError, jsonOk, jsonServerError } from "@/lib/api/http";
 import { mapCostRow, type CostRowExtras } from "@/lib/api/mappers";
 import {
   registrarHistorial,
@@ -121,8 +121,7 @@ export async function PATCH(
 
     return jsonOk(mapped);
   } catch (e) {
-    const msg = e instanceof Error ? e.message : "Error desconocido";
-    return jsonError(msg, 500);
+    return jsonServerError("costs/[id]", e);
   }
 }
 
@@ -181,7 +180,6 @@ export async function DELETE(
 
     return new Response(null, { status: 204 });
   } catch (e) {
-    const msg = e instanceof Error ? e.message : "Error desconocido";
-    return jsonError(msg, 500);
+    return jsonServerError("costs/[id]", e);
   }
 }
