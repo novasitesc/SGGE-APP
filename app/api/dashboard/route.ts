@@ -284,6 +284,11 @@ export async function GET(req: Request) {
       COMB: "Combustible",
       MANT: "Mantenimiento",
       SERV: "Servicios",
+      SPUB: "Servicios públicos",
+      POL: "Pólizas",
+      CCSS: "CCSS",
+      SAL: "Salarios",
+      VIAT: "Viáticos",
       OTRO: "Otros",
     };
     const colors: Record<string, string> = {
@@ -294,6 +299,11 @@ export async function GET(req: Request) {
       Combustible: "#d97706",
       Mantenimiento: "#64748b",
       Servicios: "#0891b2",
+      "Servicios públicos": "#0369a1",
+      Pólizas: "#4338ca",
+      CCSS: "#0f766e",
+      Salarios: "#1d4ed8",
+      Viáticos: "#a21caf",
       Otros: "#6b7280",
     };
     const costsByCategoryMap = new Map<string, number>();

@@ -97,7 +97,22 @@ export const EMISORES_CONOCIDOS: Record<string, EmisorConocido> = {
   "4000001902": {
     nombre: "Instituto Nacional de Seguros (INS)",
     tipo: "gasto",
-    categoria: "OTRO",
+    categoria: "POL",
+  },
+  "4000042147": {
+    nombre: "Caja Costarricense de Seguro Social",
+    tipo: "gasto",
+    categoria: "CCSS",
+  },
+  "4000002626": {
+    nombre: "Instituto Costarricense de Electricidad (ICE)",
+    tipo: "gasto",
+    categoria: "SPUB",
+  },
+  "4000042139": {
+    nombre: "Instituto Costarricense de Acueductos y Alcantarillados (AyA)",
+    tipo: "gasto",
+    categoria: "SPUB",
   },
   "3101533933": {
     nombre: "Seis Hermanos Herresal S.A.",

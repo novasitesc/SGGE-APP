@@ -16,6 +16,13 @@ import { fetchHistorial } from "@/lib/api/historial-client";
 import { fetchPendingSolicitudesCount } from "@/lib/api/solicitudes-client";
 import { fetchComprobantes } from "@/lib/api/comprobantes-client";
 import {
+  fetchAportesCcss,
+  fetchPolizas,
+  fetchSalarios,
+  fetchServiciosPublicos,
+  fetchViaticos,
+} from "@/lib/api/obligaciones-client";
+import {
   Beef,
   Grid3X3,
   DollarSign,
@@ -33,6 +40,11 @@ import {
   ArrowDownWideNarrow,
   ArrowUpWideNarrow,
   LayoutGrid,
+  Zap,
+  Shield,
+  Building2,
+  Wallet,
+  MapPin,
   type LucideIcon,
 } from "lucide-react";
 import { usePendingSolicitudesCount } from "@/components/mensajeria/MensajeriaGerente";
@@ -51,6 +63,11 @@ interface SectionCounts {
   feedTypes: number;
   comprobantes: number;
   mensajeria: number;
+  serviciosPublicos: number;
+  polizas: number;
+  ccss: number;
+  salarios: number;
+  viaticos: number;
 }
 
 type CountKey = keyof SectionCounts | "health";
@@ -179,6 +196,56 @@ const sections: GestionSection[] = [
     badge: "Nuevo",
   },
   {
+    href: "/gestion/servicios-publicos",
+    icon: Zap,
+    label: "Servicios públicos",
+    description: "Recibos ICE, AyA, telecom e internet alineados a Costos.",
+    color: "border-sky-200 hover:border-sky-400 hover:bg-sky-50/50",
+    iconBg: "bg-sky-100 text-sky-800",
+    countKey: "serviciosPublicos",
+    group: "Finanzas",
+  },
+  {
+    href: "/gestion/polizas",
+    icon: Shield,
+    label: "Pólizas",
+    description: "INS y primas: riesgos del trabajo, vehículos y otras coberturas.",
+    color: "border-indigo-200 hover:border-indigo-400 hover:bg-indigo-50/50",
+    iconBg: "bg-indigo-100 text-indigo-800",
+    countKey: "polizas",
+    group: "Finanzas",
+  },
+  {
+    href: "/gestion/ccss",
+    icon: Building2,
+    label: "Caja costarricense del seguro social",
+    description: "Cuotas obrero-patronales por período (planilla CCSS).",
+    color: "border-teal-200 hover:border-teal-400 hover:bg-teal-50/50",
+    iconBg: "bg-teal-100 text-teal-800",
+    countKey: "ccss",
+    group: "Finanzas",
+  },
+  {
+    href: "/gestion/salarios",
+    icon: Wallet,
+    label: "Salarios",
+    description: "Planilla y pagos de personal. Los jornales sueltos siguen en Costos (MO).",
+    color: "border-blue-200 hover:border-blue-400 hover:bg-blue-50/50",
+    iconBg: "bg-blue-100 text-blue-800",
+    countKey: "salarios",
+    group: "Finanzas",
+  },
+  {
+    href: "/gestion/viaticos",
+    icon: MapPin,
+    label: "Viáticos",
+    description: "Desplazamientos del personal con destino, motivo y monto.",
+    color: "border-fuchsia-200 hover:border-fuchsia-400 hover:bg-fuchsia-50/50",
+    iconBg: "bg-fuchsia-100 text-fuchsia-800",
+    countKey: "viaticos",
+    group: "Finanzas",
+  },
+  {
     href: "/gestion/mensajeria",
     icon: MessageSquare,
     label: "Autorizaciones",
@@ -302,6 +369,11 @@ export default function GestionPage() {
       fetchHistorial({ modulo: "animales", limit: 1 }),
       fetchPendingSolicitudesCount(),
       fetchComprobantes(),
+      fetchServiciosPublicos(),
+      fetchPolizas(),
+      fetchAportesCcss(),
+      fetchSalarios(),
+      fetchViaticos(),
     ]);
 
     const value = <T,>(i: number, fallback: T): T => {
@@ -321,6 +393,11 @@ export default function GestionPage() {
     const historialAnimales = value(9, { total: 0 });
     const mensajeria = value(10, 0);
     const comprobantes = value(11, [] as Awaited<ReturnType<typeof fetchComprobantes>>);
+    const serviciosPublicos = value(12, [] as Awaited<ReturnType<typeof fetchServiciosPublicos>>);
+    const polizas = value(13, [] as Awaited<ReturnType<typeof fetchPolizas>>);
+    const ccss = value(14, [] as Awaited<ReturnType<typeof fetchAportesCcss>>);
+    const salarios = value(15, [] as Awaited<ReturnType<typeof fetchSalarios>>);
+    const viaticos = value(16, [] as Awaited<ReturnType<typeof fetchViaticos>>);
 
     setCounts({
       animals: animals.length,
@@ -335,6 +412,11 @@ export default function GestionPage() {
       historialAnimales: historialAnimales.total,
       comprobantes: comprobantes.length,
       mensajeria,
+      serviciosPublicos: serviciosPublicos.length,
+      polizas: polizas.length,
+      ccss: ccss.length,
+      salarios: salarios.length,
+      viaticos: viaticos.length,
     });
     void refreshMensajes();
   }, [refreshMensajes]);
