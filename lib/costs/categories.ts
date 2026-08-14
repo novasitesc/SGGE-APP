@@ -1,6 +1,7 @@
 /**
  * Categorías de gasto unificadas (códigos DB ↔ claves UI ↔ labels).
- * Los códigos de `categorias_gastos` son: ALIM, COMB, MANT, SERV, TRANS, MO, VET, OTRO.
+ * Códigos de `categorias_gastos`: ALIM, COMB, MANT, SERV, TRANS, MO, VET,
+ * SPUB, POL, CCSS, SAL, VIAT, OTRO.
  */
 
 export type CostCategoryKey =
@@ -12,6 +13,11 @@ export type CostCategoryKey =
   | "mano_de_obra"
   | "vacunas"
   | "medicamentos"
+  | "servicios_publicos"
+  | "polizas"
+  | "ccss"
+  | "salarios"
+  | "viaticos"
   | "otros";
 
 /** Código DB → clave UI estable. */
@@ -23,8 +29,12 @@ const CODIGO_TO_KEY: Record<string, CostCategoryKey> = {
   TRANS: "transporte",
   MO: "mano_de_obra",
   VET: "vacunas",
+  SPUB: "servicios_publicos",
+  POL: "polizas",
+  CCSS: "ccss",
+  SAL: "salarios",
+  VIAT: "viaticos",
   OTRO: "otros",
-  // aliases por si llega en minúsculas
   alim: "alimentación",
   comb: "combustible",
   mant: "mantenimiento",
@@ -32,6 +42,11 @@ const CODIGO_TO_KEY: Record<string, CostCategoryKey> = {
   trans: "transporte",
   mo: "mano_de_obra",
   vet: "vacunas",
+  spub: "servicios_publicos",
+  pol: "polizas",
+  ccss: "ccss",
+  sal: "salarios",
+  viat: "viaticos",
   otro: "otros",
   otros: "otros",
   alimentación: "alimentación",
@@ -43,6 +58,10 @@ const CODIGO_TO_KEY: Record<string, CostCategoryKey> = {
   mano_de_obra: "mano_de_obra",
   vacunas: "vacunas",
   medicamentos: "medicamentos",
+  servicios_publicos: "servicios_publicos",
+  polizas: "polizas",
+  salarios: "salarios",
+  viaticos: "viaticos",
 };
 
 export const COST_CATEGORY_LABEL: Record<CostCategoryKey, string> = {
@@ -54,6 +73,11 @@ export const COST_CATEGORY_LABEL: Record<CostCategoryKey, string> = {
   mano_de_obra: "Mano de Obra",
   vacunas: "Veterinaria",
   medicamentos: "Medicamentos",
+  servicios_publicos: "Servicios públicos",
+  polizas: "Pólizas",
+  ccss: "CCSS",
+  salarios: "Salarios",
+  viaticos: "Viáticos",
   otros: "Otros",
 };
 
@@ -66,6 +90,11 @@ export const COST_CATEGORY_COLOR: Record<CostCategoryKey, string> = {
   mano_de_obra: "bg-blue-100 text-blue-700",
   vacunas: "bg-purple-100 text-purple-700",
   medicamentos: "bg-red-100 text-red-700",
+  servicios_publicos: "bg-sky-100 text-sky-800",
+  polizas: "bg-indigo-100 text-indigo-800",
+  ccss: "bg-teal-100 text-teal-800",
+  salarios: "bg-blue-100 text-blue-800",
+  viaticos: "bg-fuchsia-100 text-fuchsia-800",
   otros: "bg-slate-100 text-slate-600",
 };
 
@@ -78,6 +107,11 @@ export const COST_CATEGORY_CHART_COLOR: Record<string, string> = {
   "Mano de Obra": "#2563eb",
   Veterinaria: "#7c3aed",
   Medicamentos: "#dc2626",
+  "Servicios públicos": "#0369a1",
+  Pólizas: "#4338ca",
+  CCSS: "#0f766e",
+  Salarios: "#1d4ed8",
+  Viáticos: "#a21caf",
   Otros: "#6b7280",
 };
 
@@ -105,8 +139,13 @@ export const COST_FORM_CATEGORY_KEYS: CostCategoryKey[] = [
   "combustible",
   "mantenimiento",
   "servicios",
+  "servicios_publicos",
   "transporte",
   "mano_de_obra",
+  "salarios",
+  "viaticos",
+  "polizas",
+  "ccss",
   "vacunas",
   "otros",
 ];
@@ -122,6 +161,11 @@ export const CATEGORIA_CODIGO_MAP: Record<string, string> = {
   vacunas: "VET",
   medicamentos: "VET",
   servicios: "SERV",
+  servicios_publicos: "SPUB",
+  polizas: "POL",
+  ccss: "CCSS",
+  salarios: "SAL",
+  viaticos: "VIAT",
   otros: "OTRO",
   alim: "ALIM",
   comb: "COMB",
@@ -130,6 +174,10 @@ export const CATEGORIA_CODIGO_MAP: Record<string, string> = {
   mo: "MO",
   vet: "VET",
   serv: "SERV",
+  spub: "SPUB",
+  pol: "POL",
+  sal: "SAL",
+  viat: "VIAT",
   otro: "OTRO",
 };
 

@@ -60,6 +60,11 @@ export type CostCategory =
   | "mano_de_obra"
   | "servicios"
   | "medicamentos"
+  | "servicios_publicos"
+  | "polizas"
+  | "ccss"
+  | "salarios"
+  | "viaticos"
   | "otros";
 
 export type CostSource = "manual" | "comprobante";

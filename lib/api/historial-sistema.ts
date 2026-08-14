@@ -8,7 +8,12 @@ export type HistorialModulo =
   | "costos"
   | "alimentacion"
   | "salud"
-  | "contabilidad";
+  | "contabilidad"
+  | "servicios_publicos"
+  | "polizas"
+  | "ccss"
+  | "salarios"
+  | "viaticos";
 
 export type HistorialAccion =
   | "crear"
@@ -26,6 +31,11 @@ export const MODULO_LABELS: Record<HistorialModulo, string> = {
   alimentacion: "Alimentación",
   salud: "Salud",
   contabilidad: "Contabilidad",
+  servicios_publicos: "Servicios públicos",
+  polizas: "Pólizas",
+  ccss: "CCSS",
+  salarios: "Salarios",
+  viaticos: "Viáticos",
 };
 
 export type RegistrarHistorialInput = {

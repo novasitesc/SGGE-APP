@@ -7,6 +7,12 @@ import {
   snapshotGasto,
 } from "@/lib/api/historial-sistema";
 import { resolveCategoriaCodigo } from "@/lib/costs/categories";
+import {
+  anularDominioPorGasto,
+  actualizarDominioPorGasto,
+  OBLIGACION_CODIGOS,
+  sincronizarObligacionDesdeGasto,
+} from "@/modules/obligaciones";
 
 export const dynamic = "force-dynamic";
 
@@ -119,6 +125,26 @@ export async function PATCH(
       }),
     });
 
+    if (body.category != null) {
+      await anularDominioPorGasto(admin, granjaId, id);
+      const newCode = resolveCategoriaCodigo(body.category).toUpperCase();
+      if ((OBLIGACION_CODIGOS as readonly string[]).includes(newCode)) {
+        await sincronizarObligacionDesdeGasto(admin, newCode, {
+          granjaId,
+          gastoId: id,
+          fecha: mapped.date,
+          monto: mapped.amount,
+          concepto: mapped.description,
+        });
+      }
+    } else {
+      await actualizarDominioPorGasto(admin, granjaId, id, {
+        fecha: mapped.date,
+        concepto: mapped.description,
+        monto: mapped.amount,
+      });
+    }
+
     return jsonOk(mapped);
   } catch (e) {
     return jsonServerError("costs/[id]", e);
@@ -153,6 +179,8 @@ export async function DELETE(
       fecha: current.fecha,
       categoria: (cat as { nombre?: string })?.nombre,
     });
+
+    await anularDominioPorGasto(admin, granjaId, id);
 
     const { error } = await admin
       .from("gastos")

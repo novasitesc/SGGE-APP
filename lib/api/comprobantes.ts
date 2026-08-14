@@ -17,6 +17,10 @@ import {
   registrarHistorial,
   snapshotVenta,
 } from "@/lib/api/historial-sistema";
+import {
+  OBLIGACION_CODIGOS,
+  sincronizarObligacionDesdeGasto,
+} from "@/modules/obligaciones";
 
 const BUCKET = "comprobantes";
 
@@ -576,6 +580,24 @@ async function confirmarComoGasto(
       } catch {
         // El gasto ya quedó; reintentar con scripts/backfill-vet-salud.ts
       }
+    }
+  }
+
+  const catCode = data.categoryCode.toUpperCase();
+  if ((OBLIGACION_CODIGOS as readonly string[]).includes(catCode)) {
+    try {
+      await sincronizarObligacionDesdeGasto(admin, catCode, {
+        granjaId,
+        gastoId: gasto.id,
+        fecha: data.issueDate,
+        monto: data.amount,
+        concepto,
+        emisorNombre: data.issuer ?? row.emisor_nombre,
+        comprobanteId: row.id,
+        texto: textoPdf,
+      });
+    } catch {
+      // El gasto ya quedó; completar la sección a mano si hace falta.
     }
   }
 

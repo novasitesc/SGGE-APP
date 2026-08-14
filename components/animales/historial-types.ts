@@ -94,4 +94,9 @@ export const MODULO_ICONS: Record<HistorialModulo, string> = {
   alimentacion: "wheat",
   salud: "heart",
   contabilidad: "ledger",
+  servicios_publicos: "zap",
+  polizas: "shield",
+  ccss: "building",
+  salarios: "wallet",
+  viaticos: "map",
 };

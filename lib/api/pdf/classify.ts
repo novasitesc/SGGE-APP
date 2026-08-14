@@ -57,6 +57,40 @@ const CATEGORIA_RULES: CategoriaRule[] = [
   ] },
   { codigo: "MANT", keywords: ["cemento", "varilla", "arena", "soldadura", "hierro", "materiales", "ferreter", "contenedor", "esquivel", "tornillo", "pintura", "tuberia", "tubería", "lubricentro", "repuesto", "motosierra", "disco", "angular", "platina"] },
   { codigo: "TRANS", keywords: ["transporte", "flete", "acarreo", "porteo"] },
+  {
+    codigo: "POL",
+    keywords: [
+      "póliza",
+      "poliza",
+      "riesgos del trabajo",
+      "instituto nacional de seguros",
+      "prima de seguro",
+    ],
+  },
+  {
+    codigo: "CCSS",
+    keywords: [
+      "ccss",
+      "caja costarricense",
+      "cuota obrero",
+      "cuota obrero-patronal",
+      "seguro social",
+    ],
+  },
+  {
+    codigo: "SPUB",
+    keywords: [
+      "instituto costarricense de electricidad",
+      "acueductos y alcantarillados",
+      "compañía nacional de fuerza",
+      "cnel",
+      "kolbi",
+      "recibo de electricidad",
+      "recibo de agua",
+    ],
+  },
+  { codigo: "SAL", keywords: ["planilla", "salario", "sueldo", "aguinaldo"] },
+  { codigo: "VIAT", keywords: ["viático", "viatico", "viáticos", "viaticos"] },
   { codigo: "SERV", keywords: ["contabilidad", "honorarios", "servicios profesionales", "asesoria", "asesoría", "legal", "auditoria", "auditoría"] },
 ];
 
