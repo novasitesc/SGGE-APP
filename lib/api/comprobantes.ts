@@ -20,6 +20,13 @@ import {
 import {
   OBLIGACION_CODIGOS,
   sincronizarObligacionDesdeGasto,
+  extractNumeroPoliza,
+  extractPeriodoCcss,
+  inferTipoPoliza,
+  inferTipoServicioPublico,
+  formatPeriodoLabel,
+  type ObligacionConfirmExtras,
+  type ObligacionHints,
 } from "@/modules/obligaciones";
 
 const BUCKET = "comprobantes";
@@ -87,6 +94,8 @@ export type ComprobanteApi = {
   cantidadAlimSugerida?: CantidadAlimDetectada | null;
   /** Líneas veterinarias detectadas en el PDF (para Salud). */
   lineasVetSugeridas?: LineaVeterinaria[] | null;
+  /** Sugerencias para vincular el PDF a pólizas, CCSS, salarios, etc. */
+  obligacionHints?: ObligacionHints | null;
 };
 
 export const COMPROBANTE_SELECT =
@@ -167,6 +176,26 @@ export async function mapComprobanteToApi(
     parseReason: extras.parseReason,
     cantidadAlimSugerida: extras.cantidadAlimSugerida,
     lineasVetSugeridas: lineasVet,
+    obligacionHints: buildObligacionHints(
+      extras.texto || row.texto_extraido || "",
+      row.emisor_nombre,
+      row.fecha_emision
+    ),
+  };
+}
+
+function buildObligacionHints(
+  texto: string,
+  emisorNombre: string | null,
+  fechaEmision: string | null
+): ObligacionHints {
+  const fecha = fechaEmision || new Date().toISOString().slice(0, 10);
+  const periodo = extractPeriodoCcss(texto, fecha);
+  return {
+    tipoServicio: inferTipoServicioPublico(texto, emisorNombre),
+    numeroPoliza: extractNumeroPoliza(texto),
+    tipoPoliza: inferTipoPoliza(texto),
+    periodoCcssMes: formatPeriodoLabel(periodo),
   };
 }
 
@@ -361,6 +390,8 @@ export type ConfirmInput = {
   description?: string | null;
   /** Kg/und reales de la compra ALIM (manual o sugerido del PDF). */
   cantidadAlim?: number | null;
+  /** Datos de negocio al vincular el PDF a SPUB/POL/CCSS/SAL/VIAT. */
+  obligacion?: ObligacionConfirmExtras | null;
   // Para compra de ganado
   totalWeightKg?: number | null;
   tipoAdquisicion?: "subasta" | "particular" | "contrato";
@@ -431,6 +462,7 @@ export async function confirmComprobante(
       categoryCode: input.categoryCode ?? row.categoria_sugerida ?? "OTRO",
       description: input.description,
       cantidadAlim: input.cantidadAlim ?? null,
+      obligacion: input.obligacion ?? null,
     });
   }
 
@@ -499,6 +531,7 @@ async function confirmarComoGasto(
     categoryCode: string;
     description?: string | null;
     cantidadAlim?: number | null;
+    obligacion?: ObligacionConfirmExtras | null;
   }
 ): Promise<ConfirmResult> {
   const { data: categoria, error: eCat } = await admin
@@ -595,6 +628,20 @@ async function confirmarComoGasto(
         emisorNombre: data.issuer ?? row.emisor_nombre,
         comprobanteId: row.id,
         texto: textoPdf,
+        tipoServicio: data.obligacion?.tipoServicio,
+        numeroCuenta: data.obligacion?.numeroCuenta,
+        periodoInicio: data.obligacion?.periodoInicio,
+        periodoFin: data.obligacion?.periodoFin,
+        numeroPoliza: data.obligacion?.numeroPoliza,
+        tipoPoliza: data.obligacion?.tipoPoliza,
+        polizaId: data.obligacion?.polizaId,
+        periodoCcss: data.obligacion?.periodoCcss,
+        tipoAporte: data.obligacion?.tipoAporte,
+        empleadoId: data.obligacion?.empleadoId,
+        empleadoNombre: data.obligacion?.empleadoNombre,
+        tipoSalario: data.obligacion?.tipoSalario,
+        destino: data.obligacion?.destino,
+        motivo: data.obligacion?.motivo,
       });
     } catch {
       // El gasto ya quedó; completar la sección a mano si hace falta.

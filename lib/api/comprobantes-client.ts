@@ -53,6 +53,12 @@ export type Comprobante = {
   parseReason?: string | null;
   cantidadAlimSugerida?: CantidadAlimSugerida | null;
   lineasVetSugeridas?: LineaVetSugerida[] | null;
+  obligacionHints?: {
+    tipoServicio: string;
+    numeroPoliza: string | null;
+    tipoPoliza: string;
+    periodoCcssMes: string | null;
+  } | null;
 };
 
 export type UploadResult = {
@@ -85,6 +91,23 @@ export type ConfirmPayload = {
   cantidadAlim?: number | null;
   totalWeightKg?: number | null;
   buyer?: string | null;
+  /** Vincular el PDF a servicios públicos, pólizas, CCSS, salarios o viáticos. */
+  obligacion?: {
+    tipoServicio?: string | null;
+    numeroCuenta?: string | null;
+    periodoInicio?: string | null;
+    periodoFin?: string | null;
+    numeroPoliza?: string | null;
+    tipoPoliza?: string | null;
+    polizaId?: string | null;
+    periodoCcss?: string | null;
+    tipoAporte?: string | null;
+    empleadoId?: string | null;
+    empleadoNombre?: string | null;
+    tipoSalario?: string | null;
+    destino?: string | null;
+    motivo?: string | null;
+  } | null;
 };
 
 export async function confirmComprobante(

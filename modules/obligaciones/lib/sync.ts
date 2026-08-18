@@ -1,11 +1,60 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { ObligacionCodigo } from "../types/obligaciones.types";
+import type {
+  ObligacionCodigo,
+  TipoAporteCcss,
+  TipoPoliza,
+  TipoSalario,
+  TipoServicioPublico,
+} from "../types/obligaciones.types";
 import {
   extractNumeroPoliza,
   extractPeriodoCcss,
   inferTipoPoliza,
   inferTipoServicioPublico,
 } from "./parse-text";
+
+const TIPOS_SERVICIO: readonly string[] = [
+  "electricidad",
+  "agua",
+  "telecomunicaciones",
+  "internet",
+  "otro",
+];
+const TIPOS_POLIZA: readonly string[] = [
+  "riesgos_trabajo",
+  "vehiculo",
+  "ganadero",
+  "incendio",
+  "otro",
+];
+const TIPOS_APORTE: readonly string[] = [
+  "cuota_obrero_patronal",
+  "ivm",
+  "sem",
+  "otro",
+];
+const TIPOS_SALARIO: readonly string[] = [
+  "ordinario",
+  "extraordinario",
+  "aguinaldo",
+  "liquidacion",
+  "otro",
+];
+
+function asTipo<T extends string>(raw: string | null | undefined, allowed: readonly string[], fallback: T): T {
+  const v = raw?.trim();
+  return v && allowed.includes(v) ? (v as T) : fallback;
+}
+
+function normalizePeriodoCcss(
+  raw: string | null | undefined,
+  texto: string,
+  fecha: string
+): string {
+  const compact = (raw ?? "").replace("-", "").trim();
+  if (/^\d{6}$/.test(compact)) return compact;
+  return extractPeriodoCcss(texto, fecha);
+}
 
 export type SyncGastoInput = {
   granjaId: string;
@@ -16,6 +65,20 @@ export type SyncGastoInput = {
   emisorNombre?: string | null;
   comprobanteId?: string | null;
   texto?: string;
+  tipoServicio?: string | null;
+  numeroCuenta?: string | null;
+  periodoInicio?: string | null;
+  periodoFin?: string | null;
+  numeroPoliza?: string | null;
+  tipoPoliza?: string | null;
+  polizaId?: string | null;
+  periodoCcss?: string | null;
+  tipoAporte?: string | null;
+  empleadoId?: string | null;
+  empleadoNombre?: string | null;
+  tipoSalario?: string | null;
+  destino?: string | null;
+  motivo?: string | null;
 };
 
 async function alreadyLinked(
@@ -39,12 +102,19 @@ export async function sincronizarServicioPublicoDesdeGasto(
 ): Promise<void> {
   if (await alreadyLinked(admin, "servicios_publicos", input.gastoId)) return;
   const texto = input.texto ?? input.concepto;
-  const tipo = inferTipoServicioPublico(texto, input.emisorNombre ?? null);
+  const tipo = asTipo<TipoServicioPublico>(
+    input.tipoServicio,
+    TIPOS_SERVICIO,
+    inferTipoServicioPublico(texto, input.emisorNombre ?? null)
+  );
   const proveedor = (input.emisorNombre ?? "Servicio público").slice(0, 120);
   const { error } = await admin.from("servicios_publicos").insert({
     granja_id: input.granjaId,
     tipo,
     proveedor,
+    numero_cuenta: input.numeroCuenta?.trim() || null,
+    periodo_inicio: input.periodoInicio || null,
+    periodo_fin: input.periodoFin || null,
     fecha_pago: input.fecha,
     monto: input.monto,
     concepto: input.concepto.slice(0, 255),
@@ -62,24 +132,31 @@ export async function sincronizarPolizaDesdeGasto(
   if (await alreadyLinked(admin, "poliza_pagos", input.gastoId)) return;
 
   const texto = `${input.texto ?? ""} ${input.concepto}`;
-  const numero = extractNumeroPoliza(texto) ?? "SIN-NUMERO";
-  const tipo = inferTipoPoliza(texto);
+  const numero =
+    input.numeroPoliza?.trim() || extractNumeroPoliza(texto) || "SIN-NUMERO";
+  const tipo = asTipo<TipoPoliza>(
+    input.tipoPoliza,
+    TIPOS_POLIZA,
+    inferTipoPoliza(texto)
+  );
   const aseguradora =
     (input.emisorNombre ?? "").toLowerCase().includes("ins") ||
     texto.toLowerCase().includes("instituto nacional de seguros")
       ? "INS"
       : (input.emisorNombre ?? "Aseguradora").slice(0, 80);
 
-  const { data: existing, error: eFind } = await admin
-    .from("polizas")
-    .select("id")
-    .eq("granja_id", input.granjaId)
-    .eq("numero_poliza", numero)
-    .is("deleted_at", null)
-    .maybeSingle();
-  if (eFind) throw new Error(eFind.message);
-
-  let polizaId = existing?.id as string | undefined;
+  let polizaId = input.polizaId?.trim() || undefined;
+  if (!polizaId) {
+    const { data: existing, error: eFind } = await admin
+      .from("polizas")
+      .select("id")
+      .eq("granja_id", input.granjaId)
+      .eq("numero_poliza", numero)
+      .is("deleted_at", null)
+      .maybeSingle();
+    if (eFind) throw new Error(eFind.message);
+    polizaId = existing?.id as string | undefined;
+  }
   if (!polizaId) {
     const { data: created, error: eIns } = await admin
       .from("polizas")
@@ -116,11 +193,16 @@ export async function sincronizarAporteCcssDesdeGasto(
 ): Promise<void> {
   if (await alreadyLinked(admin, "aportes_ccss", input.gastoId)) return;
   const texto = `${input.texto ?? ""} ${input.concepto}`;
-  const periodo = extractPeriodoCcss(texto, input.fecha);
+  const periodo = normalizePeriodoCcss(input.periodoCcss, texto, input.fecha);
+  const tipo = asTipo<TipoAporteCcss>(
+    input.tipoAporte,
+    TIPOS_APORTE,
+    "cuota_obrero_patronal"
+  );
   const { error } = await admin.from("aportes_ccss").insert({
     granja_id: input.granjaId,
     periodo,
-    tipo: "cuota_obrero_patronal",
+    tipo,
     fecha_pago: input.fecha,
     monto: input.monto,
     concepto: input.concepto.slice(0, 255),
@@ -136,10 +218,14 @@ export async function sincronizarSalarioDesdeGasto(
   input: SyncGastoInput
 ): Promise<void> {
   if (await alreadyLinked(admin, "salarios", input.gastoId)) return;
+  const empleadoNombre =
+    input.empleadoNombre?.trim() || "Planilla";
+  const tipo = asTipo<TipoSalario>(input.tipoSalario, TIPOS_SALARIO, "ordinario");
   const { error } = await admin.from("salarios").insert({
     granja_id: input.granjaId,
-    empleado_nombre: "Planilla",
-    tipo: "ordinario",
+    empleado_id: input.empleadoId?.trim() || null,
+    empleado_nombre: empleadoNombre,
+    tipo,
     monto: input.monto,
     fecha_pago: input.fecha,
     concepto: input.concepto.slice(0, 255),
@@ -157,10 +243,12 @@ export async function sincronizarViaticoDesdeGasto(
   if (await alreadyLinked(admin, "viaticos", input.gastoId)) return;
   const { error } = await admin.from("viaticos").insert({
     granja_id: input.granjaId,
-    empleado_nombre: input.emisorNombre ?? "Personal",
+    empleado_id: input.empleadoId?.trim() || null,
+    empleado_nombre:
+      input.empleadoNombre?.trim() || input.emisorNombre || "Personal",
     fecha: input.fecha,
-    destino: "—",
-    motivo: input.concepto.slice(0, 255),
+    destino: input.destino?.trim() || "—",
+    motivo: input.motivo?.trim() || input.concepto.slice(0, 255),
     monto: input.monto,
     gasto_id: input.gastoId,
     comprobante_id: input.comprobanteId ?? null,

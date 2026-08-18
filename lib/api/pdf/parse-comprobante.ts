@@ -5,6 +5,7 @@ import { parsePlatanarFactura, type PlatanarAnimalLine } from "./parse-platanar"
 import { looksLikePlatanar, normalizeSpacedPdfText } from "./normalize-spaced";
 import { lookupEmisor } from "./emisores-conocidos";
 import { decodeCustomPdfText } from "./decode-custom-font";
+import { lookupEmisorIdEnTexto, resolveEmisorNombre } from "./extract-emisor";
 
 export { parseCrNumber } from "./cr-number";
 
@@ -35,53 +36,85 @@ function detectMoneda(text: string): string {
   return "CRC";
 }
 
-function extractMontoTotal(text: string): number | null {
-  const candidates: number[] = [];
+function collectMontos(text: string, patterns: RegExp[]): number[] {
   const MAX_MONTO = 100_000_000_000;
-  const MIN_MONTO = 100; // evita basura tipo 0.00 / 33
-
+  const MIN_MONTO = 100;
+  const out: number[] = [];
+  const compact = text.replace(/\s+/g, "");
   const push = (raw: string) => {
     const n = parseCrNumber(raw);
-    if (n != null && n >= MIN_MONTO && n < MAX_MONTO) candidates.push(n);
+    if (n != null && n >= MIN_MONTO && n < MAX_MONTO) out.push(n);
   };
-
-  const compact = text.replace(/\s+/g, "");
-  const labeled = [
-    /TOTALAPAGAR([\d,]+\.\d{2,5})/gi,
-    /TOTALCOMPROBANTECRC([\d,]+\.\d{2,5})/gi,
-    /TOTALCOMPROBANTE([\d,]+\.\d{2,5})/gi,
-    /TOTAL\(CRC\)([\d,]+\.\d{2,5})/gi,
-    /TOTALCRC([\d,]+\.\d{2,5})/gi,
-    /(?<![A-Za-z])TOTAL[:=]?[¢₡$]*([\d,]+\.\d{2,5})/gi,
-    /Total(?:General|Comprobante|Factura|Documento)?[:=]?[¢₡$]*([\d,]+\.\d{2,5})/gi,
-    /ImporteTotal[:=]?[¢₡$]*([\d,]+\.\d{2,5})/gi,
-    /MontoTotal[:=]?[¢₡$]*([\d,]+\.\d{2,5})/gi,
-  ];
-
   for (const source of [compact, text]) {
-    for (const re of labeled) {
+    for (const re of patterns) {
       re.lastIndex = 0;
       let m: RegExpExecArray | null;
       while ((m = re.exec(source)) !== null) push(m[1]);
     }
   }
+  return out;
+}
 
-  // Ventana tras cada "TOTAL": recoge todos los importes (evita 0.00 pegado a 33,022.00).
+function pickMontoCercano(candidates: number[], target: number): number | null {
+  if (candidates.length === 0) return null;
+  let best = candidates[0];
+  let bestDiff = Math.abs(best - target);
+  for (const n of candidates) {
+    const d = Math.abs(n - target);
+    if (d < bestDiff) {
+      best = n;
+      bestDiff = d;
+    }
+  }
+  const tol = Math.max(1, target * 0.02);
+  return bestDiff <= tol ? best : null;
+}
+
+function extractMontoTotal(text: string): number | null {
+  const precisos = collectMontos(text, [
+    /TOTALAPAGAR([\d,]+\.\d{2,5})/gi,
+    /TOTALCOMPROBANTECRC([\d,]+\.\d{2,5})/gi,
+    /TOTALCOMPROBANTE([\d,]+\.\d{2,5})/gi,
+    /ImporteTotal[:=]?[¢₡$]*([\d,]+\.\d{2,5})/gi,
+    /MontoTotal[:=]?[¢₡$]*([\d,]+\.\d{2,5})/gi,
+  ]);
+  const generales = collectMontos(text, [
+    /TOTAL\(CRC\)([\d,]+\.\d{2,5})/gi,
+    /TOTALCRC([\d,]+\.\d{2,5})/gi,
+    /Total(?:General|Comprobante|Factura|Documento)?[:=]?[¢₡$]*([\d,]+\.\d{2,5})/gi,
+    /(?<![A-Za-z])TOTAL[:=]?[¢₡$]*([\d,]+\.\d{2,5})/gi,
+  ]);
+
+  const ventana: number[] = [];
+  const compact = text.replace(/\s+/g, "");
   const upper = compact.toUpperCase();
   let from = 0;
   while (true) {
     const idx = upper.indexOf("TOTAL", from);
     if (idx === -1) break;
     const window = compact.slice(idx, idx + 80);
-    for (const m of window.matchAll(/[\d,]+\.\d{2}/g)) push(m[0]);
+    for (const m of window.matchAll(/[\d,]+\.\d{2}/g)) {
+      const n = parseCrNumber(m[0]);
+      if (n != null && n >= 100 && n < 100_000_000_000) ventana.push(n);
+    }
     from = idx + 5;
   }
 
   const fromLetters = extractMontoDesdeLetras(text);
-  if (fromLetters != null) candidates.push(fromLetters);
+  const ranked = [...precisos, ...generales, ...ventana];
 
-  if (candidates.length === 0) return null;
-  return Math.max(...candidates);
+  if (fromLetters != null) {
+    const aligned =
+      pickMontoCercano(precisos, fromLetters) ??
+      pickMontoCercano(ranked, fromLetters);
+    if (aligned != null) return aligned;
+    if (ranked.length === 0) return fromLetters;
+  }
+
+  if (precisos.length > 0) return Math.max(...precisos);
+  if (generales.length > 0) return Math.max(...generales);
+  if (ventana.length > 0) return Math.max(...ventana);
+  return fromLetters;
 }
 
 const UNIDADES: Record<string, number> = {
@@ -267,21 +300,18 @@ function parseSpanishAmountWords(phrase: string): number | null {
   return sawNumber && sum > 0 ? sum : null;
 }
 
-function extractEmisorNombre(text: string): string | null {
-  const lines = text
-    .split(/\n+/)
-    .map((l) => l.trim())
-    .filter((l) => l.length >= 3);
-  for (const line of lines.slice(0, 6)) {
-    if (/factura|comprobante|clave|c[eé]dula|tel[eé]fono|direcci[oó]n|fecha/i.test(line)) {
-      continue;
-    }
-    if (/^[\d\s.,:/-]+$/.test(line)) continue;
-    if (/[A-Za-zÁÉÍÓÚÑáéíóúñ]{3,}/.test(line)) {
-      return line.slice(0, 200);
-    }
-  }
-  return lines[0]?.slice(0, 200) ?? null;
+function extractFechaTexto(text: string): string | null {
+  const m =
+    text.match(
+      /(?:fecha(?:\s+de)?(?:\s+emisi[oó]n)?|emisi[oó]n)\s*[:.\-]?\s*(\d{1,2})[/-](\d{1,2})[/-](\d{2,4})/i
+    ) ?? text.match(/\b(\d{1,2})[/-](\d{1,2})[/-](20\d{2})\b/);
+  if (!m) return null;
+  const d = Number(m[1]);
+  const mo = Number(m[2]);
+  let y = Number(m[3]);
+  if (y < 100) y += 2000;
+  if (d < 1 || d > 31 || mo < 1 || mo > 12 || y < 2000 || y > 2100) return null;
+  return `${y}-${String(mo).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
 }
 
 function extractFolioFiscal(text: string): string | null {
@@ -364,13 +394,25 @@ function parseComprobanteFromText(texto: string, fileName: string): ParsedCompro
       ? textoDecoded
       : textoNorm || texto) || textoDecoded;
 
+  const folioFiscal =
+    claveInfo?.consecutivo ?? extractFolioFiscal(textoUsable) ?? extractFolioFiscal(texto);
+  const emisorNombre = resolveEmisorNombre({
+    texto: `${textoUsable}\n${textoDecoded}`,
+    emisorId,
+    known,
+    folioFiscal,
+    consecutivo: claveInfo?.consecutivo ?? null,
+  });
+
   return {
     clave: claveInfo?.clave ?? clave ?? null,
-    folioFiscal: claveInfo?.consecutivo ?? extractFolioFiscal(textoUsable) ?? extractFolioFiscal(texto),
+    folioFiscal,
     tipoDocumento: claveInfo?.tipoDocumento ?? null,
-    emisorNombre: known?.nombre ?? extractEmisorNombre(textoUsable) ?? extractEmisorNombre(texto),
-    emisorIdentificacion: emisorId,
-    fechaEmision: claveInfo?.fechaEmision ?? null,
+    emisorNombre,
+    emisorIdentificacion:
+      emisorId ?? lookupEmisorIdEnTexto(textoUsable) ?? lookupEmisorIdEnTexto(texto),
+    fechaEmision:
+      claveInfo?.fechaEmision ?? extractFechaTexto(textoUsable) ?? extractFechaTexto(texto),
     moneda: detectMoneda(texto),
     montoTotal: monto,
     texto: textoUsable.slice(0, 20000),
