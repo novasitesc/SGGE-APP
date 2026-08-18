@@ -245,3 +245,29 @@ export type CreateViaticoInput = {
 
 export const OBLIGACION_CODIGOS = ["SPUB", "POL", "CCSS", "SAL", "VIAT"] as const;
 export type ObligacionCodigo = (typeof OBLIGACION_CODIGOS)[number];
+
+/** Campos extra al confirmar un PDF hacia una obligación. */
+export type ObligacionConfirmExtras = {
+  tipoServicio?: string | null;
+  numeroCuenta?: string | null;
+  periodoInicio?: string | null;
+  periodoFin?: string | null;
+  numeroPoliza?: string | null;
+  tipoPoliza?: string | null;
+  polizaId?: string | null;
+  periodoCcss?: string | null;
+  tipoAporte?: string | null;
+  empleadoId?: string | null;
+  empleadoNombre?: string | null;
+  tipoSalario?: string | null;
+  destino?: string | null;
+  motivo?: string | null;
+};
+
+/** Sugerencias extraídas del PDF para precargar el modal de revisión. */
+export type ObligacionHints = {
+  tipoServicio: TipoServicioPublico;
+  numeroPoliza: string | null;
+  tipoPoliza: TipoPoliza;
+  periodoCcssMes: string | null;
+};

@@ -55,4 +55,11 @@ export {
   anularDominioPorGasto,
   actualizarDominioPorGasto,
 } from "./lib/gasto-link";
-export { formatPeriodoLabel } from "./lib/parse-text";
+export {
+  formatPeriodoLabel,
+  extractNumeroPoliza,
+  extractPeriodoCcss,
+  inferTipoPoliza,
+  inferTipoServicioPublico,
+} from "./lib/parse-text";
+export { destinoPorCategoria, DESTINO_POR_CATEGORIA } from "./lib/destinos";
