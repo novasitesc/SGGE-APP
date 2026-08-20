@@ -28,6 +28,10 @@ import {
   type ObligacionConfirmExtras,
   type ObligacionHints,
 } from "@/modules/obligaciones";
+import {
+  esCodigoBodega,
+  sincronizarBodegaDesdeGasto,
+} from "@/modules/bodega";
 
 const BUCKET = "comprobantes";
 
@@ -645,6 +649,23 @@ async function confirmarComoGasto(
       });
     } catch {
       // El gasto ya quedó; completar la sección a mano si hace falta.
+    }
+  }
+
+  if (esCodigoBodega(catCode)) {
+    try {
+      await sincronizarBodegaDesdeGasto(admin, catCode, {
+        granjaId,
+        gastoId: gasto.id,
+        fecha: data.issueDate,
+        monto: data.amount,
+        concepto,
+        emisorNombre: data.issuer ?? row.emisor_nombre,
+        comprobanteId: row.id,
+        texto: textoPdf,
+      });
+    } catch {
+      // El gasto ya quedó; completar Bodega a mano si hace falta.
     }
   }
 

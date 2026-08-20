@@ -49,6 +49,20 @@ type CategoriaRule = { codigo: string; keywords: string[] };
 const CATEGORIA_RULES: CategoriaRule[] = [
   // Nota: tilapia/filet NO van aquí (comida humana → OTRO vía emisor OSO).
   { codigo: "ALIM", keywords: ["alimento", "concentrado", "melaza", "pastura", "forraje", "sal mineral", "racion", "maiz", "maíz", "engorde", "avin", "avicultor", "grofactor"] },
+  { codigo: "HERB", keywords: [
+    "herbicida", "herbicidas", "glifosato", "glyphosate", "roundup", "paraquat",
+    "gramoxone", "atrazina", "diuron", "diurón", "2,4-d", "24-d", "matamaleza",
+    "mata maleza", "control de maleza", "control de malezas",
+  ] },
+  // No usar "abono" solo: en CR también es un pago parcial.
+  { codigo: "FERT", keywords: [
+    "fertilizante", "fertilizantes", "abono organico", "abono orgánico",
+    "abono foliar", "abono completo", "abono quimico", "abono químico",
+    "abonos y fertilizantes", "urea", "npk", "10-30-10", "12-24-12", "15-15-15",
+    "18-46-0", "fosfato diamonico", "fosfato diamónico", "fosfato de amonio",
+    "muriato de potasio", "nitrato de amonio", "cal agricola", "cal agrícola",
+    "cal dolomita", "gallinaza",
+  ] },
   { codigo: "COMB", keywords: ["diesel", "diésel", "gasolina", "combustible", "estacion de servicio", "estación de servicio", "gas "] },
   { codigo: "VET", keywords: [
     "medicamento", "vacuna", "desparasit", "antibiotico", "antibiótico", "veterinar", "farmacia",

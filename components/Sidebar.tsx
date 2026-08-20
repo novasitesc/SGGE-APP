@@ -17,6 +17,7 @@ import {
   Settings2,
   MessageSquare,
   Tags,
+  Warehouse,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -28,6 +29,7 @@ const navItems = [
   { label: "Animales", href: "/animals", icon: Beef },
   { label: "Módulos", href: "/modules", icon: Grid3X3 },
   { label: "Alimentación", href: "/feeding", icon: Wheat },
+  { label: "Bodega", href: "/bodega", icon: Warehouse },
   { label: "Costos", href: "/costs", icon: DollarSign },
   { label: "Salud", href: "/health", icon: HeartPulse },
   { label: "Ventas", href: "/sales", icon: ShoppingCart },
@@ -73,7 +75,7 @@ function NavLink({
       title={collapsed ? item.label : undefined}
       aria-label={item.label}
       className={cn(
-        "flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-sm font-medium transition-colors",
+        "flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
         active
           ? "bg-sidebar-primary text-white"
           : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground"
@@ -100,7 +102,7 @@ function SectionDivider({
   collapsed: boolean;
 }) {
   return (
-    <div className="px-3 pt-3 pb-1">
+    <div className="px-3 pt-2 pb-0.5">
       <div
         className={cn(
           "border-t border-sidebar-border transition-all duration-300",
@@ -109,7 +111,7 @@ function SectionDivider({
       />
       <p
         className={cn(
-          "mt-2 text-[10px] font-semibold uppercase tracking-widest text-sidebar-foreground/40 whitespace-nowrap transition-opacity duration-200",
+          "mt-1.5 text-[10px] font-semibold uppercase tracking-widest text-sidebar-foreground/40 whitespace-nowrap transition-opacity duration-200",
           collapsed ? "h-0 mt-0 opacity-0 overflow-hidden" : "opacity-100"
         )}
       >
@@ -136,7 +138,7 @@ export default function Sidebar() {
       {/* Ancho fijo interno: el aside solo recorta, el layout no se reestructura. */}
       <div className="flex h-full w-64 flex-col">
         {/* Logo */}
-        <div className="flex h-16 shrink-0 items-center gap-3 border-b border-sidebar-border px-3.5">
+        <div className="flex h-14 shrink-0 items-center gap-3 border-b border-sidebar-border px-3">
           <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-sidebar-primary">
             <Tractor className="h-5 w-5 text-white" />
           </div>
@@ -156,7 +158,7 @@ export default function Sidebar() {
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 space-y-1 overflow-y-auto overflow-x-hidden px-2 py-3">
+        <nav className="flex-1 space-y-0.5 overflow-y-auto overflow-x-hidden px-2 py-2">
           {navItems.map((item) => (
             <NavLink
               key={item.href}
@@ -198,7 +200,7 @@ export default function Sidebar() {
           <button
             type="button"
             onClick={toggleSidebar}
-            className="flex h-10 w-full items-center gap-2 rounded-xl px-3.5 text-sidebar-foreground/60 transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground"
+            className="flex h-9 w-full items-center gap-2 rounded-lg px-3 text-sidebar-foreground/60 transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground"
             title={collapsed ? "Expandir menú" : "Colapsar menú"}
             aria-label={collapsed ? "Expandir menú" : "Colapsar menú"}
             aria-expanded={sidebarOpen}

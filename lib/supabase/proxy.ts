@@ -14,6 +14,7 @@ export const SGGE_ROUTE_SECTIONS = {
     "/animals",
     "/modules",
     "/feeding",
+    "/bodega",
     "/costs",
     "/health",
     "/sales",

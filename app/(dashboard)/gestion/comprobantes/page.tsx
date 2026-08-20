@@ -71,10 +71,13 @@ import {
   MapPin,
   HeartPulse,
   Wheat,
+  Warehouse,
 } from "lucide-react";
 
 const CATEGORIAS_OPERACION: { code: string; label: string }[] = [
   { code: "ALIM", label: "Alimentación" },
+  { code: "FERT", label: "Abono y fertilizantes" },
+  { code: "HERB", label: "Herbicidas" },
   { code: "VET", label: "Veterinaria" },
   { code: "COMB", label: "Combustible" },
   { code: "TRANS", label: "Transporte" },
@@ -170,6 +173,8 @@ const DESTINO_ICON: Record<string, typeof DollarSign> = {
   SAL: Wallet,
   VIAT: MapPin,
   ALIM: Wheat,
+  FERT: Warehouse,
+  HERB: Warehouse,
   VET: HeartPulse,
 };
 
@@ -180,6 +185,8 @@ const DESTINO_COLOR: Record<string, string> = {
   SAL: "text-blue-700",
   VIAT: "text-purple-700",
   ALIM: "text-lime-700",
+  FERT: "text-lime-800",
+  HERB: "text-green-800",
   VET: "text-rose-700",
 };
 
@@ -378,7 +385,10 @@ export default function ComprobantesPage() {
             ? `Gasto registrado. ${vetN} línea(s) veterinaria(s) inscritas en Salud.`
             : form.categoryCode.toUpperCase() === "VET"
               ? "Gasto veterinario registrado e inscrito en Salud."
-              : "Gasto registrado desde el comprobante.";
+              : form.categoryCode.toUpperCase() === "FERT" ||
+                  form.categoryCode.toUpperCase() === "HERB"
+                ? "Gasto registrado y vinculado a Bodega."
+                : "Gasto registrado desde el comprobante.";
       setNotice(
         form.classification === "gasto"
           ? gastoMsg
@@ -1057,7 +1067,21 @@ export default function ComprobantesPage() {
                   )}
 
                 {form.classification === "gasto" &&
+                  (form.categoryCode.toUpperCase() === "FERT" ||
+                    form.categoryCode.toUpperCase() === "HERB") && (
+                    <p className="text-xs text-muted-foreground rounded-lg bg-lime-50/70 px-3 py-2">
+                      Al confirmar, el gasto queda en <strong>Bodega</strong>{" "}
+                      ({form.categoryCode.toUpperCase() === "HERB"
+                        ? "herbicidas"
+                        : "abono y fertilizantes"}
+                      ) y también en Costos.
+                    </p>
+                  )}
+
+                {form.classification === "gasto" &&
                   form.categoryCode.toUpperCase() !== "ALIM" &&
+                  form.categoryCode.toUpperCase() !== "FERT" &&
+                  form.categoryCode.toUpperCase() !== "HERB" &&
                   !(OBLIGACION_CODIGOS as readonly string[]).includes(
                     form.categoryCode.toUpperCase()
                   ) &&

@@ -15,6 +15,7 @@ import {
 import { fetchHistorial } from "@/lib/api/historial-client";
 import { fetchPendingSolicitudesCount } from "@/lib/api/solicitudes-client";
 import { fetchComprobantes } from "@/lib/api/comprobantes-client";
+import { fetchBodegaCompras } from "@/lib/api/bodega-client";
 import {
   fetchAportesCcss,
   fetchPolizas,
@@ -45,6 +46,7 @@ import {
   Building2,
   Wallet,
   MapPin,
+  Warehouse,
   type LucideIcon,
 } from "lucide-react";
 import { usePendingSolicitudesCount } from "@/components/mensajeria/MensajeriaGerente";
@@ -61,6 +63,7 @@ interface SectionCounts {
   healthAlerts: number;
   sales: number;
   feedTypes: number;
+  bodega: number;
   comprobantes: number;
   mensajeria: number;
   serviciosPublicos: number;
@@ -160,6 +163,17 @@ const sections: GestionSection[] = [
     color: "border-lime-200 hover:border-lime-400 hover:bg-lime-50/50",
     iconBg: "bg-lime-100 text-lime-700",
     countKey: "feedTypes",
+    group: "Operación",
+  },
+  {
+    href: "/gestion/bodega",
+    icon: Warehouse,
+    label: "Bodega",
+    description:
+      "Registrar, editar y eliminar compras de abono, fertilizantes y herbicidas.",
+    color: "border-lime-200 hover:border-lime-400 hover:bg-lime-50/50",
+    iconBg: "bg-lime-100 text-lime-800",
+    countKey: "bodega",
     group: "Operación",
   },
   {
@@ -374,6 +388,7 @@ export default function GestionPage() {
       fetchAportesCcss(),
       fetchSalarios(),
       fetchViaticos(),
+      fetchBodegaCompras(),
     ]);
 
     const value = <T,>(i: number, fallback: T): T => {
@@ -398,6 +413,7 @@ export default function GestionPage() {
     const ccss = value(14, [] as Awaited<ReturnType<typeof fetchAportesCcss>>);
     const salarios = value(15, [] as Awaited<ReturnType<typeof fetchSalarios>>);
     const viaticos = value(16, [] as Awaited<ReturnType<typeof fetchViaticos>>);
+    const bodega = value(17, [] as Awaited<ReturnType<typeof fetchBodegaCompras>>);
 
     setCounts({
       animals: animals.length,
@@ -417,6 +433,7 @@ export default function GestionPage() {
       ccss: ccss.length,
       salarios: salarios.length,
       viaticos: viaticos.length,
+      bodega: bodega.length,
     });
     void refreshMensajes();
   }, [refreshMensajes]);
@@ -437,6 +454,7 @@ export default function GestionPage() {
       counts.healthAlerts +
       counts.sales +
       counts.feedTypes +
+      counts.bodega +
       counts.razas
     : 0;
 

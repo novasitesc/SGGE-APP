@@ -1,11 +1,13 @@
 /**
  * Categorías de gasto unificadas (códigos DB ↔ claves UI ↔ labels).
  * Códigos de `categorias_gastos`: ALIM, COMB, MANT, SERV, TRANS, MO, VET,
- * SPUB, POL, CCSS, SAL, VIAT, OTRO.
+ * SPUB, POL, CCSS, SAL, VIAT, FERT, HERB, OTRO.
  */
 
 export type CostCategoryKey =
   | "alimentación"
+  | "fertilizantes"
+  | "herbicidas"
   | "combustible"
   | "mantenimiento"
   | "servicios"
@@ -23,6 +25,8 @@ export type CostCategoryKey =
 /** Código DB → clave UI estable. */
 const CODIGO_TO_KEY: Record<string, CostCategoryKey> = {
   ALIM: "alimentación",
+  FERT: "fertilizantes",
+  HERB: "herbicidas",
   COMB: "combustible",
   MANT: "mantenimiento",
   SERV: "servicios",
@@ -36,6 +40,8 @@ const CODIGO_TO_KEY: Record<string, CostCategoryKey> = {
   VIAT: "viaticos",
   OTRO: "otros",
   alim: "alimentación",
+  fert: "fertilizantes",
+  herb: "herbicidas",
   comb: "combustible",
   mant: "mantenimiento",
   serv: "servicios",
@@ -51,6 +57,8 @@ const CODIGO_TO_KEY: Record<string, CostCategoryKey> = {
   otros: "otros",
   alimentación: "alimentación",
   alimentacion: "alimentación",
+  fertilizantes: "fertilizantes",
+  herbicidas: "herbicidas",
   combustible: "combustible",
   mantenimiento: "mantenimiento",
   servicios: "servicios",
@@ -66,6 +74,8 @@ const CODIGO_TO_KEY: Record<string, CostCategoryKey> = {
 
 export const COST_CATEGORY_LABEL: Record<CostCategoryKey, string> = {
   alimentación: "Alimentación",
+  fertilizantes: "Abono y fertilizantes",
+  herbicidas: "Herbicidas",
   combustible: "Combustible",
   mantenimiento: "Mantenimiento",
   servicios: "Servicios",
@@ -83,6 +93,8 @@ export const COST_CATEGORY_LABEL: Record<CostCategoryKey, string> = {
 
 export const COST_CATEGORY_COLOR: Record<CostCategoryKey, string> = {
   alimentación: "bg-emerald-100 text-emerald-700",
+  fertilizantes: "bg-lime-100 text-lime-800",
+  herbicidas: "bg-green-100 text-green-800",
   combustible: "bg-amber-100 text-amber-800",
   mantenimiento: "bg-slate-100 text-slate-700",
   servicios: "bg-cyan-100 text-cyan-700",
@@ -100,6 +112,8 @@ export const COST_CATEGORY_COLOR: Record<CostCategoryKey, string> = {
 
 export const COST_CATEGORY_CHART_COLOR: Record<string, string> = {
   Alimentación: "#16a34a",
+  "Abono y fertilizantes": "#65a30d",
+  Herbicidas: "#15803d",
   Combustible: "#d97706",
   Mantenimiento: "#64748b",
   Servicios: "#0891b2",
@@ -136,6 +150,8 @@ export const COST_CATEGORY_KEYS = Object.keys(COST_CATEGORY_LABEL) as CostCatego
  */
 export const COST_FORM_CATEGORY_KEYS: CostCategoryKey[] = [
   "alimentación",
+  "fertilizantes",
+  "herbicidas",
   "combustible",
   "mantenimiento",
   "servicios",
@@ -154,6 +170,8 @@ export const COST_FORM_CATEGORY_KEYS: CostCategoryKey[] = [
 export const CATEGORIA_CODIGO_MAP: Record<string, string> = {
   alimentación: "ALIM",
   alimentacion: "ALIM",
+  fertilizantes: "FERT",
+  herbicidas: "HERB",
   combustible: "COMB",
   mantenimiento: "MANT",
   transporte: "TRANS",
@@ -168,6 +186,8 @@ export const CATEGORIA_CODIGO_MAP: Record<string, string> = {
   viaticos: "VIAT",
   otros: "OTRO",
   alim: "ALIM",
+  fert: "FERT",
+  herb: "HERB",
   comb: "COMB",
   mant: "MANT",
   trans: "TRANS",

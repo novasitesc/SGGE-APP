@@ -13,6 +13,12 @@ import {
   OBLIGACION_CODIGOS,
   sincronizarObligacionDesdeGasto,
 } from "@/modules/obligaciones";
+import {
+  anularBodegaPorGasto,
+  actualizarBodegaPorGasto,
+  esCodigoBodega,
+  sincronizarBodegaDesdeGasto,
+} from "@/modules/bodega";
 
 export const dynamic = "force-dynamic";
 
@@ -127,6 +133,7 @@ export async function PATCH(
 
     if (body.category != null) {
       await anularDominioPorGasto(admin, granjaId, id);
+      await anularBodegaPorGasto(admin, granjaId, id);
       const newCode = resolveCategoriaCodigo(body.category).toUpperCase();
       if ((OBLIGACION_CODIGOS as readonly string[]).includes(newCode)) {
         await sincronizarObligacionDesdeGasto(admin, newCode, {
@@ -137,8 +144,22 @@ export async function PATCH(
           concepto: mapped.description,
         });
       }
+      if (esCodigoBodega(newCode)) {
+        await sincronizarBodegaDesdeGasto(admin, newCode, {
+          granjaId,
+          gastoId: id,
+          fecha: mapped.date,
+          monto: mapped.amount,
+          concepto: mapped.description,
+        });
+      }
     } else {
       await actualizarDominioPorGasto(admin, granjaId, id, {
+        fecha: mapped.date,
+        concepto: mapped.description,
+        monto: mapped.amount,
+      });
+      await actualizarBodegaPorGasto(admin, granjaId, id, {
         fecha: mapped.date,
         concepto: mapped.description,
         monto: mapped.amount,
@@ -181,6 +202,7 @@ export async function DELETE(
     });
 
     await anularDominioPorGasto(admin, granjaId, id);
+    await anularBodegaPorGasto(admin, granjaId, id);
 
     const { error } = await admin
       .from("gastos")

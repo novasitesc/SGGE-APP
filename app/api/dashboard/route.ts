@@ -278,6 +278,8 @@ export async function GET(req: Request) {
 
     const labels: Record<string, string> = {
       ALIM: "Alimentación",
+      FERT: "Abono y fertilizantes",
+      HERB: "Herbicidas",
       MO: "Mano de Obra",
       TRANS: "Transporte",
       VET: "Veterinaria",
@@ -293,6 +295,8 @@ export async function GET(req: Request) {
     };
     const colors: Record<string, string> = {
       Alimentación: "#16a34a",
+      "Abono y fertilizantes": "#65a30d",
+      Herbicidas: "#15803d",
       "Mano de Obra": "#2563eb",
       Transporte: "#d97706",
       Veterinaria: "#7c3aed",
