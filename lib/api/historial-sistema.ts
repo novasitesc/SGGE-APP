@@ -7,6 +7,7 @@ export type HistorialModulo =
   | "ventas"
   | "costos"
   | "alimentacion"
+  | "bodega"
   | "salud"
   | "contabilidad"
   | "servicios_publicos"
@@ -29,6 +30,7 @@ export const MODULO_LABELS: Record<HistorialModulo, string> = {
   ventas: "Ventas",
   costos: "Costos",
   alimentacion: "Alimentación",
+  bodega: "Bodega",
   salud: "Salud",
   contabilidad: "Contabilidad",
   servicios_publicos: "Servicios públicos",

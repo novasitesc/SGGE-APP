@@ -9,6 +9,8 @@ export const DESTINO_POR_CATEGORIA: Record<
   VIAT: { href: "/gestion/viaticos", label: "Viáticos" },
   ALIM: { href: "/gestion/alimentacion", label: "Alimentación" },
   VET: { href: "/gestion/salud", label: "Salud" },
+  FERT: { href: "/gestion/bodega", label: "Bodega (abono)" },
+  HERB: { href: "/gestion/bodega", label: "Bodega (herbicidas)" },
 };
 
 export function destinoPorCategoria(code: string | null | undefined) {
