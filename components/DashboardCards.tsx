@@ -2,7 +2,7 @@
 
 import { Card, CardContent } from "@/components/ui/card";
 import type { KpiSummary } from "@/lib/types/domain";
-import { formatCurrency, formatNumber } from "@/lib/utils";
+import { formatCurrency, formatCurrencyCompact, formatNumber } from "@/lib/utils";
 import {
   Scale,
   TrendingUp,
@@ -12,6 +12,8 @@ import {
   Banknote,
   PiggyBank,
   Percent,
+  Beef,
+  Utensils,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -33,7 +35,9 @@ function KpiCard({ title, value, subtitle, icon: Icon, color, bgColor }: KpiCard
             <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide truncate">
               {title}
             </p>
-            <p className={cn("text-2xl font-bold leading-none", color)}>{value}</p>
+            <p className={cn("text-xl sm:text-2xl font-bold leading-tight tabular-nums", color)}>
+              {value}
+            </p>
             {subtitle && (
               <p className="text-xs text-muted-foreground">{subtitle}</p>
             )}
@@ -58,6 +62,7 @@ const EMPTY_KPI: KpiSummary = {
   totalRevenue: 0,
   netProfit: 0,
   profitability: 0,
+  feedCostApproxPerDay: 0,
 };
 
 interface DashboardCardsProps {
@@ -70,12 +75,21 @@ export default function DashboardCards({ kpi, loading }: DashboardCardsProps) {
 
   if (loading) {
     return (
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        {Array.from({ length: 8 }).map((_, i) => (
-          <Card key={i} className="animate-pulse">
-            <CardContent className="p-5 h-24 bg-muted/30" />
-          </Card>
-        ))}
+      <div className="space-y-4">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          {Array.from({ length: 8 }).map((_, i) => (
+            <Card key={i} className="animate-pulse">
+              <CardContent className="p-5 h-24 bg-muted/30" />
+            </Card>
+          ))}
+        </div>
+        <div className="grid grid-cols-2 gap-4 md:max-w-2xl">
+          {Array.from({ length: 2 }).map((_, i) => (
+            <Card key={`s-${i}`} className="animate-pulse">
+              <CardContent className="p-5 h-24 bg-muted/30" />
+            </Card>
+          ))}
+        </div>
       </div>
     );
   }
@@ -115,7 +129,7 @@ export default function DashboardCards({ kpi, loading }: DashboardCardsProps) {
     },
     {
       title: "Costo Total",
-      value: formatCurrency(data.totalCost),
+      value: formatCurrencyCompact(data.totalCost),
       subtitle: "Acumulado del ciclo",
       icon: Receipt,
       color: "text-red-700",
@@ -123,7 +137,7 @@ export default function DashboardCards({ kpi, loading }: DashboardCardsProps) {
     },
     {
       title: "Ingresos Totales",
-      value: formatCurrency(data.totalRevenue),
+      value: formatCurrencyCompact(data.totalRevenue),
       subtitle: "Por ventas realizadas",
       icon: Banknote,
       color: "text-green-700",
@@ -131,7 +145,7 @@ export default function DashboardCards({ kpi, loading }: DashboardCardsProps) {
     },
     {
       title: "Utilidad Neta",
-      value: formatCurrency(data.netProfit),
+      value: formatCurrencyCompact(data.netProfit),
       subtitle: "Ingresos – Costos",
       icon: PiggyBank,
       color: data.netProfit >= 0 ? "text-green-700" : "text-red-600",
@@ -147,11 +161,37 @@ export default function DashboardCards({ kpi, loading }: DashboardCardsProps) {
     },
   ];
 
+  const secondaryCards: KpiCardProps[] = [
+    {
+      title: "Animales Totales",
+      value: String(data.totalAnimals),
+      subtitle: `${data.activeAnimals} activos en el lote`,
+      icon: Beef,
+      color: "text-emerald-700",
+      bgColor: "bg-emerald-50",
+    },
+    {
+      title: "Costo Alim. / Día",
+      value: formatCurrency(data.feedCostApproxPerDay ?? 0),
+      subtitle: "Promedio aprox. (30 días)",
+      icon: Utensils,
+      color: "text-orange-700",
+      bgColor: "bg-orange-50",
+    },
+  ];
+
   return (
-    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-      {cards.map((card) => (
-        <KpiCard key={card.title} {...card} />
-      ))}
+    <div className="space-y-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        {cards.map((card) => (
+          <KpiCard key={card.title} {...card} />
+        ))}
+      </div>
+      <div className="grid grid-cols-2 gap-4 md:max-w-2xl">
+        {secondaryCards.map((card) => (
+          <KpiCard key={card.title} {...card} />
+        ))}
+      </div>
     </div>
   );
 }

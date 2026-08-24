@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import {
   LineChart,
   Line,
@@ -11,6 +12,7 @@ import {
   Legend,
 } from "recharts";
 import type { WeightRecord } from "@/lib/types/domain";
+import { formatNumber } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 
 interface ChartWeightProps {
@@ -18,13 +20,37 @@ interface ChartWeightProps {
   loading?: boolean;
 }
 
+function niceStep(raw: number): number {
+  const mag = Math.pow(10, Math.floor(Math.log10(Math.max(raw, 1))));
+  const n = raw / mag;
+  const nice = n <= 1 ? 1 : n <= 2 ? 2 : n <= 5 ? 5 : 10;
+  return nice * mag;
+}
+
+/** Escala redonda en kg, pocos ticks, sin decimales flotantes. */
+function niceKgScale(values: number[]): { domain: [number, number]; ticks: number[] } {
+  const lo = Math.min(...values);
+  const hi = Math.max(...values);
+  const pad = Math.max((hi - lo) * 0.12, 25);
+  const rawMin = Math.max(0, lo - pad);
+  const rawMax = hi + pad;
+  const step = niceStep(Math.max(rawMax - rawMin, 50) / 4);
+  const min = Math.floor(rawMin / step) * step;
+  const max = Math.ceil(rawMax / step) * step;
+  const ticks: number[] = [];
+  for (let v = min; v <= max + step / 2; v += step) {
+    ticks.push(Math.round(v));
+  }
+  return { domain: [min, max === min ? min + step : max], ticks };
+}
+
 export default function ChartWeight({ data = [], loading }: ChartWeightProps) {
-  const maxWeight = data.length > 0
-    ? Math.max(...data.map((d) => d.avgWeight)) * 1.2
-    : 500;
-  const minWeight = data.length > 0
-    ? Math.min(...data.map((d) => d.avgWeight)) * 0.8
-    : 0;
+  const scale = useMemo(() => {
+    if (data.length === 0) {
+      return { domain: [0, 500] as [number, number], ticks: [0, 100, 200, 300, 400, 500] };
+    }
+    return niceKgScale(data.map((d) => d.avgWeight));
+  }, [data]);
 
   return (
     <Card>
@@ -41,7 +67,7 @@ export default function ChartWeight({ data = [], loading }: ChartWeightProps) {
           </p>
         ) : (
           <ResponsiveContainer width="100%" height={280}>
-            <LineChart data={data} margin={{ top: 5, right: 10, left: -10, bottom: 5 }}>
+            <LineChart data={data} margin={{ top: 8, right: 12, left: 4, bottom: 8 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
               <XAxis
                 dataKey="month"
@@ -50,11 +76,14 @@ export default function ChartWeight({ data = [], loading }: ChartWeightProps) {
                 tickLine={false}
               />
               <YAxis
-                domain={[minWeight, maxWeight]}
+                domain={scale.domain}
+                ticks={scale.ticks}
+                allowDecimals={false}
+                width={36}
                 tick={{ fontSize: 11, fill: "#6b7280" }}
                 axisLine={false}
                 tickLine={false}
-                tickFormatter={(v) => `${v} kg`}
+                tickFormatter={(v) => String(Math.round(Number(v)))}
               />
               <Tooltip
                 contentStyle={{
@@ -63,7 +92,10 @@ export default function ChartWeight({ data = [], loading }: ChartWeightProps) {
                   boxShadow: "0 4px 12px rgba(0,0,0,0.08)",
                   fontSize: 12,
                 }}
-                formatter={(value) => [`${Number(value ?? 0)} kg`, "Peso Promedio"]}
+                formatter={(value) => [
+                  `${formatNumber(Number(value ?? 0), 1)} kg`,
+                  "Peso Promedio",
+                ]}
               />
               <Legend
                 formatter={(value) => (

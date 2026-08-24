@@ -12,6 +12,14 @@ function daysBetween(startIso: string, end: Date): number {
   return Math.max(1, Math.round((b - a) / (86400 * 1000)));
 }
 
+/** Folio electrónico CR → #361 (últimos 10 dígitos, sin ceros a la izquierda). */
+function folioFacturaLabel(folio: string | null | undefined): string {
+  if (!folio?.trim()) return "Factura";
+  const digits = folio.replace(/\D/g, "");
+  const consec = (digits.slice(-10) || digits).replace(/^0+/, "");
+  return consec ? `#${consec}` : folio.slice(0, 20);
+}
+
 export async function GET(req: Request) {
   try {
     const auth = await requireApiContext(req);
@@ -95,24 +103,39 @@ export async function GET(req: Request) {
       0
     );
 
-    // Ingresos: si hay lote activo, solo ventas de animales de ese lote.
-    let totalRevenue = (ventas ?? []).reduce(
-      (s: number, v: { monto_total: number }) => s + Number(v.monto_total),
+    // Ingresos:
+    // - Ventas con detalle de animal: si hay lote, solo animales de ese lote.
+    // - Ventas solo-cabecera (facturas/comprobantes sin animal): nivel granja,
+    //   igual que los gastos compartidos (también aparecen en /api/sales).
+    const ventaIds = (ventas ?? []).map((v: { id: string }) => v.id);
+    let detallesAll: { venta_id: string; animal_id: string; subtotal: number }[] =
+      [];
+    if (ventaIds.length > 0) {
+      const { data: detRows } = await admin
+        .from("detalle_ventas")
+        .select("venta_id, animal_id, subtotal")
+        .in("venta_id", ventaIds);
+      detallesAll = (detRows ?? []) as typeof detallesAll;
+    }
+    const ventaIdsConDetalle = new Set(detallesAll.map((d) => d.venta_id));
+    const headerOnlyRevenue = (ventas ?? []).reduce(
+      (s: number, v: { id: string; monto_total: number }) =>
+        ventaIdsConDetalle.has(v.id) ? s : s + Number(v.monto_total),
       0
     );
+
+    let totalRevenue: number;
     if (loteId) {
-      if (animalIds.size === 0) {
-        totalRevenue = 0;
-      } else {
-        const { data: detLote } = await admin
-          .from("detalle_ventas")
-          .select("subtotal, animal_id")
-          .in("animal_id", [...animalIds]);
-        totalRevenue = (detLote ?? []).reduce(
-          (s, d) => s + Number((d as { subtotal: number }).subtotal),
-          0
-        );
-      }
+      const detalleLoteRevenue = detallesAll.reduce((s, d) => {
+        if (!animalIds.has(d.animal_id)) return s;
+        return s + Number(d.subtotal);
+      }, 0);
+      totalRevenue = detalleLoteRevenue + headerOnlyRevenue;
+    } else {
+      totalRevenue = (ventas ?? []).reduce(
+        (s: number, v: { monto_total: number }) => s + Number(v.monto_total),
+        0
+      );
     }
 
     // Costos ALIM reales (gastos 30d) — prioriza comprobantes confirmados.
@@ -227,54 +250,61 @@ export async function GET(req: Request) {
           sale_date: venta?.fecha_venta ?? "",
           buyer: venta?.clientes?.razon_social ?? "",
           module_code: anim?.corrales?.codigo ?? "—",
+          source: "animal",
         });
       }
     );
 
-    const detalleVentaIds = new Set(
-      (salesDetail ?? []).map((r) => String((r as { venta_id?: string }).venta_id ?? ""))
-    );
+    // Facturas sin detalle de animal: compartidas a nivel granja (con o sin lote).
+    const { data: headerRecent } = await admin
+      .from("ventas")
+      .select(
+        "id, folio, fecha_venta, peso_total_kg, monto_total, observaciones, clientes ( razon_social )"
+      )
+      .eq("granja_id", granjaId)
+      .is("deleted_at", null)
+      .order("fecha_venta", { ascending: false })
+      .limit(24);
 
-    // Facturas sin detalle de animal: solo en vista de granja (sin lote).
-    let fromHeader: ReturnType<typeof mapSaleRow>[] = [];
-    if (!loteId) {
-      const { data: headerRecent } = await admin
-        .from("ventas")
-        .select(
-          "id, folio, fecha_venta, peso_total_kg, monto_total, clientes ( razon_social )"
-        )
-        .eq("granja_id", granjaId)
-        .is("deleted_at", null)
-        .order("fecha_venta", { ascending: false })
-        .limit(4);
-
-      fromHeader = (headerRecent ?? [])
-        .filter((v) => !detalleVentaIds.has(String(v.id)))
-        .map((v) => {
-          const peso = Number(v.peso_total_kg) || 0;
-          const monto = Number(v.monto_total) || 0;
-          const clienteRaw = v.clientes as
-            | { razon_social: string }
-            | { razon_social: string }[]
-            | null;
-          const cliente = Array.isArray(clienteRaw) ? clienteRaw[0] : clienteRaw;
-          return mapSaleRow({
-            id: String(v.id),
-            tag_id: v.folio?.slice(0, 20) || "—",
-            breed: "Factura",
-            final_weight: peso,
-            price_per_kg: peso > 0 ? Math.round((monto / peso) * 100) / 100 : 0,
-            total_revenue: monto,
-            sale_date: v.fecha_venta ?? "",
-            buyer: cliente?.razon_social ?? "Cliente (comprobante)",
-            module_code: "—",
-          });
+    const fromHeader = (headerRecent ?? [])
+      .filter((v) => !ventaIdsConDetalle.has(String(v.id)))
+      .map((v) => {
+        const peso = Number(v.peso_total_kg) || 0;
+        const monto = Number(v.monto_total) || 0;
+        const clienteRaw = v.clientes as
+          | { razon_social: string }
+          | { razon_social: string }[]
+          | null;
+        const cliente = Array.isArray(clienteRaw) ? clienteRaw[0] : clienteRaw;
+        const notes = String(v.observaciones ?? "").trim();
+        return mapSaleRow({
+          id: String(v.id),
+          tag_id: folioFacturaLabel(v.folio),
+          breed: notes || "Factura",
+          final_weight: peso,
+          price_per_kg: peso > 0 ? Math.round((monto / peso) * 100) / 100 : 0,
+          total_revenue: monto,
+          sale_date: v.fecha_venta ?? "",
+          buyer: cliente?.razon_social ?? "Cliente (comprobante)",
+          module_code: "—",
+          source: "factura",
+          notes: notes || undefined,
         });
-    }
+      });
 
+    const invoiceSales = fromHeader
+      .filter((s) => s.totalRevenue > 0)
+      .sort((a, b) => b.saleDate.localeCompare(a.saleDate));
+
+    // Priorizar ingresos reales: las ventas a ₡0 no deben tapar las facturas.
     const recentSales = [...fromDetalle, ...fromHeader]
-      .sort((a, b) => b.saleDate.localeCompare(a.saleDate))
-      .slice(0, 4);
+      .sort((a, b) => {
+        const aRev = a.totalRevenue > 0 ? 1 : 0;
+        const bRev = b.totalRevenue > 0 ? 1 : 0;
+        if (bRev !== aRev) return bRev - aRev;
+        return b.saleDate.localeCompare(a.saleDate);
+      })
+      .slice(0, 8);
 
     const labels: Record<string, string> = {
       ALIM: "Alimentación",
@@ -354,10 +384,13 @@ export async function GET(req: Request) {
       kpiSummary,
       recentAnimals,
       recentSales,
+      invoiceSales,
       healthAlerts,
       costsByCategory,
       /** true = gastos/costos son de toda la granja aunque el lote filtre animales */
       costsSharedAcrossLotes: true,
+      /** true = facturas sin animal se suman a ingresos aunque el lote filtre animales */
+      headerSalesSharedAcrossLotes: true,
       loteId,
     });
   } catch (e) {

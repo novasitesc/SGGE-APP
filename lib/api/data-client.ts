@@ -133,6 +133,7 @@ export async function fetchModules(loteId?: string | null): Promise<Module[]> {
       type: Module["type"];
       capacity: number;
       animalCount: number;
+      avgWeightActive?: number;
       location?: string;
       supervisor?: string;
     }[]
@@ -144,6 +145,7 @@ export async function fetchModules(loteId?: string | null): Promise<Module[]> {
     type: m.type,
     capacity: m.capacity,
     animalCount: m.animalCount,
+    avgWeightActive: m.avgWeightActive,
   }));
 }
 

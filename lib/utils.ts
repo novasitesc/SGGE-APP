@@ -17,16 +17,19 @@ export function formatCurrency(value: number): string {
   }).format(value);
 }
 
-/** Eje de gráficas: abrevia miles/millones en colones. */
+/** Eje de gráficas y KPIs: abrevia para que no se recorten ni amontonen cifras. */
 export function formatCurrencyCompact(value: number): string {
   const abs = Math.abs(value);
+  const sign = value < 0 ? "−" : "";
   if (abs >= 1_000_000) {
-    return `₡${(value / 1_000_000).toFixed(1)}M`;
+    const n = abs / 1_000_000;
+    const digits = n >= 10 ? 0 : 1;
+    return `${sign}₡${n.toFixed(digits)}M`;
   }
   if (abs >= 1_000) {
-    return `₡${(value / 1_000).toFixed(0)}k`;
+    return `${sign}₡${Math.round(abs / 1_000)}k`;
   }
-  return formatCurrency(value);
+  return `${sign}₡${Math.round(abs)}`;
 }
 
 export function formatNumber(value: number, decimals = 2): string {

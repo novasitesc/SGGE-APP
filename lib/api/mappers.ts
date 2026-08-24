@@ -101,6 +101,8 @@ export function mapSaleRow(row: {
   sale_date: string;
   buyer: string;
   module_code: string;
+  source?: "animal" | "factura";
+  notes?: string;
 }) {
   return {
     id: row.id,
@@ -112,6 +114,8 @@ export function mapSaleRow(row: {
     saleDate: row.sale_date,
     buyer: row.buyer,
     moduleId: row.module_code,
+    source: row.source,
+    notes: row.notes,
   };
 }
 

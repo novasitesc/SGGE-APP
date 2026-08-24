@@ -39,6 +39,8 @@ export interface Module {
   type: ModuleType;
   capacity: number;
   animalCount: number;
+  /** Peso promedio de animales activos en el módulo (kg). */
+  avgWeightActive?: number;
 }
 
 // ─── WEIGHT TRACKING ─────────────────────────────────────────────────────────
@@ -167,6 +169,9 @@ export interface Sale {
   saleDate: string;
   buyer: string;
   moduleId: string;
+  /** animal = detalle con arete; factura = cabecera de comprobante de venta. */
+  source?: "animal" | "factura";
+  notes?: string;
 }
 
 // ─── KPI / FINANCIAL SUMMARY ─────────────────────────────────────────────────
@@ -208,9 +213,13 @@ export interface DashboardData {
   kpiSummary: KpiSummary;
   recentAnimals: Animal[];
   recentSales: Sale[];
+  /** Facturas de venta (ingresos) a nivel granja, con o sin lote. */
+  invoiceSales?: Sale[];
   healthAlerts: HealthAlert[];
   costsByCategory: CostByCategory[];
   /** Gastos/costos agregados a nivel granja (compartidos entre lotes). */
   costsSharedAcrossLotes?: boolean;
+  /** Facturas sin detalle de animal sumadas a ingresos a nivel granja. */
+  headerSalesSharedAcrossLotes?: boolean;
   loteId?: string | null;
 }
