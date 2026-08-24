@@ -104,7 +104,7 @@ export default function ReportsPage() {
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Reportes</h1>
         <p className="text-sm text-muted-foreground mt-0.5">
-          Productividad del lote {loteLabel(lote)} · costos financieros de la
+          Productividad del lote {loteLabel(lote)} · costos y facturas de la
           granja (compartidos)
         </p>
       </div>
@@ -149,16 +149,17 @@ export default function ReportsPage() {
                   </p>
                 </div>
                 <ResponsiveContainer width="100%" height={200}>
-                  <BarChart data={financials} margin={{ top: 12, right: 12, left: 0, bottom: 4 }} syncId="flujoFinanciero">
+                  <BarChart data={financials} margin={{ top: 12, right: 8, left: 4, bottom: 4 }} syncId="flujoFinanciero">
                     <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false} />
                     <XAxis dataKey="month" tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
                     <YAxis
                       domain={[0, barYMax]}
+                      tickCount={5}
                       tick={{ fontSize: 11 }}
                       axisLine={false}
                       tickLine={false}
                       tickFormatter={(v) => formatCurrencyCompact(Number(v))}
-                      width={44}
+                      width={52}
                     />
                     <Tooltip
                       contentStyle={{ borderRadius: "12px", border: "1px solid #e5e7eb", fontSize: 12 }}
@@ -175,16 +176,17 @@ export default function ReportsPage() {
                   </p>
                 </div>
                 <ResponsiveContainer width="100%" height={180}>
-                  <LineChart data={financials} margin={{ top: 12, right: 12, left: 0, bottom: 8 }} syncId="flujoFinanciero">
+                  <LineChart data={financials} margin={{ top: 12, right: 8, left: 4, bottom: 8 }} syncId="flujoFinanciero">
                     <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false} />
                     <XAxis dataKey="month" tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
                     <YAxis
                       domain={profitYDomain}
+                      tickCount={5}
                       tick={{ fontSize: 11 }}
                       axisLine={false}
                       tickLine={false}
                       tickFormatter={(v) => formatCurrencyCompact(Number(v))}
-                      width={44}
+                      width={52}
                     />
                     <ReferenceLine y={0} stroke="#94a3b8" strokeDasharray="4 4" />
                     <Tooltip
