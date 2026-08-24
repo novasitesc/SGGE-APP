@@ -7,14 +7,21 @@ Supabase Free no incluye backups automáticos gestionados. Este repo usa `pg_dum
 1. **`pg_dump` ≥ versión del servidor** (Supabase Cloud hoy ≈ **PostgreSQL 17**).
    - En Windows, el script busca primero `tools/pgsql-17/bin/pg_dump.exe`.
    - Si no está: descarga los binarios EDB (zip, sin instalador) o `winget install PostgreSQL.PostgreSQL.17`.
-2. Variable **`SUPABASE_DB_URL`**: URI de conexión **directa** (puerto `5432`), no el pooler (`6543` / `pooler.supabase.com`).
+2. Variable **`SUPABASE_DB_URL`**: URI de conexión al puerto **`5432`**.
+   - En local: **Direct connection** (`db.*.supabase.co:5432`).
+   - En GitHub Actions (IPv4): **Session pooler** (`*.pooler.supabase.com:5432`).
+   - Nunca uses el pooler de transacciones (`:6543`): `pg_dump` no funciona ahí.
 
-En el Dashboard de Supabase: **Settings → Database → Connection string → URI → Direct connection**.
+En el Dashboard de Supabase: **Settings → Database → Connection string → URI**.
 
-Ejemplo:
+Ejemplos:
 
 ```text
+# Directa (local)
 postgresql://postgres:[PASSWORD]@db.[PROJECT-REF].supabase.co:5432/postgres
+
+# Session pooler (CI / IPv4)
+postgresql://postgres.[PROJECT-REF]:[PASSWORD]@aws-0-[REGION].pooler.supabase.com:5432/postgres
 ```
 
 Agrégala a `.env.local` (el script PowerShell la lee sola) o expórtala en la sesión.
@@ -35,11 +42,13 @@ Salida en `backups/sgge-YYYYMMDDTHHMMSSZ.dump` (rotación: conserva 14 por defec
 ## Backup en CI (GitHub Actions)
 
 1. Repo → **Settings → Secrets and variables → Actions**.
-2. Crea el secret `SUPABASE_DB_URL` con la URI directa.
+2. Crea el secret `SUPABASE_DB_URL` con la URI **:5432**. En Actions conviene el **Session pooler** (IPv4); la conexión directa de Supabase Free suele ser solo IPv6 y el runner no llega.
 3. El workflow [`.github/workflows/db-backup.yml`](../.github/workflows/db-backup.yml):
-   - Corre **diario a las 06:00 UTC**
+   - Instala `pg_dump` 17 (Supabase Cloud) y corre **diario a las 06:00 UTC**
    - También se puede lanzar a mano: **Actions → Database backup → Run workflow**
    - Sube el dump como **artifact** (retención 30 días)
+
+Si el job falla en el paso **Run backup** en menos de un segundo, casi siempre falta el secret o está vacío.
 
 Descarga: Actions → run del backup → Artifacts → `sgge-db-backup-*`.
 

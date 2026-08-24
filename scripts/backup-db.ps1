@@ -1,8 +1,8 @@
 # Backup lógico de Postgres (Supabase) con pg_dump.
 #
 # Requiere: pg_dump en PATH (PostgreSQL client tools).
-# Variable: SUPABASE_DB_URL — URI directa (puerto 5432), NO el pooler (6543).
-#   Dashboard → Settings → Database → URI (Direct connection)
+# Variable: SUPABASE_DB_URL — URI :5432 (directa o Session pooler). NO uses :6543.
+#   Dashboard → Settings → Database → URI (Direct connection o Session pooler)
 #
 # Uso (PowerShell):
 #   $env:SUPABASE_DB_URL = 'postgresql://postgres:...@db.xxx.supabase.co:5432/postgres'
@@ -57,11 +57,11 @@ if (-not $env:SUPABASE_DB_URL) {
 }
 
 if (-not $env:SUPABASE_DB_URL) {
-  Write-Error "Define SUPABASE_DB_URL (URI directa :5432, no pooler) o agrégala a .env.local."
+  Write-Error "Define SUPABASE_DB_URL (URI :5432, no pooler de transacciones :6543) o agrégala a .env.local."
 }
 
-if ($env:SUPABASE_DB_URL -match ":6543" -or $env:SUPABASE_DB_URL -match "pooler\.supabase\.com") {
-  Write-Error "Usa la conexión directa (db.*.supabase.co:5432), no el pooler."
+if ($env:SUPABASE_DB_URL -match ":6543") {
+  Write-Error "El pooler de transacciones (:6543) no sirve para pg_dump. Usa conexión directa :5432 o Session pooler :5432."
 }
 
 function Resolve-PgDump {

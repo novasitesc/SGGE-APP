@@ -1,10 +1,12 @@
 #!/usr/bin/env bash
 # Backup lógico de Postgres (Supabase) con pg_dump.
 #
-# Requiere: pg_dump en PATH (PostgreSQL client tools).
-# Variable: SUPABASE_DB_URL — URI directa (puerto 5432), NO el pooler (6543).
-#   Ejemplo Dashboard → Settings → Database → URI (Direct connection):
+# Requiere: pg_dump en PATH (PostgreSQL client tools ≥ versión del servidor).
+# Variable: SUPABASE_DB_URL — URI :5432 (directa o Session pooler). NO uses :6543.
+#   Ejemplo Dashboard → Settings → Database → URI:
 #   postgresql://postgres:[PASSWORD]@db.[PROJECT-REF].supabase.co:5432/postgres
+#   En CI (GitHub Actions, IPv4) preferir Session pooler :5432:
+#   postgresql://postgres.[PROJECT-REF]:[PASSWORD]@aws-0-[REGION].pooler.supabase.com:5432/postgres
 #
 # Uso:
 #   export SUPABASE_DB_URL='postgresql://...'
@@ -59,13 +61,16 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
+SUPABASE_DB_URL="${SUPABASE_DB_URL//$'\r'/}"
+
 if [[ -z "${SUPABASE_DB_URL:-}" ]]; then
-  echo "Error: define SUPABASE_DB_URL (URI directa :5432, no pooler)." >&2
+  echo "Error: define SUPABASE_DB_URL (URI :5432, no pooler de transacciones :6543)." >&2
   exit 1
 fi
 
-if [[ "$SUPABASE_DB_URL" == *":6543"* ]] || [[ "$SUPABASE_DB_URL" == *"pooler.supabase.com"* ]]; then
-  echo "Error: usa la conexión directa (db.*.supabase.co:5432), no el pooler." >&2
+if [[ "$SUPABASE_DB_URL" == *":6543"* ]]; then
+  echo "Error: el pooler de transacciones (:6543) no sirve para pg_dump." >&2
+  echo "Usa la conexión directa :5432 o el Session pooler :5432." >&2
   exit 1
 fi
 

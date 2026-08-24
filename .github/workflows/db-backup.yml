@@ -2,7 +2,7 @@
 # Guarda el dump como artifact de Actions (retención 30 días).
 #
 # Secrets requeridos (repo → Settings → Secrets and variables → Actions):
-#   SUPABASE_DB_URL  — URI directa :5432 (NO pooler)
+#   SUPABASE_DB_URL  — URI :5432 (directa o Session pooler). NO uses :6543.
 #
 # Ejecución:
 #   - Cron diario 06:00 UTC
@@ -39,12 +39,16 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
-      - name: Install PostgreSQL client
+      - name: Install PostgreSQL 17 client
         run: |
-          sudo apt-get update
-          sudo apt-get install -y postgresql-client
+          set -euo pipefail
+          sudo apt-get install -y postgresql-common
+          sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
+          sudo apt-get install -y postgresql-client-17
+          echo "/usr/lib/postgresql/17/bin" >> "$GITHUB_PATH"
+          /usr/lib/postgresql/17/bin/pg_dump --version
 
       - name: Run backup
         env:
@@ -52,16 +56,18 @@ jobs:
         run: |
           set -euo pipefail
           if [ -z "${SUPABASE_DB_URL:-}" ]; then
-            echo "Falta el secret SUPABASE_DB_URL." >&2
+            echo "::error title=Falta SUPABASE_DB_URL::Crea el secret en Settings → Secrets and variables → Actions. Usa URI :5432 (directa o Session pooler), no el pooler de transacciones :6543."
             exit 1
           fi
           FORMAT="${{ github.event.inputs.format || 'custom' }}"
-          chmod +x scripts/backup-db.sh
-          ./scripts/backup-db.sh --format "$FORMAT" --out-dir backups --keep 0
+          export PATH="/usr/lib/postgresql/17/bin:$PATH"
+          pg_dump --version
+          sed -i 's/\r$//' scripts/backup-db.sh
+          bash scripts/backup-db.sh --format "$FORMAT" --out-dir backups --keep 0
           ls -lh backups/
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: sgge-db-backup-${{ github.run_id }}
           path: backups/sgge-*
