@@ -3,6 +3,7 @@ import { requireApiContext } from "@/lib/api/auth";
 import { jsonError, jsonOk, jsonServerError } from "@/lib/api/http";
 import { confirmComprobante } from "@/lib/api/comprobantes";
 import type { Clasificacion } from "@/lib/api/pdf/classify";
+import type { ObligacionConfirmExtras } from "@/modules/obligaciones";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -18,6 +19,7 @@ type ConfirmBody = {
   cantidadAlim?: number | null;
   totalWeightKg?: number | null;
   buyer?: string | null;
+  obligacion?: ObligacionConfirmExtras | null;
 };
 
 export async function POST(
@@ -51,6 +53,7 @@ export async function POST(
       cantidadAlim: body.cantidadAlim,
       totalWeightKg: body.totalWeightKg,
       buyer: body.buyer,
+      obligacion: body.obligacion ?? null,
     });
 
     if (!result.ok) return jsonError(result.message, result.status);

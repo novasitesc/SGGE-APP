@@ -6,6 +6,14 @@ import {
   snapshotGasto,
 } from "@/lib/api/historial-sistema";
 import { costCategoryLabel, resolveCategoriaCodigo } from "@/lib/costs/categories";
+import {
+  OBLIGACION_CODIGOS,
+  sincronizarObligacionDesdeGasto,
+} from "@/modules/obligaciones";
+import {
+  esCodigoBodega,
+  sincronizarBodegaDesdeGasto,
+} from "@/modules/bodega";
 
 export const dynamic = "force-dynamic";
 
@@ -144,6 +152,26 @@ export async function POST(req: Request) {
         categoria: costCategoryLabel(mapped.category),
       }),
     });
+
+    if ((OBLIGACION_CODIGOS as readonly string[]).includes(catCodigo.toUpperCase())) {
+      await sincronizarObligacionDesdeGasto(admin, catCodigo.toUpperCase(), {
+        granjaId,
+        gastoId: mapped.id,
+        fecha: mapped.date,
+        monto: mapped.amount,
+        concepto: mapped.description,
+      });
+    }
+
+    if (esCodigoBodega(catCodigo)) {
+      await sincronizarBodegaDesdeGasto(admin, catCodigo.toUpperCase(), {
+        granjaId,
+        gastoId: mapped.id,
+        fecha: mapped.date,
+        monto: mapped.amount,
+        concepto: mapped.description,
+      });
+    }
 
     return jsonOk(mapped, { status: 201 });
   } catch (e) {

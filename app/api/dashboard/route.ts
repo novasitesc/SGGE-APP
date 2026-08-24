@@ -308,22 +308,36 @@ export async function GET(req: Request) {
 
     const labels: Record<string, string> = {
       ALIM: "Alimentación",
+      FERT: "Abono y fertilizantes",
+      HERB: "Herbicidas",
       MO: "Mano de Obra",
       TRANS: "Transporte",
       VET: "Veterinaria",
       COMB: "Combustible",
       MANT: "Mantenimiento",
       SERV: "Servicios",
+      SPUB: "Servicios públicos",
+      POL: "Pólizas",
+      CCSS: "CCSS",
+      SAL: "Salarios",
+      VIAT: "Viáticos",
       OTRO: "Otros",
     };
     const colors: Record<string, string> = {
       Alimentación: "#16a34a",
+      "Abono y fertilizantes": "#65a30d",
+      Herbicidas: "#15803d",
       "Mano de Obra": "#2563eb",
       Transporte: "#d97706",
       Veterinaria: "#7c3aed",
       Combustible: "#d97706",
       Mantenimiento: "#64748b",
       Servicios: "#0891b2",
+      "Servicios públicos": "#0369a1",
+      Pólizas: "#4338ca",
+      CCSS: "#0f766e",
+      Salarios: "#1d4ed8",
+      Viáticos: "#a21caf",
       Otros: "#6b7280",
     };
     const costsByCategoryMap = new Map<string, number>();

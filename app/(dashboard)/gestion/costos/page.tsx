@@ -243,7 +243,7 @@ export default function GestionCostosPage() {
         </p>
       )}
 
-      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-2">
+      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-7 gap-2">
         {COST_FORM_CATEGORY_KEYS.map((cat) => {
           const total = categoryTotals.get(cat) ?? 0;
           return (

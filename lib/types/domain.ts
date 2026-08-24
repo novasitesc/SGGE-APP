@@ -56,12 +56,19 @@ export interface WeightRecord {
 export type CostCategory =
   | "transporte"
   | "alimentación"
+  | "fertilizantes"
+  | "herbicidas"
   | "combustible"
   | "mantenimiento"
   | "vacunas"
   | "mano_de_obra"
   | "servicios"
   | "medicamentos"
+  | "servicios_publicos"
+  | "polizas"
+  | "ccss"
+  | "salarios"
+  | "viaticos"
   | "otros";
 
 export type CostSource = "manual" | "comprobante";

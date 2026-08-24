@@ -20,8 +20,13 @@ import {
   ShoppingCart,
   DollarSign,
   Wheat,
+  Warehouse,
   HeartPulse,
   BookOpen,
+  Zap,
+  Building2,
+  Wallet,
+  MapPin,
 } from "lucide-react";
 import { useHistorialSistema } from "@/lib/hooks/useHistorialAnimales";
 import {
@@ -64,8 +69,14 @@ const MODULO_ICON: Record<
   ventas: ShoppingCart,
   costos: DollarSign,
   alimentacion: Wheat,
+  bodega: Warehouse,
   salud: HeartPulse,
   contabilidad: BookOpen,
+  servicios_publicos: Zap,
+  polizas: Shield,
+  ccss: Building2,
+  salarios: Wallet,
+  viaticos: MapPin,
 };
 
 export function HistorialSistema({

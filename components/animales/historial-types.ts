@@ -92,6 +92,12 @@ export const MODULO_ICONS: Record<HistorialModulo, string> = {
   ventas: "cart",
   costos: "coins",
   alimentacion: "wheat",
+  bodega: "warehouse",
   salud: "heart",
   contabilidad: "ledger",
+  servicios_publicos: "zap",
+  polizas: "shield",
+  ccss: "building",
+  salarios: "wallet",
+  viaticos: "map",
 };
