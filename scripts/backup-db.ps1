@@ -51,13 +51,39 @@ function Get-EnvLocalValue {
   return $null
 }
 
+function Normalize-SupabaseDbUrl {
+  param([string]$Url)
+  if (-not $Url) { return $Url }
+  $Url = $Url.Trim().Trim([char]0x0D)
+  if ($Url.StartsWith("export ")) { $Url = $Url.Substring(7).Trim() }
+  if ($Url.StartsWith("SUPABASE_DB_URL=")) {
+    $Url = $Url.Substring("SUPABASE_DB_URL=".Length)
+  }
+  if (
+    ($Url.StartsWith('"') -and $Url.EndsWith('"')) -or
+    ($Url.StartsWith("'") -and $Url.EndsWith("'"))
+  ) {
+    $Url = $Url.Substring(1, $Url.Length - 2)
+  }
+  return $Url
+}
+
 if (-not $env:SUPABASE_DB_URL) {
   $fromFile = Get-EnvLocalValue -Key "SUPABASE_DB_URL"
   if ($fromFile) { $env:SUPABASE_DB_URL = $fromFile }
 }
 
+$env:SUPABASE_DB_URL = Normalize-SupabaseDbUrl $env:SUPABASE_DB_URL
+
 if (-not $env:SUPABASE_DB_URL) {
-  Write-Error "Define SUPABASE_DB_URL (URI :5432, no pooler de transacciones :6543) o agrégala a .env.local."
+  Write-Error "Define SUPABASE_DB_URL (URI postgresql://... en puerto 5432) o agrégala a .env.local."
+}
+
+if (
+  -not $env:SUPABASE_DB_URL.StartsWith("postgresql://") -and
+  -not $env:SUPABASE_DB_URL.StartsWith("postgres://")
+) {
+  Write-Error "SUPABASE_DB_URL debe ser solo la URI (postgresql://...), sin el prefijo SUPABASE_DB_URL=."
 }
 
 if ($env:SUPABASE_DB_URL -match ":6543") {

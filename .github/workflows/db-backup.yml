@@ -55,10 +55,21 @@ jobs:
           SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
         run: |
           set -euo pipefail
+          # Si alguien pegó la línea de .env, recorta el prefijo antes de validar.
+          SUPABASE_DB_URL="${SUPABASE_DB_URL#SUPABASE_DB_URL=}"
+          SUPABASE_DB_URL="${SUPABASE_DB_URL#export }"
+          export SUPABASE_DB_URL
           if [ -z "${SUPABASE_DB_URL:-}" ]; then
-            echo "::error title=Falta SUPABASE_DB_URL::Crea el secret en Settings → Secrets and variables → Actions. Usa URI :5432 (directa o Session pooler), no el pooler de transacciones :6543."
+            echo "::error title=Falta SUPABASE_DB_URL::Crea el secret en Settings → Secrets and variables → Actions. El valor debe ser solo postgresql://... (:5432), no el nombre de la variable ni el pooler :6543."
             exit 1
           fi
+          case "$SUPABASE_DB_URL" in
+            postgresql://*|postgres://*) ;;
+            *)
+              echo "::error title=SUPABASE_DB_URL inválida::El valor debe empezar por postgresql:// (sin SUPABASE_DB_URL=). Ese prefijo provoca: invalid connection option \"SUPABASE_DB_URL\"."
+              exit 1
+              ;;
+          esac
           FORMAT="${{ github.event.inputs.format || 'custom' }}"
           export PATH="/usr/lib/postgresql/17/bin:$PATH"
           pg_dump --version

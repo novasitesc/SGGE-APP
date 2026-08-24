@@ -61,17 +61,51 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-SUPABASE_DB_URL="${SUPABASE_DB_URL//$'\r'/}"
-
-if [[ -z "${SUPABASE_DB_URL:-}" ]]; then
-  echo "Error: define SUPABASE_DB_URL (URI :5432, no pooler de transacciones :6543)." >&2
+fail_url() {
+  local msg="$1"
+  echo "Error: $msg" >&2
+  if [[ -n "${GITHUB_ACTIONS:-}" ]]; then
+    echo "::error title=SUPABASE_DB_URL inválida::$msg"
+  fi
   exit 1
+}
+
+# Acepta URI pura o una línea de .env pegada por error (SUPABASE_DB_URL=postgresql://...).
+normalize_db_url() {
+  local url="${1-}"
+  url="${url//$'\r'/}"
+  url="${url#"${url%%[![:space:]]*}"}"
+  url="${url%"${url##*[![:space:]]}"}"
+  if [[ "$url" == export[[:space:]]* ]]; then
+    url="${url#export }"
+    url="${url#"${url%%[![:space:]]*}"}"
+  fi
+  if [[ "$url" == SUPABASE_DB_URL=* ]]; then
+    url="${url#SUPABASE_DB_URL=}"
+  fi
+  if [[ ${#url} -ge 2 ]]; then
+    local first="${url:0:1}"
+    local last="${url: -1}"
+    if [[ "$first" == "$last" && ( "$first" == '"' || "$first" == "'" ) ]]; then
+      url="${url:1:${#url}-2}"
+    fi
+  fi
+  printf '%s' "$url"
+}
+
+SUPABASE_DB_URL="$(normalize_db_url "${SUPABASE_DB_URL-}")"
+export SUPABASE_DB_URL
+
+if [[ -z "${SUPABASE_DB_URL}" ]]; then
+  fail_url "define SUPABASE_DB_URL (URI postgresql://... en puerto 5432)."
+fi
+
+if [[ "$SUPABASE_DB_URL" != postgresql://* && "$SUPABASE_DB_URL" != postgres://* ]]; then
+  fail_url "el secret debe ser solo la URI (postgresql://...), sin el prefijo SUPABASE_DB_URL=."
 fi
 
 if [[ "$SUPABASE_DB_URL" == *":6543"* ]]; then
-  echo "Error: el pooler de transacciones (:6543) no sirve para pg_dump." >&2
-  echo "Usa la conexión directa :5432 o el Session pooler :5432." >&2
-  exit 1
+  fail_url "el pooler de transacciones (:6543) no sirve para pg_dump. Usa :5432 (directa o Session pooler)."
 fi
 
 if ! command -v pg_dump >/dev/null 2>&1; then

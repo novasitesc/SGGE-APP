@@ -42,13 +42,25 @@ Salida en `backups/sgge-YYYYMMDDTHHMMSSZ.dump` (rotación: conserva 14 por defec
 ## Backup en CI (GitHub Actions)
 
 1. Repo → **Settings → Secrets and variables → Actions**.
-2. Crea el secret `SUPABASE_DB_URL` con la URI **:5432**. En Actions conviene el **Session pooler** (IPv4); la conexión directa de Supabase Free suele ser solo IPv6 y el runner no llega.
-3. El workflow [`.github/workflows/db-backup.yml`](../.github/workflows/db-backup.yml):
+2. Crea o edita el secret `SUPABASE_DB_URL`. El **valor** debe ser **solo la URI** (empieza por `postgresql://`), puerto **5432**. En Actions conviene el **Session pooler** (IPv4); la conexión directa de Supabase Free suele ser solo IPv6 y el runner no llega.
+3. No pegues la línea de `.env.local`. Esto **falla** (`invalid connection option "SUPABASE_DB_URL"`):
+
+   ```text
+   SUPABASE_DB_URL=postgresql://postgres.xxxx:****@aws-0-....pooler.supabase.com:5432/postgres
+   ```
+
+   Esto es lo correcto:
+
+   ```text
+   postgresql://postgres.xxxx:****@aws-0-....pooler.supabase.com:5432/postgres
+   ```
+
+4. El workflow [`.github/workflows/db-backup.yml`](../.github/workflows/db-backup.yml):
    - Instala `pg_dump` 17 (Supabase Cloud) y corre **diario a las 06:00 UTC**
    - También se puede lanzar a mano: **Actions → Database backup → Run workflow**
    - Sube el dump como **artifact** (retención 30 días)
 
-Si el job falla en el paso **Run backup** en menos de un segundo, casi siempre falta el secret o está vacío.
+Si el log muestra `invalid connection option "SUPABASE_DB_URL"`, el secret incluye el nombre de la variable. Bórralo del valor o relanza tras este arreglo (el script recorta el prefijo).
 
 Descarga: Actions → run del backup → Artifacts → `sgge-db-backup-*`.
 
